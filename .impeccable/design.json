@@ -1,0 +1,372 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-18T19:07:28.841439+00:00",
+  "title": "Design System: Hermes’s Hoard",
+  "extensions": {
+    "colorMeta": {
+      "deep": {
+        "role": "neutral",
+        "displayName": "Deep",
+        "tonalRamp": [
+          "oklch(15% 0.01190 186.96)",
+          "oklch(26% 0.01190 186.96)",
+          "oklch(38% 0.01190 186.96)",
+          "oklch(49% 0.01190 186.96)",
+          "oklch(61% 0.01190 186.96)",
+          "oklch(72% 0.01190 186.96)",
+          "oklch(84% 0.01190 186.96)",
+          "oklch(95% 0.01190 186.96)"
+        ]
+      },
+      "sunken": {
+        "role": "neutral",
+        "displayName": "Sunken",
+        "tonalRamp": [
+          "oklch(15% 0.00914 196.42)",
+          "oklch(26% 0.00914 196.42)",
+          "oklch(38% 0.00914 196.42)",
+          "oklch(49% 0.00914 196.42)",
+          "oklch(61% 0.00914 196.42)",
+          "oklch(72% 0.00914 196.42)",
+          "oklch(84% 0.00914 196.42)",
+          "oklch(95% 0.00914 196.42)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Surface",
+        "tonalRamp": [
+          "oklch(15% 0.01278 196.37)",
+          "oklch(26% 0.01278 196.37)",
+          "oklch(38% 0.01278 196.37)",
+          "oklch(49% 0.01278 196.37)",
+          "oklch(61% 0.01278 196.37)",
+          "oklch(72% 0.01278 196.37)",
+          "oklch(84% 0.01278 196.37)",
+          "oklch(95% 0.01278 196.37)"
+        ]
+      },
+      "elevated": {
+        "role": "neutral",
+        "displayName": "Elevated",
+        "tonalRamp": [
+          "oklch(15% 0.01371 196.43)",
+          "oklch(26% 0.01371 196.43)",
+          "oklch(38% 0.01371 196.43)",
+          "oklch(49% 0.01371 196.43)",
+          "oklch(61% 0.01371 196.43)",
+          "oklch(72% 0.01371 196.43)",
+          "oklch(84% 0.01371 196.43)",
+          "oklch(95% 0.01371 196.43)"
+        ]
+      },
+      "hover": {
+        "role": "neutral",
+        "displayName": "Hover",
+        "tonalRamp": [
+          "oklch(15% 0.01733 190.55)",
+          "oklch(26% 0.01733 190.55)",
+          "oklch(38% 0.01733 190.55)",
+          "oklch(49% 0.01733 190.55)",
+          "oklch(61% 0.01733 190.55)",
+          "oklch(72% 0.01733 190.55)",
+          "oklch(84% 0.01733 190.55)",
+          "oklch(95% 0.01733 190.55)"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Border",
+        "tonalRamp": [
+          "oklch(15% 0.01818 191.04)",
+          "oklch(26% 0.01818 191.04)",
+          "oklch(38% 0.01818 191.04)",
+          "oklch(49% 0.01818 191.04)",
+          "oklch(61% 0.01818 191.04)",
+          "oklch(72% 0.01818 191.04)",
+          "oklch(84% 0.01818 191.04)",
+          "oklch(95% 0.01818 191.04)"
+        ]
+      },
+      "border-hover": {
+        "role": "neutral",
+        "displayName": "Border Hover",
+        "tonalRamp": [
+          "oklch(15% 0.02171 192.35)",
+          "oklch(26% 0.02171 192.35)",
+          "oklch(38% 0.02171 192.35)",
+          "oklch(49% 0.02171 192.35)",
+          "oklch(61% 0.02171 192.35)",
+          "oklch(72% 0.02171 192.35)",
+          "oklch(84% 0.02171 192.35)",
+          "oklch(95% 0.02171 192.35)"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Text",
+        "tonalRamp": [
+          "oklch(15% 0.01179 190.43)",
+          "oklch(26% 0.01179 190.43)",
+          "oklch(38% 0.01179 190.43)",
+          "oklch(49% 0.01179 190.43)",
+          "oklch(61% 0.01179 190.43)",
+          "oklch(72% 0.01179 190.43)",
+          "oklch(84% 0.01179 190.43)",
+          "oklch(95% 0.01179 190.43)"
+        ]
+      },
+      "text-muted": {
+        "role": "neutral",
+        "displayName": "Text Muted",
+        "tonalRamp": [
+          "oklch(15% 0.01117 189.75)",
+          "oklch(26% 0.01117 189.75)",
+          "oklch(38% 0.01117 189.75)",
+          "oklch(49% 0.01117 189.75)",
+          "oklch(61% 0.01117 189.75)",
+          "oklch(72% 0.01117 189.75)",
+          "oklch(84% 0.01117 189.75)",
+          "oklch(95% 0.01117 189.75)"
+        ]
+      },
+      "text-dim": {
+        "role": "neutral",
+        "displayName": "Text Dim",
+        "tonalRamp": [
+          "oklch(15% 0.01255 190.32)",
+          "oklch(26% 0.01255 190.32)",
+          "oklch(38% 0.01255 190.32)",
+          "oklch(49% 0.01255 190.32)",
+          "oklch(61% 0.01255 190.32)",
+          "oklch(72% 0.01255 190.32)",
+          "oklch(84% 0.01255 190.32)",
+          "oklch(95% 0.01255 190.32)"
+        ]
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Teal Accent",
+        "tonalRamp": [
+          "oklch(15% 0.11259 186.99)",
+          "oklch(26% 0.11259 186.99)",
+          "oklch(38% 0.11259 186.99)",
+          "oklch(49% 0.11259 186.99)",
+          "oklch(61% 0.11259 186.99)",
+          "oklch(72% 0.11259 186.99)",
+          "oklch(84% 0.11259 186.99)",
+          "oklch(95% 0.11259 186.99)"
+        ]
+      },
+      "accent-strong": {
+        "role": "primary",
+        "displayName": "Teal Accent Strong",
+        "tonalRamp": [
+          "oklch(15% 0.10118 188.07)",
+          "oklch(26% 0.10118 188.07)",
+          "oklch(38% 0.10118 188.07)",
+          "oklch(49% 0.10118 188.07)",
+          "oklch(61% 0.10118 188.07)",
+          "oklch(72% 0.10118 188.07)",
+          "oklch(84% 0.10118 188.07)",
+          "oklch(95% 0.10118 188.07)"
+        ]
+      },
+      "accent-ink": {
+        "role": "primary",
+        "displayName": "Teal Accent Ink",
+        "tonalRamp": [
+          "oklch(15% 0.01194 186.92)",
+          "oklch(26% 0.01194 186.92)",
+          "oklch(38% 0.01194 186.92)",
+          "oklch(49% 0.01194 186.92)",
+          "oklch(61% 0.01194 186.92)",
+          "oklch(72% 0.01194 186.92)",
+          "oklch(84% 0.01194 186.92)",
+          "oklch(95% 0.01194 186.92)"
+        ]
+      },
+      "error": {
+        "role": "error",
+        "displayName": "Error",
+        "tonalRamp": [
+          "oklch(15% 0.12258 27.14)",
+          "oklch(26% 0.12258 27.14)",
+          "oklch(38% 0.12258 27.14)",
+          "oklch(49% 0.12258 27.14)",
+          "oklch(61% 0.12258 27.14)",
+          "oklch(72% 0.12258 27.14)",
+          "oklch(84% 0.12258 27.14)",
+          "oklch(95% 0.12258 27.14)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "brand": {
+        "displayName": "Product identity",
+        "purpose": "Local Cinzel wordmark."
+      },
+      "headline": {
+        "displayName": "Functions heading",
+        "purpose": "Serif heading, 27px at the compact-header breakpoint."
+      },
+      "title": {
+        "displayName": "Module name",
+        "purpose": "Sans-serif module heading."
+      },
+      "body": {
+        "displayName": "Description",
+        "purpose": "Working description text; compact mobile size is 13px."
+      },
+      "label": {
+        "displayName": "Navigation and action",
+        "purpose": "Working links and secondary action."
+      },
+      "switch-label": {
+        "displayName": "Module state",
+        "purpose": "Text adjacent to the track."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "switch-thumb",
+        "value": "transform .16s ease-out",
+        "purpose": "Move the switch thumb; disabled under prefers-reduced-motion: reduce."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "medium-inset",
+        "value": "1050px"
+      },
+      {
+        "name": "compact-header",
+        "value": "720px"
+      },
+      {
+        "name": "stack-controls",
+        "value": "650px"
+      },
+      {
+        "name": "compact-native-bar",
+        "value": "550px"
+      }
+    ],
+    "focus": [
+      {
+        "name": "functions",
+        "value": "3px solid var(--hoard-accent); outline-offset: 4px",
+        "purpose": "Visible keyboard focus in the Functions shell."
+      },
+      {
+        "name": "native-bar",
+        "value": "2px solid var(--hoard-accent); outline-offset: 3px",
+        "purpose": "Visible keyboard focus in the native return bar."
+      }
+    ],
+    "tonalRampProvenance": "Synthesized OKLCH reference strips from the implemented colors; these eight-step ramps are panel metadata, not additional shipped CSS tokens.",
+    "scope": "Functions shell and native return bar only. No certification of all inherited module interfaces.",
+    "notCanonized": "Generic theme gold accent-soft/line/rgb fallback; unrelated native module composition styles."
+  },
+  "components": [
+    {
+      "name": "Secondary action",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Outlined shell action, including the stop-all control.",
+      "html": "<button class=\"ds-secondary\">Desactivar todas</button>",
+      "css": ".ds-secondary{font-family:var(--hoard-font-sans);font-size:14px;font-weight:600;background:transparent;color:var(--hoard-text);border:1px solid var(--hoard-border);padding:10px 16px;border-radius:6px;cursor:pointer}.ds-secondary:hover{background:var(--hoard-elevated);border-color:var(--hoard-border-hover)}.ds-secondary:disabled{opacity:.55;cursor:default}.ds-secondary:focus-visible{outline:3px solid var(--hoard-accent);outline-offset:4px}"
+    },
+    {
+      "name": "Current section",
+      "kind": "nav",
+      "refersTo": "nav-current",
+      "description": "Current Functions section in desktop navigation.",
+      "html": "<a class=\"ds-nav\" href=\"#\" aria-current=\"page\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M4 7h16M4 17h16M9 4v6m6 4v6\"/></svg>Funciones</a>",
+      "css": ".ds-nav{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:6px;color:var(--hoard-text-muted);text-decoration:none;font-family:var(--hoard-font-sans);font-size:14px}.ds-nav:hover{background:var(--hoard-elevated);color:var(--hoard-text)}.ds-nav[aria-current=page]{background:var(--hoard-elevated);color:var(--hoard-accent);font-weight:600}.ds-nav svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.ds-nav:focus-visible{outline:3px solid var(--hoard-accent);outline-offset:4px}"
+    },
+    {
+      "name": "Module switch OFF",
+      "kind": "button",
+      "refersTo": "switch-off",
+      "description": "Completed module state with adjacent label and switch track.",
+      "html": "<button type=\"button\" class=\"ds-switch\" role=\"switch\" aria-label=\"Productos y ofertas\" aria-checked=\"false\"><span>Desactivada</span><span class=\"ds-track\" aria-hidden=\"true\"><span class=\"ds-thumb\"></span></span></button>",
+      "css": ".ds-switch{display:flex;gap:10px;align-items:center;border:0;padding:8px 0 8px 8px;min-height:44px;background:transparent;color:var(--hoard-text-muted);font-family:var(--hoard-font-sans);font-size:13px;cursor:pointer}.ds-track{width:42px;height:24px;border-radius:14px;background:var(--hoard-border);padding:3px;flex:none}.ds-thumb{display:block;width:18px;height:18px;border-radius:50%;background:var(--hoard-text);transition:transform .16s ease-out}.ds-switch[aria-checked=true]{color:var(--hoard-accent)}.ds-switch[aria-checked=true] .ds-track{background:var(--hoard-accent)}.ds-switch[aria-checked=true] .ds-thumb{background:var(--hoard-accent-ink);transform:translateX(18px)}.ds-switch:disabled{opacity:.55;cursor:default}.ds-switch:focus-visible{outline:3px solid var(--hoard-accent);outline-offset:4px}@media(prefers-reduced-motion:reduce){.ds-thumb{transition:none}}"
+    },
+    {
+      "name": "Module switch ON",
+      "kind": "button",
+      "refersTo": "switch-on",
+      "description": "Completed module state with adjacent label and switch track.",
+      "html": "<button type=\"button\" class=\"ds-switch\" role=\"switch\" aria-label=\"Productos y ofertas\" aria-checked=\"true\"><span>Activada</span><span class=\"ds-track\" aria-hidden=\"true\"><span class=\"ds-thumb\"></span></span></button>",
+      "css": ".ds-switch{display:flex;gap:10px;align-items:center;border:0;padding:8px 0 8px 8px;min-height:44px;background:transparent;color:var(--hoard-text-muted);font-family:var(--hoard-font-sans);font-size:13px;cursor:pointer}.ds-track{width:42px;height:24px;border-radius:14px;background:var(--hoard-border);padding:3px;flex:none}.ds-thumb{display:block;width:18px;height:18px;border-radius:50%;background:var(--hoard-text);transition:transform .16s ease-out}.ds-switch[aria-checked=true]{color:var(--hoard-accent)}.ds-switch[aria-checked=true] .ds-track{background:var(--hoard-accent)}.ds-switch[aria-checked=true] .ds-thumb{background:var(--hoard-accent-ink);transform:translateX(18px)}.ds-switch:disabled{opacity:.55;cursor:default}.ds-switch:focus-visible{outline:3px solid var(--hoard-accent);outline-offset:4px}@media(prefers-reduced-motion:reduce){.ds-thumb{transition:none}}"
+    },
+    {
+      "name": "Module row",
+      "kind": "custom",
+      "description": "Flat module structure and disabled Open link; no raised card.",
+      "html": "<article class=\"ds-row\"><div><h2>Productos y ofertas<span class=\"ds-origin\">Tantalus</span></h2><p>Stock, precios, preventas, segunda mano, radar, noticias y ofertas por correo.</p></div><a class=\"ds-open\" aria-disabled=\"true\" tabindex=\"-1\">Abrir</a></article>",
+      "css": ".ds-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:22px;padding:22px 0;border-top:1px solid var(--hoard-border);font-family:var(--hoard-font-sans);color:var(--hoard-text)}.ds-row h2{font-size:19px;font-weight:600;margin:0 0 6px}.ds-origin{font-weight:400;color:var(--hoard-text-dim);font-size:13px;margin-left:10px}.ds-row p{font-size:14px;line-height:1.6;color:var(--hoard-text-muted);margin:0;max-width:72ch}.ds-open{align-self:center;font-size:14px;font-weight:600;color:var(--hoard-accent)}.ds-open:hover{color:var(--hoard-accent-strong)}.ds-open[aria-disabled=true]{pointer-events:none;color:var(--hoard-text-dim);text-decoration:none}.ds-open:focus-visible{outline:3px solid var(--hoard-accent);outline-offset:4px}@media(max-width:650px){.ds-row{gap:10px}.ds-origin{display:block;margin:4px 0 0}.ds-row p{font-size:13px}}"
+    },
+    {
+      "name": "Data location disclosure",
+      "kind": "custom",
+      "description": "Native disclosure for the existing data location.",
+      "html": "<details class=\"ds-details\"><summary>Ubicación de los datos</summary><code>D:/LocalAI/data/module</code></details>",
+      "css": ".ds-details{margin-top:10px;font-size:12px;color:var(--hoard-text-dim);font-family:var(--hoard-font-sans);}.ds-details summary{cursor:pointer;text-underline-offset:3px}.ds-details code{display:block;overflow-wrap:anywhere;margin-top:6px;font-size:12px;line-height:1.6}.ds-details summary:focus-visible{outline:3px solid var(--hoard-accent);outline-offset:4px}"
+    },
+    {
+      "name": "Native return bar",
+      "kind": "nav",
+      "description": "Shared framing above independent native module compositions; image omitted from this portable specimen.",
+      "html": "<nav class=\"ds-bar\"><a href=\"/\">Hermes’s Hoard</a><span>Productos y ofertas</span><a class=\"ds-functions\" href=\"/\">Funciones</a></nav>",
+      "css": ".ds-bar{min-height:46px;display:flex;align-items:center;gap:24px;padding:6px 22px;background:var(--hoard-sunken);border-bottom:1px solid var(--hoard-border);font:14px/1.4 var(--hoard-font-sans);color:var(--hoard-text-muted)}.ds-bar a{display:inline-flex;align-items:center;gap:10px;color:var(--hoard-accent);text-decoration:none;text-underline-offset:4px}.ds-bar a:first-child{font:600 14px/1.4 var(--hoard-font-serif)}.ds-bar a:hover{text-decoration:underline}.ds-functions{margin-left:auto;font-weight:600}.ds-bar a:focus-visible{outline:2px solid var(--hoard-accent);outline-offset:3px}@media(max-width:550px){.ds-bar{gap:12px;padding:6px 12px;font-size:12px}.ds-bar span{display:none}.ds-bar a:first-child{font-size:12px}}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Hoard Workbench",
+    "overview": "Hermes’s Hoard extends the established Hoard family: tinted charcoal, teal accents, local Cinzel lettering and Source Sans 3 working text. The family identity sits in the product mark, restrained navigation and explicit control states.\n\nThis record describes the implemented Functions shell in `hermes_hoard/web` and the shared return bar injected into native module pages. The shell presents Productos y ofertas and Envíos y viajes. Native pages retain their own task-specific compositions; this document does not certify every inherited interface or impose the Functions layout on them.",
+    "keyCharacteristics": [
+      "Tinted charcoal surfaces with one product accent.",
+      "Serif identity and page heading; sans-serif working controls.",
+      "Flat module rows, adjacent state labels and switches.",
+      "Native module compositions remain independent of the shared shell."
+    ],
+    "rules": [
+      {
+        "name": "The Product Accent Rule",
+        "body": "Use the product accent for identity, active navigation, enabled switches and links; use the charcoal ladder for structure.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two Voices Rule",
+        "body": "Cinzel identifies the product and Functions page; Source Sans 3 carries module names, descriptions, navigation and controls.",
+        "section": "typography"
+      },
+      {
+        "name": "The Native Composition Rule",
+        "body": "Share the product palette and return bar across modules while preserving each native task layout.",
+        "section": "layout"
+      },
+      {
+        "name": "The Flat Rows Rule",
+        "body": "Separate Functions modules with borders and space; the shell does not turn each row into a raised card.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do preserve the local Cinzel and Source Sans 3 font assets and the family product icon.",
+      "Do keep the visible state label adjacent to its switch and return focus to that switch after the refresh.",
+      "Do let data-location paths wrap inside their disclosure.",
+      "Do retain the standard Faustus launcher supplied by the shared copilot endpoint.",
+      "Do preserve native module layouts when applying the common product palette and return bar."
+    ],
+    "donts": [
+      "Don't replace the family dragon/domain asset or the standard Faustus control with a text glyph.",
+      "Don't use a raised card for every Functions row; retain the observed flat separators.",
+      "Don't infer one common composition for all inherited modules from this shell.",
+      "Don't use the generic theme's fallback accent-soft, accent-line or accent-rgb values as product-specific tokens; the current product override does not define them."
+    ]
+  }
+}
