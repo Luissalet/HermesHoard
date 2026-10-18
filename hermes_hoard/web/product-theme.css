@@ -1,0 +1,16 @@
+html[data-hoard-app=hermes] {
+  --hoard-deep: #141c1b;
+  --hoard-sunken: #101616;
+  --hoard-surface: #1b2424;
+  --hoard-elevated: #252f2f;
+  --hoard-hover: #2b3837;
+  --hoard-border: #354342;
+  --hoard-border-hover: #586a69;
+  --hoard-text: #e1eceb;
+  --hoard-text-muted: #b4bebd;
+  --hoard-text-dim: #9ba6a5;
+  --hoard-accent: #42c4b9;
+  --hoard-accent-strong: #61cec5;
+  --hoard-accent-dim: #3a8f87;
+  --hoard-accent-ink: #131b1a;
+}

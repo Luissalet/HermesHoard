@@ -1,0 +1,156 @@
+{
+  "schema": 1,
+  "id": "hermes",
+  "name": "Hermes's Hoard",
+  "purpose": "Native consolidated Hoard modules in one process; each module defaults OFF.",
+  "capabilities": [
+    "restock-watch",
+    "price-tracking",
+    "price-threshold-alerts",
+    "preorder-detection",
+    "new-sku-detection",
+    "retailer-search-watch",
+    "confidence-scoring",
+    "revalidation",
+    "anti-scalper-policy",
+    "fetch-ladder",
+    "headless-browser-fallback",
+    "needs-human-handoff",
+    "product-extraction",
+    "json-ld",
+    "nvidia-marketplace-api",
+    "secondhand-search",
+    "wallapop",
+    "facebook-marketplace",
+    "listing-scoring",
+    "free-books-radar",
+    "information-sentry",
+    "page-diff",
+    "feed-watch",
+    "web-search",
+    "url-discovery",
+    "notifications",
+    "windows-toast",
+    "ntfy",
+    "telegram",
+    "email",
+    "dashboard",
+    "declarative-config",
+    "mail-deals",
+    "mailbox-read-only",
+    "wishlist-match",
+    "game-store-deals",
+    "book-retailer-deals",
+    "mail-noise-report",
+    "aggregator-radar",
+    "release-calendar",
+    "shop-stock-by-chain",
+    "visible-window-tier",
+    "hub-notifications",
+    "hub-mail-gateway",
+    "family-agenda",
+    "purchase-matching",
+    "gift-idea-watchers",
+    "budget-in-alerts",
+    "shipment-tracking",
+    "parcel-tracking",
+    "mail-import",
+    "order-tracking",
+    "tracking-number-detection",
+    "carrier-detection",
+    "ups",
+    "correos",
+    "dhl",
+    "17track",
+    "amazon-orders",
+    "pickup-points",
+    "delivery-estimates",
+    "eta-explanations",
+    "delivery-history",
+    "delivery-statistics",
+    "business-days",
+    "travel-bookings",
+    "trips",
+    "flight-check-in",
+    "booking-mail-import",
+    "trip-reminders",
+    "trip-expenses",
+    "expense-splitting",
+    "calendar-export",
+    "document-expiry-check",
+    "ledger-handoff",
+    "shipment-events",
+    "independent-module-switches",
+    "default-off",
+    "native-module-lifecycle"
+  ],
+  "placeholders": [
+    "HERMES_DIR",
+    "APP_URL",
+    "TOKEN_FILE",
+    "PYTHON"
+  ],
+  "defaults": {
+    "APP_URL": "http://127.0.0.1:5221",
+    "TOKEN_FILE": "{HERMES_DIR}/data/mcp-token",
+    "PYTHON": "{HERMES_DIR}/.venv/Scripts/python.exe"
+  },
+  "app": {
+    "url_default": "http://127.0.0.1:5221",
+    "ui_url": "{APP_URL}",
+    "health": {
+      "path": "/api/health",
+      "expect": {
+        "service": "hermes-hoard"
+      }
+    },
+    "identify": {
+      "service": [
+        "hermes-hoard"
+      ],
+      "title": [
+        "hermes's hoard"
+      ]
+    },
+    "launch_hint": {
+      "kind": "process",
+      "executable": "{PYTHON}",
+      "argv": [
+        "-m",
+        "hermes_hoard",
+        "--no-browser"
+      ],
+      "cwd": "{HERMES_DIR}",
+      "readiness": {
+        "url": "{APP_URL}/api/health",
+        "timeout_s": 30
+      }
+    }
+  },
+  "mcp": {
+    "transport": "stdio",
+    "command": "{PYTHON}",
+    "args": [
+      "{HERMES_DIR}/mcp_server.py"
+    ],
+    "env": {
+      "HERMES_URL": "{APP_URL}",
+      "HERMES_TOKEN_FILE": "{TOKEN_FILE}"
+    },
+    "optional_env": [
+      "HERMES_DATA_DIR"
+    ]
+  },
+  "notes": "Start explicitly from Hoard Hub. Catalogue discovery never starts the server or engines. All modules default OFF; choices persist after explicit activation. Histories are mapped in place, never copied.",
+  "x-family": {
+    "copilot": {
+      "provider": "faustus",
+      "contract": "1.0",
+      "panel": "/api/copilot/panel.js"
+    },
+    "absorbs": [
+      "tantalus_hoard",
+      "phileas_hoard"
+    ]
+  }
+}

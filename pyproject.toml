@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hermes-hoard"
+version = "1.0.0"
+description = "Hermes's Hoard: native modules with independent OFF defaults"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [{name = "Luissalet"}]
+dependencies = ["fastapi==0.146.0", "starlette==1.9.0", "uvicorn==0.54.0", "pydantic==2.14.1", "httpx==0.28.1", "mcp==1.30.0", "beautifulsoup4==4.15.0", "tzdata==2026.5", "playwright==1.64.0", "winotify==1.1.0; sys_platform == \"win32\""]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-asyncio>=0.23"]
+
+[project.scripts]
+hermes-hoard = "hermes_hoard.__main__:main"
+
+[tool.setuptools]
+py-modules = ["mcp_server"]
+
+[tool.setuptools.packages.find]
+include = ["hermes_hoard*", "tantalus_hoard*", "phileas_hoard*"]
+
+[tool.setuptools.package-data]
+"*" = ["static/**/*", "web/**/*", "catalog.json", "travel/tables/*.json"]
