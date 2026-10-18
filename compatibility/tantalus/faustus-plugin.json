@@ -1,0 +1,120 @@
+{
+  "schema": 1,
+  "id": "tantalus",
+  "name": "Tantalus's Hoard · Hermes",
+  "purpose": "Absorbed by Hermes's Hoard. Compatibility identity only; no standalone server. A local product watcher: restocks, price drops, pre-orders and new SKUs at retailers (typed events with a confidence score, revalidation and cooldown), shop-by-shop stock (chains such as Carrefour included) and release days of trading-card products from public stock aggregators, second-hand finds on Wallapop and Facebook Marketplace scored by explainable packs, material news from official pages, feeds and searches, and the sale mails of game stores and book retailers read (read-only) from the Faustus mailbox and matched to wishlists and watchers, plus a mail noise report, with a dashboard of what is new and notifications by Windows toast, the family bus, ntfy, Telegram or email.",
+  "capabilities": [
+    "restock-watch",
+    "price-tracking",
+    "price-threshold-alerts",
+    "preorder-detection",
+    "new-sku-detection",
+    "retailer-search-watch",
+    "confidence-scoring",
+    "revalidation",
+    "anti-scalper-policy",
+    "fetch-ladder",
+    "headless-browser-fallback",
+    "needs-human-handoff",
+    "product-extraction",
+    "json-ld",
+    "nvidia-marketplace-api",
+    "secondhand-search",
+    "wallapop",
+    "facebook-marketplace",
+    "listing-scoring",
+    "free-books-radar",
+    "information-sentry",
+    "page-diff",
+    "feed-watch",
+    "web-search",
+    "url-discovery",
+    "notifications",
+    "windows-toast",
+    "ntfy",
+    "telegram",
+    "email",
+    "dashboard",
+    "declarative-config",
+    "mail-deals",
+    "mailbox-read-only",
+    "wishlist-match",
+    "game-store-deals",
+    "book-retailer-deals",
+    "mail-noise-report",
+    "aggregator-radar",
+    "release-calendar",
+    "shop-stock-by-chain",
+    "visible-window-tier",
+    "hub-notifications",
+    "hub-mail-gateway",
+    "family-agenda",
+    "purchase-matching",
+    "gift-idea-watchers",
+    "budget-in-alerts"
+  ],
+  "placeholders": [
+    "HERMES_DIR",
+    "APP_URL",
+    "TOKEN_FILE",
+    "PYTHON"
+  ],
+  "defaults": {
+    "APP_URL": "http://127.0.0.1:5221/products",
+    "TOKEN_FILE": "{HERMES_DIR}/data/native/products/data/mcp-token",
+    "PYTHON": "{HERMES_DIR}/.venv/Scripts/python.exe",
+    "HERMES_DIR": "{COMPAT_DIR}/../..",
+    "DATA_DIR": "{HERMES_DIR}/data/native/products/data"
+  },
+  "app": {
+    "url_default": "http://127.0.0.1:5221/products",
+    "ui_url": "http://127.0.0.1:5221/",
+    "health": {
+      "path": "/api/health",
+      "expect": {
+        "service": "absorbed-tantalus"
+      }
+    },
+    "identify": {
+      "service": [
+        "tantalus-hoard"
+      ],
+      "title": [
+        "tantalus's hoard",
+        "vigilante de productos"
+      ]
+    }
+  },
+  "mcp": {
+    "transport": "stdio",
+    "command": "{PYTHON}",
+    "args": [
+      "{HERMES_DIR}/compatibility/mcp_server.py"
+    ],
+    "env": {
+      "HOARD_COMPAT_ID": "tantalus",
+      "HOARD_COMPAT_URL": "http://127.0.0.1:5221"
+    },
+    "optional_env": []
+  },
+  "notes": "Native compatibility identity owned by Hermes's Hoard. Data, tokens and all runtime files belong to the merged application. No retired repository is required. Start the owner explicitly and enable its module.",
+  "x-family": {
+    "copilot": {
+      "contract_version": "1.0",
+      "info": "/api/copilot/info",
+      "panel": "/api/copilot/panel.js",
+      "proxy": "/api/copilot/proxy"
+    },
+    "fleet": true,
+    "agenda": true,
+    "absorbed_by": {
+      "id": "hermes",
+      "repository": "https://github.com/Luissalet/HermesHoard",
+      "module": "products",
+      "standalone": false
+    },
+    "standalone": false,
+    "compatibility": true,
+    "source_data": "Moved into the merged application; no dependency on the retired repository."
+  }
+}
