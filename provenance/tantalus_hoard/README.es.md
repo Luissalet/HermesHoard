@@ -1,0 +1,215 @@
+# Tantalus's Hoard
+
+## Copilot de Faustus
+
+El botón Faustus abre el panel común de copilot. Faustus guarda los chats,
+borradores e historial y ejecuta el agente con el modelo global configurado.
+Tantalus aporta sus herramientas, el vigilante u oferta abierta y los campos
+pendientes del formulario. Los chats también están en Faustus Studio. Las listas
+se actualizan al terminar el turno; guardar campos manuales conserva los cambios
+del agente en otros campos. El servicio se configura en `data/backend.json` o
+`TANTALUS_FAUSTUS_URL`.
+
+## Seguimiento en Flota
+
+La herramienta de lectura `fleet_status` y `GET /api/family/fleet`, con el token
+de la app, publican cadencia, resultados terminados, pausas y una señal de los
+vigilantes que necesitan tu intervención. El Hub la descubre mediante
+`x-family.fleet`. Se omiten configuración, direcciones, consultas, notas y
+cuerpos de errores. Un intento en curso no es un éxito: los resultados salen
+de las últimas 5.000 ejecuciones conservadas. Que una comprobación haya
+terminado correctamente no demuestra que haya stock. Los resultados antiguos
+ausentes quedan sin verificar. Esta lectura no reinicia ni reintenta nada.
+
+La cadencia publicada es la que el planificador cumple de verdad, no el valor por defecto del vigilante: el
+intervalo más corto de sus objetivos vivos (uno que espera por ti se revisa como mucho cada 3 horas, uno que
+falla se espacia) y los barridos de segunda mano e información nunca más rápido que cada 10 minutos. Un
+vigilante sin nada que comprobar todavía (sin objetivos vivos ni descubrimiento) no se publica, así que no
+puede salir como parado en silencio.
+
+[![CI](https://github.com/Luissalet/TantalusHoard/actions/workflows/ci.yml/badge.svg)](https://github.com/Luissalet/TantalusHoard/actions/workflows/ci.yml)
+
+[English](README.md)
+
+<img src="app-icon.png" alt="" width="96" align="right">
+
+Tantalus's Hoard es un vigilante de productos local. Te avisa cuando un producto vuelve a estar en stock, cuando baja de precio o cruza tu límite, cuando abre la reserva o aparece un SKU nuevo en una tienda. También encuentra gangas de segunda mano en Wallapop o Facebook Marketplace y detecta novedades relevantes en páginas oficiales, feeds y búsquedas web. El panel se abre con lo nuevo desde tu última visita. Los avisos llegan como notificación de Windows, evento del bus de la familia, push de ntfy al móvil, mensaje de Telegram o correo. Cada función es además una herramienta MCP para asistentes.
+
+También lee los correos de oferta que las tiendas de juegos y librerías mandan a tu buzón (con la cuenta configurada en Faustus), los guarda como «ofertas del correo» y solo te avisa si coinciden con una lista de deseados o con un vigilante. Un informe de solo lectura muestra qué remitentes llenan el buzón de promociones.
+
+Todo corre en tu ordenador: la base SQLite, el planificador y el perfil del navegador. No sale nada salvo las propias peticiones a las páginas y los avisos que actives.
+
+Para productos de cartas sigue además el stock tienda a tienda y el calendario de lanzamientos que publican los agregadores públicos de stock (stocktcg.net y stocktcg.es). Así puede decir «hoy sale la oleada 2: agotada en Carrefour y GAME, en preventa en estas tiendas» y avisar cuando una cadena como Carrefour repone, aunque Carrefour no se deje leer directamente.
+
+## Qué vigila
+
+| Modo | Qué hace | Ejemplo |
+|---|---|---|
+| **availability** | Fichas de producto y búsquedas de tiendas. En cada comprobación guarda el estado de stock (en stock, recogida en tienda, reserva abierta, reposición anunciada, próximamente, agotado, solo vendedores externos, desconocido), el precio, el vendedor y las evidencias. | ETB del 30.º aniversario de Pokémon en GAME, El Corte Inglés y xtralife; NVIDIA DGX Spark por debajo de 4.800 € |
+| **secondhand** | Wallapop (API pública de búsqueda) y Facebook Marketplace (tu propia sesión en el perfil del navegador). Cada anuncio se puntúa con un pack de señales explicables. | Libros gratis en lote cerca de Madrid (el antiguo Radar de Libros); ETB precintada a no más de 1,3 × PVP |
+| **information** | Páginas oficiales (diff del texto legible), feeds RSS/Atom y búsquedas de noticias y web (por defecto, los RSS de Google News y Bing News). Solo avisa de novedad material y marca cada una como confirmada, filtración o estimación. | Equipos RTX Spark / N1X de 128 GB en Europa |
+
+## Cómo decide una comprobación
+
+Descubrimiento, verificación, detección de cambios y aviso van por separado:
+
+1. **Escalera de lectura.**
+   - Primero HTTP normal, con robots.txt, intervalo mínimo por dominio, peticiones condicionales y protección SSRF.
+   - Solo si la página es un armazón de JavaScript o la respuesta está bloqueada pasa al navegador sin ventana: Edge en Windows, con perfil persistente.
+   - Algunas tiendas rechazan los navegadores sin ventana pero atienden a un navegador normal (las fichas de Carrefour). Esas páginas se leen en una ventana normal de Edge que se abre minimizada para una página y se cierra, como mucho una vez por minuto en esa tienda (ajuste `browser.window`, activado por defecto).
+   - Si el sitio pide CAPTCHA o login, el objetivo queda como **necesita tu ayuda**. El botón «Resolver» abre una ventana visible para que lo pases tú. Tantalus nunca resuelve, falsea ni evita nada: ni parches de sigilo, ni servicios de CAPTCHA, ni huellas inventadas.
+2. **Extracción.**
+   - Van primero los adaptadores de sitio (la API de productos de NVIDIA y el estado embebido de El Corte Inglés).
+   - Después JSON-LD `Product`/`Offer`, microdatos y OpenGraph.
+   - Después, reglas de frases en español e inglés sobre botones y líneas cortas.
+   - Por último, un modelo local opcional, que solo se acepta si aporta evidencia literal.
+   - Las búsquedas dan una oferta por cada ficha de producto, y los productos nuevos que encajan pasan a ser objetivos propios.
+3. **Política.** La política de vendedor es una de `retail_only`, `retail_plus_marketplace` o `any_below`. El techo anti-reventa es PVP × multiplicador, y una bajada que sigue por encima del techo nunca se llama oferta.
+4. **Confianza (0–100).**
+   - Suman: página oficial +45; botón de compra activo o stock positivo en el endpoint +30 (la disponibilidad estructurada también cuenta +30); stock en una tienda objetivo +20; precio y SKU coherentes +10; segunda confirmación +15.
+   - Restan: solo fragmento de buscador −25; vendedor externo −35; CAPTCHA o login −20; contradicciones −20; SKU que no coincide −20.
+   - Con 75 o más, avisa. Entre 55 y 74, revalida antes. Por debajo de 55, solo registra.
+5. **Eventos.** Solo en transiciones útiles: `RESTOCK`, `LOCAL_RESTOCK`, `PREORDER_OPEN`, `SALE_OPEN` (un producto que ponía «Próximamente» ya se puede comprar o reservar), `PRICE_DROP`, `PRICE_THRESHOLD_CROSSED`, `NEW_SKU`, `RESTOCK_DATE_CONFIRMED` y `SOLD_OUT`. Para segunda mano y noticias: `NEW_LISTING`, `LISTING_PRICE_DROP`, `INFO_CHANGE` y `CANDIDATE_FOUND`. Un correo de oferta que coincide con una lista de deseados o un vigilante es `MAIL_DEAL`. El radar de agregadores crea `RELEASE` para las fechas de lanzamiento.
+   - Cada evento tiene clave de deduplicado (objetivo, tipo, estado, precio redondeado y tienda) y un enfriamiento que absorbe los vaivenes IN→OUT→IN.
+   - Los avisos de prioridad alta se vuelven a comprobar 60 s después, antes de enviar nada.
+6. **Aviso.** Cada evento sale una sola vez por canal.
+
+## Packs de segunda mano
+
+- `books_bulk`: las reglas de Radar de Libros, tal cual.
+  - Da peso a precio gratis, «me deshago», bibliotecas completas, lotes, cajas y mudanzas.
+  - Penaliza libros de texto, ebooks, ventas sueltas y ofertas que solo son de envío.
+  - Estima el número de libros y el precio por libro, y puntúa la distancia por municipio.
+- `generic`: palabras a incluir y excluir, precio máximo, PVP con multiplicador anti-reventa, distancia, envío, anuncios reservados y antigüedad.
+- `collectibles_sealed`: el pack genérico ajustado a producto TCG precintado. Premia precintado y nuevo, y descarta cajas vacías, proxies, réplicas, producto abierto y accesorios.
+
+Cada punto que muestra la interfaz viene de una señal con nombre. Un modelo local opcional solo afina las puntuaciones dudosas.
+
+## Avisos
+
+| Canal | Configuración |
+|---|---|
+| Notificación de Windows | Ninguna. Usa `winotify` si está instalado y, si no, PowerShell. |
+| Bus de la familia | Ninguna. Emite `tantalus.alert` y `tantalus.event.*` a Hoard Hub. La regla recomendada del hub `rule-watcher-alert-digest` convierte cada aviso en un `digest.item` para el resumen diario. |
+| ntfy | Elige un tema largo y aleatorio, suscríbete a él en la app de ntfy y guárdalo en Ajustes (`NTFY_TOPIC`). |
+| Telegram | Crea un bot con @BotFather, guarda el token, escríbele `/start` y pulsa «Buscar chat id». |
+| Correo | Nada si Faustus tiene una cuenta de correo: Tantalus envía con esa cuenta y la contraseña se queda en Faustus. Los avisos llegan a la propia cuenta salvo que indiques destinatarios. Si no, servidor, puerto, usuario, contraseña de aplicación, remitente y destinatario (Gmail pide contraseña de aplicación). El ajuste **Enviar con** elige `auto`, `faustus` o `smtp`. |
+
+**Por el hub.** El ajuste `notify.via` (Ajustes → Avisos) elige quién entrega los canales de aviso (notificación de Windows, ntfy, Telegram y correo): `auto` (por defecto) manda UN aviso al hub de la familia cuando responde y recurre a los canales de arriba cuando no; `hub` usa solo el hub; `own` nunca lo llama. El hub decide los canales, las horas de silencio y la esfera (trabajo o personal) y guarda el historial; Tantalus traduce sus gravedades a las prioridades del hub (low → low, medium → normal, high → high), usa el grupo del evento (`restock`, `price_drop`, `mail_deal`, `release`…) y su clave de deduplicación para que un producto que oscila no avise dos veces. Los interruptores y la gravedad mínima de cada canal propio solo cuentan cuando Tantalus entrega por su cuenta. El evento del bus `tantalus.alert` sigue saliendo en cualquier caso. «Probar por el hub» manda un aviso de prueba.
+
+**Línea de presupuesto.** Un vigilante puede llevar una categoría de presupuesto de Ledger (`budget_category`, en el formulario del vigilante o en `watcher_create`/`watcher_update`). Cuando uno de sus avisos trae precio, Tantalus pregunta a `budget_status` de Ledger por el hub (2,5 s de espera, respuesta guardada 10 minutos, los fallos también) y añade «quedan 60,50 € en Ocio» al texto del aviso. Un aviso nunca espera a Ledger ni falla por su culpa.
+
+Las credenciales van en `.env` (`TANTALUS_TELEGRAM_TOKEN=…`) o se guardan desde Ajustes como solo escritura. La API nunca las devuelve. Cada canal tiene interruptor y gravedad mínima.
+
+## Vigilantes preparados
+
+En el primer arranque se instalan siete vigilantes:
+
+- ETB y Booster Bundle del 30.º aniversario de Pokémon: búsquedas de GAME, El Corte Inglés y xtralife, más consultas de descubrimiento.
+- DGX Spark en España: marketplace de NVIDIA y API de productos de NVIDIA, con umbral de 4.800 €, más un vigilante de noticias de venta en España, porque el marketplace bloquea la lectura automática.
+- RTX Spark / N1X de 128 GB en Europa: vigilante de información.
+- Noticias de reposición del 30.º aniversario de Pokémon anunciadas por tiendas y cadenas (confirmación secundaria).
+- El radar de libros gratis.
+- Un vigilante de ETB precintada de segunda mano, desactivado.
+
+Puedes editarlos, desactivarlos o borrarlos. `config_export` y `config_import` mueven toda la configuración como datos.
+
+## Radar de agregadores: stock por tienda y días de lanzamiento
+
+Un vigilante de disponibilidad con `config.radar.enabled` lee también dos agregadores públicos de stock de cartas:
+
+- **stocktcg.net** sigue unas 190 tiendas de España y Europa, cadenas incluidas (GAME, Carrefour, El Corte Inglés, Alcampo, Amazon, Toys R Us, Toy Planet). En cada ciclo Tantalus lee su feed en directo (`/api/pulse.json`), la página de cada cadena que nombra el vigilante (`/tiendas/<cadena>`: lo que tiene ahora y lo que se agotó hace poco), el calendario (`/lanzamientos`), la página de cada lanzamiento que encaja desde una semana antes hasta una semana después de su fecha (en cada ciclo el mismo día) y unas pocas fichas de producto (`/p/<producto>`: cada tienda con stock, precio e idioma de la edición), las más antiguas primero.
+- **stocktcg.es** aporta su feed de reposiciones y su propio calendario.
+
+Cada oferta de una tienda es una fila. Cuando pasa a comprable, el vigilante recibe `RESTOCK` (o `PREORDER_OPEN`) con la tienda como vendedor. Una cadena avisa siempre. Cualquier otra tienda solo avisa en un idioma de edición permitido (`radar.languages`, ES y EN por defecto), en euros, y a no más del precio de cadena más barato de ese producto × el multiplicador anti-reventa; los precios de reventa quedan registrados sin avisar. Una oferta de cadena en un sitio que Tantalus puede leer (GAME, El Corte Inglés, fichas de Carrefour por la ventana) se comprueba antes en la ficha de la tienda; si allí sale agotado, el aviso queda como registro. Los productos de cadena de esos sitios pasan además a ser objetivos directos del vigilante.
+
+Los lanzamientos crean `RELEASE` cuando uno que encaja entra en el calendario, tres días antes (`radar.release_days_before`) y el mismo día. El aviso dice dónde comprar: cada cadena (en stock, preventa o agotado, con precio) y las tiendas más baratas con stock o preventa. El primer ciclo de un vigilante es silencioso, salvo un lanzamiento de hoy o de esos días. El radar pasa cada 10 minutos, y cada 5 si hay un lanzamiento hoy o mañana. **Novedades** enseña los lanzamientos y un panel por cadena.
+
+Configuración (`config.radar`): `enabled`, `sources` (`stocktcg.net`, `stocktcg.es`), `chains`, `languages`, `alert_other_shops`, `price_multiplier`, `release_days_before`, `max_products`, `track_chain_products`. Herramientas: `radar_status`, `radar_run`, `releases_list`, `radar_offers`, `radar_setup`, `watchers_match_purchase`, `watcher_mark_bought`, `watcher_add`.
+
+## Ofertas del correo e informe de ruido
+
+La página **Correo** tiene dos pestañas, **Ofertas** y **Ruido**. Las dos leen el buzón con la cuenta configurada en Faustus: Tantalus ejecuta el ayudante de correo de la familia (`tantalus_hoard/hoard_link/mail_helper.py`, a través de `MailRouter`) con el Python de Faustus, así que la contraseña del correo nunca llega a Tantalus. El lector abre las carpetas en solo lectura y descarga con `BODY.PEEK`. En Tantalus no hay código que envíe, mueva, marque, etiquete, archive, dé de baja ni borre un correo, un test comprueba que el ayudante no lo tiene, y nunca se abre un enlace de un correo.
+
+- **Ofertas.** Cada pocas horas (`mail.deals.interval_min`, 180 por defecto) el planificador lee los correos nuevos de las tiendas (Steam, GOG, GAME, Epic, Humble, Fanatical, Green Man Gaming, Instant Gaming, xtralife, Bibliostock, Casa del Libro, Agapea, Planeta de Libros, Book Depository, Fnac, más los dominios que añadas). Un analizador convierte cada correo de oferta en filas: tienda, título, descuento («hasta» si es un rango), precio anterior y nuevo, fecha de fin y enlace. Si la tienda manda «un artículo de tu lista de deseados está en oferta», sale una fila por artículo; cualquier otro correo de oferta da una fila de campaña con los títulos de sus imágenes. Una oferta termina en la fecha de fin de la rebaja, o `mail.deals.ttl_days` (7) días después del correo si no dice ninguna.
+- **A quién avisa.** Cada oferta se compara con: la biblioteca de juegos de la app hermana de colección de juegos (juegos en pendientes sin plataforma propia, o con la etiqueta `wishlist`; los que ya tienes nunca avisan), tu propia lista en Ajustes (`mail.deals.wishlist`), los correos de lista de deseados de la propia tienda y tus vigilantes activos (mismos términos de producto). Solo una coincidencia crea un evento `MAIL_DEAL`, una vez, y solo si el correo tiene como mucho tres días. El primer escaneo es silencioso: llena la tabla y no avisa de nada.
+- **Informe de ruido.** Por dominio remitente en los últimos `mail.noise.days` (30): número de correos y porcentaje, categoría de Gmail, si hay enlace o dirección de baja (se muestra como texto, nunca se abre), el último correo y qué Hoard lee ese remitente (Ledger pagos, Phileas envíos, Kafka papeles, JobHunter empleo, Tantalus ofertas de tiendas). Los remitentes promocionales que ningún Hoard lee salen primero, como candidatos a limpiar. No cambia nada.
+
+Ajustes: `mail.deals.enabled`, `mail.deals.interval_min`, `mail.deals.history_days`, `mail.deals.ttl_days`, `mail.deals.stores`, `mail.deals.domains`, `mail.deals.gamerhoard_file`, `mail.deals.wishlist`, `mail.noise.days`.
+
+**Por la pasarela de correo del hub.** El ajuste `mail.source` elige de dónde se leen las ofertas: `auto` (por defecto) usa la pasarela de correo del hub de la familia cuando está lista y el lector de Faustus si no, `hub` solo la pasarela, `faustus` solo el lector. Con el hub, Tantalus registra un interés que cubre las promociones de los dominios remitentes de las tiendas que conoce (al arrancar y cada vez que cambian `mail.deals.stores` o `mail.deals.domains`), lee los mensajes que coinciden desde donde se quedó (marca `mail.hub.since_id`, que solo avanza cuando los correos ya están guardados), los pasa por el mismo analizador y reclama cada correo que convirtió en ofertas (`kind: deal`, `ref: hoard://tantalus/deal/<id>`) para que salga de la bandeja «sin dueño» del hub. El primer escaneo sigue siendo silencioso y las reglas de aviso son las mismas. Los registros del hub no traen los textos alternativos de las imágenes, así que un correo de campaña leído por el hub no tiene títulos de artículos sacados de sus imágenes. **El informe de ruido conserva su propio lector**: necesita la cabecera de todos los correos de la ventana, y el hub nunca da a una app correo fuera del interés que registró, así que `mail_noise_report` siempre ejecuta el lector de Faustus (solo lectura, como antes). Si el hub no puede dar el correo durante un escaneo, `auto` recurre al lector en ese escaneo.
+
+## Hub de la familia
+
+Además de los avisos y el correo (arriba):
+
+- **Agenda.** `GET /api/family/agenda` (con el token de esta app; el manifiesto lleva `x-family.agenda`) responde a la vista Hoy y al calendario del hub con elementos `release`: el calendario de lanzamientos del radar (lanzamientos con fecha de los productos que siguen los vigilantes, con dónde hay stock) y los objetivos cuya última comprobación dice «próximamente», «reposición anunciada» o «reserva» con una fecha que la página indicó. Nunca se envía nada sin fecha.
+- **Compras.** `watchers_match_purchase {title, merchant?, url?}` puntúa de 0 a 1 los vigilantes activos frente a una compra: un EAN, ASIN, id de producto o página de producto en común da 0,95-1,0; si no, la proporción de palabras de producto del vigilante que aparecen en el título y la URL (un vigilante con menos de dos palabras de producto nunca pasa de 0,7, una palabra obligatoria ausente divide la puntuación a la mitad, una palabra excluida la anula y una tienda que el vigilante ya sigue suma 0,08). `watcher_mark_bought {watcher_id, purchase_ref?}` pone el vigilante en estado `bought`: se desactiva (sin más comprobaciones, sin radar, sin cruce con ofertas), sus objetivos y su historial se quedan y se emite una vez `tantalus.watcher.bought {watcher_id, purchase_ref}`. Volver a activarlo borra el estado.
+- **Ideas de regalo.** `watcher_add {name|title|text, url?, budget|max_price?, source_ref?, budget_category?}` crea un vigilante de disponibilidad a partir de un nombre: palabras de producto del nombre, una página de producto opcional, un umbral de precio y consultas de descubrimiento. El mismo `source_ref` devuelve el mismo vigilante y el registro queda enlazado con la idea en el grafo de referencias del hub.
+- **Eventos.** `tantalus.watcher.bought`, `tantalus.watcher.added`, además de los ya existentes `tantalus.alert` y `tantalus.event.*`.
+
+## Carriles de navegador (una app a la vez por web)
+
+Dos apps de la familia no deben automatizar la misma tienda a la vez. Antes de abrir un navegador para una página (el escalón **browser** sin ventana, el escalón **window** visible, una sesión de navegador como el acceso o la búsqueda de Facebook y la ventana «ábrela para mí») Tantalus toma el carril del Hub del dominio raíz de la página (`example.co.uk`, así todos los subdominios de una tienda comparten carril) y lo devuelve en cuanto termina la lectura. Las lecturas HTTP normales no toman carril.
+
+- **Ocupado.** Si otra app tiene el dominio, Tantalus espera hasta `TANTALUS_LANE_WAIT_S` (60 s; 15 s para la ventana que se abre para una persona). Si sigue ocupado, la comprobación termina con `error_kind: busy` y el mensaje *ocupado por X desde las HH:MM:SS: dominio ya se está leyendo con un navegador (carril del Hub)*; para una inspección suelta la API contesta 409 `busy`. Si el carril lo tiene otra lectura de Tantalus, el mensaje lo dice (*ocupado por otra lectura de Tantalus*). Un ocupado no es un fallo: no añade observación, no cuenta en la racha de fallos del objetivo y se reintenta en unos 3 minutos. En la escalera `auto` un escalón de navegador ocupado no se toma por un bloqueo: se devuelve la respuesta «ocupado» tal cual y no se anota ningún bloqueo ni enfriamiento HTTP del sitio.
+- **Hub ausente.** Sin Hub, con un Hub antiguo o que no responde: la lectura sigue sin carril (un aviso en el log). Tantalus nunca arranca el Hub por esto. Un Hub que no contestó no se vuelve a preguntar durante 60 s. Si Tantalus se cae, pierde el carril cuando vence su TTL (5 minutos, renovado en segundo plano mientras dura una lectura). Las llamadas de carril llevan el token de familia del Hub (se busca como el resto de llamadas al Hub); un Hub que lo rechaza se trata como si no hubiera Hub.
+- **Apagado.** `TANTALUS_LANES=0` desactiva los carriles; también están apagados con un transporte de pruebas o con `use_hub` en falso.
+- Los carriles en uso (dominio, quién, desde cuándo, caduca) salen en el panel *Carriles de navegador* del Hub; ver sus docs para `hub_lane_status`.
+
+## Arrancar
+
+```sh
+python -m venv venv
+venv\Scripts\python -m pip install -r requirements.txt
+venv\Scripts\python -m tantalus_hoard        # http://127.0.0.1:5197
+```
+
+La interfaz compilada va en el repositorio. Si cambias el cliente, `npm install && npm run build` la vuelve a compilar. Hoard Hub arranca la app desde `faustus-plugin.json`. En Windows, el navegador sin ventana usa Edge a través de Playwright, así que no hay que descargar ningún navegador. En otros sistemas hay que ejecutar una vez `python -m playwright install chromium`.
+
+Variables de entorno:
+
+- `TANTALUS_PORT`: puerto, 5197 por defecto.
+- `TANTALUS_DATA_DIR`: carpeta de datos.
+- `TANTALUS_SCHEDULER=0`: sin comprobaciones en segundo plano.
+- `TANTALUS_BROWSER=0`: solo HTTP.
+- `TANTALUS_OFFLINE=1`: sin red.
+- `TANTALUS_SEARXNG_URL` y `TANTALUS_BRAVE_KEY`: motores de búsqueda adicionales.
+- `TANTALUS_FAUSTUS_DIR`: carpeta de Faustus para el correo, si no está junto a esta app.
+
+## Asistentes (MCP)
+
+`python mcp_server.py` es el puente stdio. Nunca abre la base de datos: pasa cada llamada a la app en marcha y la arranca si hace falta. Tiene 56 herramientas:
+
+- Para empezar: `tantalus_overview`.
+- Para consultas sueltas: `inspect_url`, `secondhand_search` y `web_search`.
+- Para dejar algo vigilado: `watcher_create`, `target_add`, `discovery_run` y `candidate_accept`.
+
+Todas están en [docs/API.md](docs/API.md):
+
+`tantalus_overview`, `tantalus_status`, `watcher_list`, `watcher_get`, `watcher_create`, `watcher_update`, `watcher_delete`, `watcher_run`, `watcher_rescore`, `target_add`, `target_list`, `target_get`, `target_update`, `target_delete`, `target_check`, `target_resolve`, `inspect_url`, `events_list`, `events_mark_seen`, `event_dismiss`, `event_notify`, `listings_list`, `listing_set`, `info_items_list`, `info_item_set`, `candidates_list`, `candidate_accept`, `candidate_reject`, `discovery_run`, `web_search`, `secondhand_search`, `secondhand_facebook_login`, `packs_list`, `presets_list`, `presets_install`, `notify_status`, `notify_test`, `telegram_find_chat_id`, `settings_set`, `secret_set`, `scheduler_status`, `runs_list`, `config_export`, `config_import`, `mail_deals`, `mail_deals_scan`, `mail_noise_report`, `mail_deal_set`, `radar_status`, `radar_run`, `releases_list`, `radar_offers`, `radar_setup`.
+
+El texto de las páginas, los títulos, los fragmentos y los asuntos de los correos son datos de terceros. Los resultados de las herramientas lo indican, y el modelo opcional los recibe marcados como contenido no fiable.
+
+## Límites
+
+- **Sitios bloqueados.** El 30-09-2026 bloqueaban la lectura automática en los dos niveles PcComponentes, Fnac, Toys R Us, Cardmarket, eBay y las páginas del marketplace de NVIDIA. Esos objetivos quedan en «necesita tu ayuda» y se reintentan cada tres horas. Las fichas de Carrefour se leen por la ventana visible (02-10-2026); su API de búsqueda contesta con una regla de Cloudflare «you have been blocked» incluso ahí, así que los productos nuevos de Carrefour llegan por el radar de agregadores. El radar es tan fresco como los agregadores: una tienda que no siguen, o el stock en el lineal de un centro, no aparece.
+- **Stock por tienda.** Solo se lee cuando la tienda lo muestra en la página. Si no, la lista de tiendas del vigilante es una preferencia.
+- **DGX Spark.** La API de productos de NVIDIA no la incluye hoy, así que ese objetivo sale «desconocido» hasta que la incluya.
+- **Búsqueda web.** La búsqueda web sin clave es poco fiable desde un programa: DuckDuckGo pide una comprobación anti-bot tras pocas consultas y Bing degrada las consultas largas. Las búsquedas de noticias usan los RSS de Google News y Bing News, que funcionan bien. Para productos, lo fiable para descubrir SKUs nuevos es vigilar las búsquedas de las propias tiendas. SearXNG o una clave de Brave añaden motores web de verdad.
+- **Ofertas del correo.** Necesitan Faustus con una cuenta de correo. El análisis es por reglas sobre el texto de los correos: si una tienda cambia el diseño del suyo, puede salir una fila de campaña en vez de una por artículo. La app de colección de libros es una base de datos en la nube sin archivo local, así que las listas de libros solo salen de tu propia lista en Ajustes. La biblioteca de juegos se lee de `mail.deals.gamerhoard_file`, `GAMERHOARD_DATA_FILE` o `~/.gamerhoard/library.json`; sin ella solo coinciden tu lista, los correos de deseados de la tienda y los vigilantes.
+- **Facebook.** Sus condiciones prohíben el acceso automatizado. Marketplace está desactivado por defecto y usa tu propia sesión en el perfil del navegador de la app.
+
+## Código compartido
+
+Todo lo que no es específico de vigilar productos viene de la biblioteca vendorizada de la familia (`tantalus_hoard/hoard_link/`, los mismos archivos en todas las apps): el descargador con sus comprobaciones de seguridad, robots y bloqueos y el paso del navegador sin ventana, la búsqueda web, la detección de cambios en páginas y feeds, la lectura de texto legible y de JSON-LD/metadatos, todo el análisis y formato de precios, el desenvuelto de enlaces, las comprobaciones de EAN/ISBN/ASIN, los canales y el enrutador de avisos, el ayudante de correo, los carriles de segundo plano, el envoltorio de SQLite, el guarda de peticiones, los archivos de configuración y token, los ids ULID, el kit de herramientas y el puente MCP, y la carcasa de la app (formato de errores, PWA, interfaz compilada, sonda de salud, arranque con `python -m`). Lo que queda en Tantalus es el conocimiento de productos: ofertas y el recorrido que las construye, definiciones de tiendas, el motor de reglas, los packs de segunda mano, el radar y el analizador de ofertas del correo. Cambios que puedes notar: los registros nuevos usan ids ULID (los antiguos siguen funcionando), un host permitido escrito con puerto queda fijado a ese puerto y los errores de la API son siempre JSON con un `code`.
+
+## Tests
+
+```sh
+python -m pytest -q
+```
+
+## Licencia
+
+MIT, © Luis María Salete Cuartero.

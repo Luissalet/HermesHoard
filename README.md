@@ -1,0 +1,58 @@
+# Hermes's Hoard
+
+<img src="app-icon.png" width="96" alt="Hermes icon">
+
+Product watching, shopping alerts, shipment tracking and travel in one local process. Incorporates Tantalus and Phileas, including their complete native tools, interfaces and stored histories.
+
+[Castellano](README.es.md) · [Complete tool inventory](provenance/CAPABILITIES.md) · [Source provenance](provenance/sources.json)
+
+## Independent modules
+
+Both modules are **OFF on first start**. Opening Hermes or discovering its MCP catalogue starts no scheduler, browser, mail scan or model. Enable only the module you want; choices persist. Disabling a module stops its scheduler and waits for its current work before closing the database. The dashboard remains available during shutdown.
+
+| Module | Preserved functions |
+|---|---|
+| Products and deals | Stock, prices, pre-orders, releases, discovery, second-hand search and scoring, web/news watches, mail deals, radar, browser fetch lanes, notifications, schedules and history |
+| Shipments and travel | Mail parsing/import, shipment identifiers, carriers, tracking and ETA, delivery dashboard, incidents, notifications, trips and segments, check-in/departure reminders, travel mail, budgets and currency/time helpers |
+
+Native interfaces are under `/products/` and `/shipments/`. They share the Hoard theme, Hermes icon and Faustus copilot. Individual native settings remain available within each module.
+
+## Run
+
+Python 3.11+. Windows notifications and desktop browser integrations require Windows.
+
+```powershell
+python -m venv .venv
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+.venv\Scripts\python.exe -m hermes_hoard --no-browser
+```
+
+Open `http://127.0.0.1:5221`. `Start.cmd` creates the environment when absent. No window opens automatically. Hoard Hub discovers `faustus-plugin.json` and launches Hermes explicitly. Browser-based fetching retains the native installed-browser requirements; install the Playwright browser with `python -m playwright install chromium` if that backend needs it.
+
+## Existing data
+
+With both modules OFF:
+
+```powershell
+.venv\Scripts\python.exe scripts\adopt_data.py --parent "C:\path\to\Hoards"
+```
+
+Only the central map `data/modules.json` is written. Original databases, mail watermarks, cached pages, browser profiles, evidence, settings and tokens stay in their original Tantalus/Phileas folders. Their `.env` secrets are read in place when a module starts; they are not copied into this repository. Keep the old data folders. Without adoption, fresh data goes to `data/products` and `data/shipments`.
+
+`HERMES_DATA_DIR`, `HERMES_PORT` and `--port` override the central data folder and port. Original module environment variables still configure native behaviour. `HERMES_URL` and `HERMES_TOKEN_FILE` configure the stdio bridge.
+
+## API and MCP
+
+`GET /api/modules`, `PUT /api/modules/{id}` with `{"enabled":true|false}`, and `POST /api/modules/stop-all` control the modules. The combined API exposes **114 tools**: all 112 native functions plus `hermes_modules` and `hermes_set_module`. Calls to OFF modules return `module_disabled` without starting them.
+
+Seven names occurred in both source catalogues: `settings_set`, `secret_set`, `scheduler_status`, `notify_status`, `notify_test`, `telegram_find_chat_id` and `runs_list`. In the combined catalogue they use `products_` or `shipments_` prefixes; their original schemas and behaviour remain intact. Each module's own API keeps its native names. The [inventory](provenance/CAPABILITIES.md) gives every mapping.
+
+`GET /api/agent/tools` lists tools; `POST /api/agent/call` requires the central bearer token in `data/mcp-token`. Run `.venv\Scripts\python.exe mcp_server.py` for stdio MCP. Discovery works even when the server is stopped and never launches it.
+
+Retired identities can remain in Hoard Hub as non-launchable compatibility entries pointing at the new module routes. This keeps family tokens, mail interests, references and existing cross-Hoard calls intact without running either original server.
+
+## Development
+
+Install `pytest pytest-asyncio`, then run `python -m pytest tests -q`. `legacy_tests/` retains the source regression suites. `scripts/qa_server.py` starts synthetic, offline data; `scripts/verify_mcp.py --data-dir <QA-data>` exercises the actual stdio transport. `scripts/build_catalog.py` regenerates the tool catalogue without opening histories or starting schedulers.
+
+The two native UI projects live under `ui/`; use `npm ci` and `npm run build` in each. Built assets ship with this repository. Text-model requests use the family's configured global Sparks service. Models never load while modules are OFF. Source commits and licenses are retained under `provenance/`; bundled Cinzel and Source Sans 3 fonts carry their SIL Open Font Licenses.

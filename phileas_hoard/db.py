@@ -1,0 +1,291 @@
+"""The app database: the shared ``sqlkit.Database`` plus this app's ordered schema migrations."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from .hoard_link.sqlkit import Database as _SqlDatabase
+
+MIGRATIONS: list[str] = [
+    # 1: settings, shipments, events, mails, notifications, runs
+    """
+    CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+    CREATE TABLE shipments (
+      id TEXT PRIMARY KEY,
+      label TEXT NOT NULL DEFAULT '',
+      item TEXT NOT NULL DEFAULT '',
+      merchant TEXT NOT NULL DEFAULT '',
+      merchant_domain TEXT NOT NULL DEFAULT '',
+      order_ref TEXT NOT NULL DEFAULT '',
+      sub_ref TEXT NOT NULL DEFAULT '',
+      carrier TEXT NOT NULL DEFAULT '',
+      tracking_number TEXT NOT NULL DEFAULT '',
+      tracking_url TEXT NOT NULL DEFAULT '',
+      merchant_url TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'unknown',
+      status_text TEXT NOT NULL DEFAULT '',
+      status_ts REAL,
+      status_source TEXT NOT NULL DEFAULT '',
+      origin_country TEXT NOT NULL DEFAULT '',
+      origin_city TEXT NOT NULL DEFAULT '',
+      dest_country TEXT NOT NULL DEFAULT '',
+      last_location TEXT NOT NULL DEFAULT '',
+      service TEXT NOT NULL DEFAULT '',
+      ordered_ts REAL,
+      shipped_ts REAL,
+      first_scan_ts REAL,
+      out_for_delivery_ts REAL,
+      delivered_ts REAL,
+      delivered_assumed INTEGER NOT NULL DEFAULT 0,
+      carrier_eta_from TEXT NOT NULL DEFAULT '',
+      carrier_eta_to TEXT NOT NULL DEFAULT '',
+      carrier_eta_first TEXT NOT NULL DEFAULT '',
+      merchant_eta_from TEXT NOT NULL DEFAULT '',
+      merchant_eta_to TEXT NOT NULL DEFAULT '',
+      merchant_eta_text TEXT NOT NULL DEFAULT '',
+      merchant_eta_first TEXT NOT NULL DEFAULT '',
+      promise_min_days REAL,
+      promise_max_days REAL,
+      promise_business INTEGER NOT NULL DEFAULT 0,
+      promise_base_ts REAL,
+      promise_stage TEXT NOT NULL DEFAULT '',
+      eta_from TEXT NOT NULL DEFAULT '',
+      eta_to TEXT NOT NULL DEFAULT '',
+      eta_likely TEXT NOT NULL DEFAULT '',
+      eta_confidence INTEGER NOT NULL DEFAULT 0,
+      eta_basis TEXT NOT NULL DEFAULT '[]',
+      pickup_code TEXT NOT NULL DEFAULT '',
+      pickup_place TEXT NOT NULL DEFAULT '',
+      pickup_deadline TEXT NOT NULL DEFAULT '',
+      price REAL,
+      currency TEXT NOT NULL DEFAULT '',
+      source TEXT NOT NULL DEFAULT 'mail',
+      history_only INTEGER NOT NULL DEFAULT 0,
+      archived INTEGER NOT NULL DEFAULT 0,
+      muted INTEGER NOT NULL DEFAULT 0,
+      notes TEXT NOT NULL DEFAULT '',
+      created_ts REAL NOT NULL,
+      updated_ts REAL NOT NULL,
+      last_check_ts REAL,
+      next_check_ts REAL,
+      check_count INTEGER NOT NULL DEFAULT 0,
+      fail_count INTEGER NOT NULL DEFAULT 0,
+      last_error TEXT NOT NULL DEFAULT '',
+      last_change_ts REAL,
+      seen_ts REAL,
+      extra TEXT NOT NULL DEFAULT '{}'
+    );
+    CREATE INDEX shipments_number ON shipments(tracking_number);
+    CREATE INDEX shipments_order ON shipments(merchant, order_ref);
+    CREATE INDEX shipments_due ON shipments(archived, next_check_ts);
+    CREATE TABLE events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      shipment_id TEXT NOT NULL REFERENCES shipments(id) ON DELETE CASCADE,
+      ts REAL NOT NULL,
+      status TEXT NOT NULL DEFAULT '',
+      description TEXT NOT NULL DEFAULT '',
+      location TEXT NOT NULL DEFAULT '',
+      source TEXT NOT NULL DEFAULT 'carrier',
+      key TEXT NOT NULL,
+      created_ts REAL NOT NULL,
+      UNIQUE(shipment_id, key)
+    );
+    CREATE INDEX events_shipment ON events(shipment_id, ts);
+    CREATE TABLE mails (
+      message_id TEXT PRIMARY KEY,
+      ts REAL,
+      from_address TEXT NOT NULL DEFAULT '',
+      from_name TEXT NOT NULL DEFAULT '',
+      subject TEXT NOT NULL DEFAULT '',
+      account TEXT NOT NULL DEFAULT '',
+      kind TEXT NOT NULL DEFAULT 'noise',
+      score INTEGER NOT NULL DEFAULT 0,
+      facts TEXT NOT NULL DEFAULT '{}',
+      shipment_id TEXT REFERENCES shipments(id) ON DELETE SET NULL,
+      state TEXT NOT NULL DEFAULT 'new',
+      snippet TEXT NOT NULL DEFAULT '',
+      created_ts REAL NOT NULL
+    );
+    CREATE INDEX mails_kind ON mails(kind, state, ts);
+    CREATE INDEX mails_shipment ON mails(shipment_id);
+    CREATE TABLE notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      ts REAL NOT NULL,
+      shipment_id TEXT REFERENCES shipments(id) ON DELETE CASCADE,
+      type TEXT NOT NULL,
+      severity TEXT NOT NULL DEFAULT 'medium',
+      title TEXT NOT NULL DEFAULT '',
+      body TEXT NOT NULL DEFAULT '',
+      results TEXT NOT NULL DEFAULT '[]',
+      dedupe TEXT NOT NULL DEFAULT '',
+      seen INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX notifications_ts ON notifications(ts);
+    CREATE INDEX notifications_dedupe ON notifications(dedupe);
+    CREATE TABLE runs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      ts REAL NOT NULL,
+      kind TEXT NOT NULL,
+      ref TEXT NOT NULL DEFAULT '',
+      ok INTEGER NOT NULL DEFAULT 1,
+      duration_ms INTEGER NOT NULL DEFAULT 0,
+      detail TEXT NOT NULL DEFAULT ''
+    );
+    CREATE INDEX runs_ts ON runs(ts);
+    """,
+    # 2: travel facet — trips, segments (flights, trains, stays…), the mails they came from, trip people and shared expenses
+    """
+    ALTER TABLE notifications ADD COLUMN trip_id TEXT;
+    CREATE TABLE trips (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL DEFAULT '',
+      destination TEXT NOT NULL DEFAULT '',
+      destination_country TEXT NOT NULL DEFAULT '',
+      start_date TEXT NOT NULL DEFAULT '',
+      end_date TEXT NOT NULL DEFAULT '',
+      currency TEXT NOT NULL DEFAULT 'EUR',
+      pinned INTEGER NOT NULL DEFAULT 0,
+      cancelled INTEGER NOT NULL DEFAULT 0,
+      history_only INTEGER NOT NULL DEFAULT 0,
+      muted INTEGER NOT NULL DEFAULT 0,
+      notes TEXT NOT NULL DEFAULT '',
+      created_ts REAL NOT NULL,
+      updated_ts REAL NOT NULL,
+      extra TEXT NOT NULL DEFAULT '{}'
+    );
+    CREATE INDEX trips_dates ON trips(start_date, end_date);
+    CREATE TABLE segments (
+      id TEXT PRIMARY KEY,
+      trip_id TEXT REFERENCES trips(id) ON DELETE SET NULL,
+      locked INTEGER NOT NULL DEFAULT 0,
+      kind TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'confirmed',
+      booking_ref TEXT NOT NULL DEFAULT '',
+      carrier TEXT NOT NULL DEFAULT '',
+      carrier_code TEXT NOT NULL DEFAULT '',
+      number TEXT NOT NULL DEFAULT '',
+      provider TEXT NOT NULL DEFAULT '',
+      from_code TEXT NOT NULL DEFAULT '',
+      from_name TEXT NOT NULL DEFAULT '',
+      from_city TEXT NOT NULL DEFAULT '',
+      from_country TEXT NOT NULL DEFAULT '',
+      to_code TEXT NOT NULL DEFAULT '',
+      to_name TEXT NOT NULL DEFAULT '',
+      to_city TEXT NOT NULL DEFAULT '',
+      to_country TEXT NOT NULL DEFAULT '',
+      dep_local TEXT NOT NULL DEFAULT '',
+      dep_tz TEXT NOT NULL DEFAULT '',
+      dep_offset INTEGER,
+      dep_ts REAL,
+      arr_local TEXT NOT NULL DEFAULT '',
+      arr_tz TEXT NOT NULL DEFAULT '',
+      arr_offset INTEGER,
+      arr_ts REAL,
+      start_date TEXT NOT NULL DEFAULT '',
+      end_date TEXT NOT NULL DEFAULT '',
+      terminal TEXT NOT NULL DEFAULT '',
+      gate TEXT NOT NULL DEFAULT '',
+      seat TEXT NOT NULL DEFAULT '',
+      coach TEXT NOT NULL DEFAULT '',
+      travel_class TEXT NOT NULL DEFAULT '',
+      passengers TEXT NOT NULL DEFAULT '[]',
+      price REAL,
+      currency TEXT NOT NULL DEFAULT '',
+      links TEXT NOT NULL DEFAULT '[]',
+      address TEXT NOT NULL DEFAULT '',
+      notes TEXT NOT NULL DEFAULT '',
+      source TEXT NOT NULL DEFAULT 'manual',
+      confidence INTEGER NOT NULL DEFAULT 100,
+      evidence TEXT NOT NULL DEFAULT '[]',
+      needs_review INTEGER NOT NULL DEFAULT 0,
+      checkin_done INTEGER NOT NULL DEFAULT 0,
+      checkin_done_ts REAL,
+      edited INTEGER NOT NULL DEFAULT 0,
+      history_only INTEGER NOT NULL DEFAULT 0,
+      created_ts REAL NOT NULL,
+      updated_ts REAL NOT NULL,
+      last_change_ts REAL,
+      last_mail_ts REAL,
+      extra TEXT NOT NULL DEFAULT '{}'
+    );
+    CREATE INDEX segments_trip ON segments(trip_id, dep_ts);
+    CREATE INDEX segments_ref ON segments(booking_ref);
+    CREATE INDEX segments_dep ON segments(dep_ts);
+    CREATE TABLE segment_mails (
+      segment_id TEXT NOT NULL REFERENCES segments(id) ON DELETE CASCADE,
+      message_id TEXT NOT NULL,
+      ts REAL,
+      role TEXT NOT NULL DEFAULT 'confirmation',
+      PRIMARY KEY (segment_id, message_id)
+    );
+    CREATE TABLE trip_people (
+      id TEXT PRIMARY KEY,
+      trip_id TEXT NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      is_me INTEGER NOT NULL DEFAULT 0,
+      position INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX trip_people_trip ON trip_people(trip_id, position);
+    CREATE TABLE trip_expenses (
+      id TEXT PRIMARY KEY,
+      trip_id TEXT NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+      description TEXT NOT NULL DEFAULT '',
+      amount REAL NOT NULL,
+      currency TEXT NOT NULL DEFAULT 'EUR',
+      rate REAL NOT NULL DEFAULT 1,
+      payer_id TEXT NOT NULL,
+      split_mode TEXT NOT NULL DEFAULT 'equal',
+      split TEXT NOT NULL DEFAULT '{}',
+      date TEXT NOT NULL DEFAULT '',
+      category TEXT NOT NULL DEFAULT 'other',
+      segment_id TEXT,
+      ledger_sent_ts REAL,
+      ledger_amount REAL,
+      ledger_entry TEXT NOT NULL DEFAULT '',
+      created_ts REAL NOT NULL,
+      updated_ts REAL NOT NULL
+    );
+    CREATE INDEX trip_expenses_trip ON trip_expenses(trip_id, date);
+    """,
+    # 3: bookings the user deleted, so a later re-read of the same mail does not bring them back
+    """
+    CREATE TABLE deleted_segments (
+      key TEXT PRIMARY KEY,
+      kind TEXT NOT NULL DEFAULT '',
+      label TEXT NOT NULL DEFAULT '',
+      message_ids TEXT NOT NULL DEFAULT '[]',
+      ts REAL NOT NULL
+    );
+    """,
+    # 4: one delivery email can confirm several parcels.
+    """
+    CREATE TABLE shipment_mails (
+      shipment_id TEXT NOT NULL REFERENCES shipments(id) ON DELETE CASCADE,
+      message_id TEXT NOT NULL REFERENCES mails(message_id) ON DELETE CASCADE,
+      PRIMARY KEY(shipment_id, message_id)
+    );
+    INSERT INTO shipment_mails SELECT shipment_id, message_id FROM mails WHERE shipment_id IS NOT NULL;
+    """,
+]
+
+
+class Database(_SqlDatabase):
+    """One connection shared by every thread behind a re-entrant lock (``hoard_link.sqlkit``): re-entrant ``transaction()``
+    that never leaks the lock, an explicit busy timeout, migrations each in their own transaction.
+
+    The app is the only writer; the MCP bridge never opens this file. Settings stay plain text (the UI and the tests
+    compare ``"1"`` / ``"0"`` strings, and the table has always held text), unlike the JSON values of ``sqlkit``.
+    """
+
+    def __init__(self, path: Path):
+        super().__init__(path, migrations=MIGRATIONS)
+
+    def version(self) -> int:
+        return self.schema_version
+
+    def get_setting(self, key: str, default: str | None = None) -> str | None:
+        row = self.one("SELECT value FROM settings WHERE key = ?", (key,))
+        return row["value"] if row else default
+
+    def set_setting(self, key: str, value: str) -> None:
+        self.execute("INSERT INTO settings(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", (key, value))

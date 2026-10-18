@@ -1,0 +1,38 @@
+# Hermes's Hoard
+
+<img src="app-icon.png" width="96" alt="Hermes icon">
+
+Productos, ofertas, seguimiento de envíos y viajes en un único proceso. Absorbe **Tantalus y Phileas**, conservando sus funciones, herramientas e historiales.
+
+[English](README.md) · [Inventario de herramientas](provenance/CAPABILITIES.md) · [Procedencia del código](provenance/sources.json)
+
+## Funciones independientes
+
+**Los dos módulos están desactivados en la primera apertura.** Abrir Hermes o consultar el catálogo MCP no inicia navegadores, búsquedas, lectura de correo, comprobaciones ni modelos. Activa lo que quieras usar; la elección se recuerda entre sesiones. «Desactivar todas» detiene los módulos sin borrar su historial.
+
+- **Productos y ofertas:** stock, precios, preventas, lanzamientos, descubrimiento, segunda mano y puntuación de resultados, vigilantes de webs/noticias, ofertas por correo, radar, navegadores, avisos, programación e historial.
+- **Envíos y viajes:** importación y lectura de correos, identificación de paquetes, transportistas, seguimiento y llegada estimada, panel de entregas, incidencias, avisos, viajes y trayectos, recordatorios de facturación/salida, correo de viajes, presupuestos, monedas y husos horarios.
+
+Las interfaces completas están en `/products/` y `/shipments/`, con el tema común de los Hoards, el icono de Hermes y Faustus. Los ajustes propios de cada función siguen dentro de su módulo.
+
+## Arranque y datos
+
+Python 3.11 o posterior. Ejecuta `Start.cmd` o sigue los comandos de [README.md](README.md#run). Abre `http://127.0.0.1:5221`; no se abre una ventana automáticamente. También puede iniciarse expresamente desde Hoard Hub.
+
+Con ambos módulos apagados:
+
+```powershell
+.venv\Scripts\python.exe scripts\adopt_data.py --parent "C:\ruta\a\las Hoards"
+```
+
+Solo se escribe `data/modules.json`. Las bases de datos, marcas de correo leído, cachés, perfiles de navegador, evidencias, ajustes y tokens siguen **en las carpetas originales**. Los secretos `.env` se leen desde allí al activar el módulo. No se copian, mueven ni borran esos datos; conserva sus carpetas. Sin adopción se usan carpetas nuevas.
+
+Desactivar espera a que termine el trabajo en curso antes de mostrar el módulo apagado, manteniendo disponible el panel.
+
+## Herramientas y compatibilidad
+
+**114 herramientas MCP:** las 112 funciones originales y dos controles de módulos. Siete nombres coincidían entre Tantalus y Phileas; en el catálogo conjunto llevan el prefijo `products_` o `shipments_`. Cada API nativa conserva los nombres originales. El [inventario completo](provenance/CAPABILITIES.md) muestra las correspondencias.
+
+El puente `mcp_server.py` descubre las herramientas sin arrancar Hermes. Las llamadas a módulos apagados devuelven `module_disabled`. Las identidades antiguas pueden permanecer en el Hub como entradas de compatibilidad **sin lanzador**, apuntando a Hermes; conservan correo, tokens, referencias y llamadas internas sin ejecutar servidores antiguos.
+
+Los modelos de texto usan Sparks, según la configuración global de la familia. Ningún modelo se carga con sus módulos apagados. La configuración, compilación y pruebas se detallan en [README.md](README.md).

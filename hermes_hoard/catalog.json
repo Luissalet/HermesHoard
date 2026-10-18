@@ -1,0 +1,5426 @@
+[
+  {
+    "name": "fleet_status",
+    "description": "Watcher cadence and confirmed outcomes — flota, último éxito, bloqueo humano.\nPublished metadata only: no configuration, URLs, notes, queries or log bodies.\nSinónimos: flota, vigilante parado, último éxito, bloqueo humano, cadencia de vigilancia.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "description": "A tool without arguments.",
+      "properties": {},
+      "title": "Empty",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "tantalus_overview",
+    "description": "What is new since the last visit: alerts, buyable now, blocked, top finds. Novedades del vigilante.\nThe dashboard in one call: unseen confirmed events (restock, price drop, pre-order, new SKU, second-hand find, news), targets buyable now, targets that need a human (CAPTCHA/login), per-watcher status, top second-hand listings, material news, proposed URLs.\nSinónimos: novedades, qué hay nuevo, restock, reposición, ofertas, alertas, resumen, estado de los vigilantes.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "description": "A tool without arguments.",
+      "properties": {},
+      "title": "Empty",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "tantalus_status",
+    "description": "Health: scheduler, notification channels, model, search engines, browser, counts. Estado de Tantalus.\nSinónimos: salud, canales de aviso, navegador, motores de búsqueda.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "description": "A tool without arguments.",
+      "properties": {},
+      "title": "Empty",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "watcher_list",
+    "description": "List watchers (availability, second-hand, information) with their counts. Lista de vigilantes.\nSinónimos: vigilantes, alertas configuradas, qué estoy vigilando.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "description": "A tool without arguments.",
+      "properties": {},
+      "title": "Empty",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "watcher_get",
+    "description": "One watcher with its config, targets, sources, candidates and recent events. Detalle de un vigilante.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "watcher_id": {
+          "maxLength": 40,
+          "title": "Watcher Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "watcher_id"
+      ],
+      "title": "WatcherIdArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "watcher_create",
+    "description": "Create a watcher: availability (stock, price), secondhand or information (news). Crear vigilante.\nSecondhand covers Wallapop and Facebook Marketplace. For availability, pass targets (product or retailer-search URLs) and discovery queries. Sinónimos: vigila, avísame cuando haya stock, alerta de precio, busca de segunda mano, seguimiento de noticias.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "name": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "availability",
+            "secondhand",
+            "information"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "config": {
+          "additionalProperties": true,
+          "description": "availability: {product:{terms:[...], must:[...], exclude:[...]}, region, stores:[...], policies:{seller: retail_only|retail_plus_marketplace|any_below, alert_on:[RESTOCK,...], require_confidence:75, revalidate_seconds:60, cooldown_minutes:20, min_drop_pct:5, price_threshold, msrp, scalper_multiplier}, discovery:{queries:[...], retailers:[...], terms:[...]}, channels:[...]}. secondhand: {pack: books_bulk|generic|collectibles_sealed, sources:[wallapop, facebook], queries:[...], settings:{origin_location, radius_km, price_ceiling, msrp, include_any, include_all, exclude}}. information: {sources:[{kind: page|feed|search, value, label}], info:{must_terms, boost_terms, exclude_terms, official_domains, freshness_days}}.",
+          "title": "Config",
+          "type": "object"
+        },
+        "interval_min": {
+          "default": 30,
+          "description": "Check cadence. Hot restock 5-15, normal retail 15-30, stable 60, news 60-240.",
+          "maximum": 10080,
+          "minimum": 5,
+          "title": "Interval Min",
+          "type": "integer"
+        },
+        "discovery_interval_h": {
+          "default": 24,
+          "maximum": 720,
+          "minimum": 0,
+          "title": "Discovery Interval H",
+          "type": "integer"
+        },
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "notes": {
+          "default": "",
+          "maxLength": 2000,
+          "title": "Notes",
+          "type": "string"
+        },
+        "targets": {
+          "description": "availability: product or retailer-search URLs to add right away.",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 30,
+          "title": "Targets",
+          "type": "array"
+        },
+        "budget_category": {
+          "default": "",
+          "description": "Ledger budget category: alerts with a price add 'quedan X € en <categoría>'.",
+          "maxLength": 80,
+          "title": "Budget Category",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "mode"
+      ],
+      "title": "WatcherCreateArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "watcher_update",
+    "description": "Change a watcher's name, config, cadence, discovery cadence or enabled flag. Editar vigilante.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "watcher_id": {
+          "maxLength": 40,
+          "title": "Watcher Id",
+          "type": "string"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "maxLength": 120,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "config": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Replaces the whole config; read watcher_get first.",
+          "title": "Config"
+        },
+        "config_patch": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Atomically merges changed config fields; nested objects merge, arrays replace, null removes a key. Other fields are preserved.",
+          "title": "Config Patch"
+        },
+        "interval_min": {
+          "anyOf": [
+            {
+              "maximum": 10080,
+              "minimum": 5,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Interval Min"
+        },
+        "discovery_interval_h": {
+          "anyOf": [
+            {
+              "maximum": 720,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Discovery Interval H"
+        },
+        "enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Enabled"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        },
+        "budget_category": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Ledger budget category for the alert text; empty clears it.",
+          "title": "Budget Category"
+        }
+      },
+      "required": [
+        "watcher_id"
+      ],
+      "title": "WatcherUpdateArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "watcher_delete",
+    "description": "Delete a watcher and all its history (confirm=true). Borrar vigilante.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "title": "Id",
+          "type": "string"
+        },
+        "confirm": {
+          "default": false,
+          "title": "Confirm",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "DeleteArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "watcher_run",
+    "description": "Run a watcher now: check every target / sweep second-hand / check news sources. Comprobar ahora.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": true
+    },
+    "inputSchema": {
+      "properties": {
+        "watcher_id": {
+          "maxLength": 40,
+          "title": "Watcher Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "watcher_id"
+      ],
+      "title": "WatcherIdArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "watcher_rescore",
+    "description": "Score a second-hand watcher's stored listings again with its current pack (no alerts). Repuntuar anuncios.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "watcher_id": {
+          "maxLength": 40,
+          "title": "Watcher Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "watcher_id"
+      ],
+      "title": "WatcherIdArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "target_add",
+    "description": "Add a product or retailer-search URL to an availability watcher and check it. Añadir URL a vigilar.\nSupports product pages (JSON-LD / buttons), retailer search pages (new SKUs appear as NEW_SKU) and nvidia-api:search?term=... Sinónimos: vigila esta URL, añade esta tienda, seguimiento de precio de este producto.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": true
+    },
+    "inputSchema": {
+      "properties": {
+        "watcher_id": {
+          "maxLength": 40,
+          "title": "Watcher Id",
+          "type": "string"
+        },
+        "url": {
+          "description": "Product page, retailer search page, or nvidia-api:search?term=...",
+          "maxLength": 2000,
+          "minLength": 8,
+          "title": "Url",
+          "type": "string"
+        },
+        "label": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Label",
+          "type": "string"
+        },
+        "retailer": {
+          "default": "",
+          "maxLength": 80,
+          "title": "Retailer",
+          "type": "string"
+        },
+        "sku": {
+          "default": "",
+          "maxLength": 80,
+          "title": "Sku",
+          "type": "string"
+        },
+        "ean": {
+          "default": "",
+          "maxLength": 20,
+          "title": "Ean",
+          "type": "string"
+        },
+        "store_ids": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Store Ids",
+          "type": "array"
+        },
+        "msrp": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Reference retail price; the ceiling becomes msrp x scalper_multiplier.",
+          "title": "Msrp"
+        },
+        "price_ceiling": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Price Ceiling"
+        },
+        "price_threshold": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Alert when the price falls to or below this.",
+          "title": "Price Threshold"
+        },
+        "seller_policy": {
+          "anyOf": [
+            {
+              "enum": [
+                "retail_only",
+                "retail_plus_marketplace",
+                "any_below"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seller Policy"
+        },
+        "fetch_tier": {
+          "default": "auto",
+          "enum": [
+            "auto",
+            "http",
+            "browser",
+            "window"
+          ],
+          "title": "Fetch Tier",
+          "type": "string"
+        },
+        "adapter": {
+          "default": "auto",
+          "description": "auto | html | nvidia",
+          "maxLength": 20,
+          "title": "Adapter",
+          "type": "string"
+        },
+        "interval_min": {
+          "anyOf": [
+            {
+              "maximum": 10080,
+              "minimum": 5,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Interval Min"
+        },
+        "check_now": {
+          "default": true,
+          "description": "Run a first check right away.",
+          "title": "Check Now",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "watcher_id",
+        "url"
+      ],
+      "title": "TargetAddArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "target_list",
+    "description": "List targets with their last state, price and confidence. Lista de productos vigilados.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "watcher_id": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Watcher Id"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "enum": [
+                "active",
+                "paused",
+                "needs_human",
+                "error"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Status"
+        }
+      },
+      "title": "TargetListArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "target_get",
+    "description": "One target with observations (evidence, confidence), price history and events. Historial de producto.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "target_id": {
+          "maxLength": 40,
+          "title": "Target Id",
+          "type": "string"
+        },
+        "history": {
+          "default": 20,
+          "maximum": 500,
+          "minimum": 0,
+          "title": "History",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "target_id"
+      ],
+      "title": "TargetGetArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "target_update",
+    "description": "Change a target: label, URL, SKU, MSRP, price limits, seller policy, fetch tier, pause. Editar objetivo.\nSKU/EAN, price ceiling and price threshold are separate fields.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "target_id": {
+          "maxLength": 40,
+          "title": "Target Id",
+          "type": "string"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        },
+        "retailer": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Retailer"
+        },
+        "sku": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sku"
+        },
+        "ean": {
+          "anyOf": [
+            {
+              "maxLength": 20,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ean"
+        },
+        "store_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Store Ids"
+        },
+        "msrp": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Msrp"
+        },
+        "price_ceiling": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Price Ceiling"
+        },
+        "price_threshold": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Price Threshold"
+        },
+        "seller_policy": {
+          "anyOf": [
+            {
+              "enum": [
+                "retail_only",
+                "retail_plus_marketplace",
+                "any_below"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seller Policy"
+        },
+        "fetch_tier": {
+          "anyOf": [
+            {
+              "enum": [
+                "auto",
+                "http",
+                "browser",
+                "window"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fetch Tier"
+        },
+        "adapter": {
+          "anyOf": [
+            {
+              "maxLength": 20,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Adapter"
+        },
+        "interval_min": {
+          "anyOf": [
+            {
+              "maximum": 10080,
+              "minimum": 5,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Interval Min"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "enum": [
+                "active",
+                "paused"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Status"
+        },
+        "clear": {
+          "description": "Fields to reset to empty (null means 'unchanged' elsewhere).",
+          "items": {
+            "enum": [
+              "msrp",
+              "price_ceiling",
+              "price_threshold",
+              "interval_min",
+              "sku",
+              "ean"
+            ],
+            "type": "string"
+          },
+          "title": "Clear",
+          "type": "array"
+        }
+      },
+      "required": [
+        "target_id"
+      ],
+      "title": "TargetUpdateArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "target_delete",
+    "description": "Delete a target and its history (confirm=true). Borrar objetivo.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "title": "Id",
+          "type": "string"
+        },
+        "confirm": {
+          "default": false,
+          "title": "Confirm",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "DeleteArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "target_check",
+    "description": "Check one target now (fetch ladder, extraction, events). Comprobar este producto ahora.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": true
+    },
+    "inputSchema": {
+      "properties": {
+        "target_id": {
+          "maxLength": 40,
+          "title": "Target Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_id"
+      ],
+      "title": "TargetIdArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "target_resolve",
+    "description": "Open a visible browser so the user passes a CAPTCHA or login, then re-check. Resolver bloqueo.\nOnly when the user is at the computer and asks. Never solves anything itself.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": true
+    },
+    "inputSchema": {
+      "properties": {
+        "target_id": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Id"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        }
+      },
+      "title": "ResolveArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "inspect_url",
+    "description": "One-off stock, price and seller of a product or search page, without saving. ¿Hay stock? ¿Precio?\nSinónimos: mira esta página, comprueba precio, está disponible, agotado.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": true
+    },
+    "inputSchema": {
+      "properties": {
+        "url": {
+          "maxLength": 2000,
+          "minLength": 8,
+          "title": "Url",
+          "type": "string"
+        },
+        "tier": {
+          "default": "auto",
+          "enum": [
+            "auto",
+            "http",
+            "browser",
+            "window"
+          ],
+          "title": "Tier",
+          "type": "string"
+        },
+        "sku": {
+          "default": "",
+          "maxLength": 80,
+          "title": "Sku",
+          "type": "string"
+        },
+        "show_text": {
+          "default": false,
+          "description": "Include up to 3000 chars of the readable page text.",
+          "title": "Show Text",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "title": "InspectArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "events_list",
+    "description": "Events (RESTOCK, PRICE_DROP, PREORDER_OPEN, NEW_SKU, NEW_LISTING...) with filters. Historial de avisos.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "watcher_id": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Watcher Id"
+        },
+        "target_id": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Id"
+        },
+        "types": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "RESTOCK, LOCAL_RESTOCK, PREORDER_OPEN, PRICE_DROP, PRICE_THRESHOLD_CROSSED, NEW_SKU, RESTOCK_DATE_CONFIRMED, SOLD_OUT, NEW_LISTING, LISTING_PRICE_DROP, INFO_CHANGE, CANDIDATE_FOUND, NEEDS_HUMAN, MAIL_DEAL, RELEASE, SALE_OPEN",
+          "title": "Types"
+        },
+        "statuses": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "pending",
+                  "confirmed",
+                  "logged",
+                  "dismissed"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Statuses"
+        },
+        "unseen_only": {
+          "default": false,
+          "title": "Unseen Only",
+          "type": "boolean"
+        },
+        "limit": {
+          "default": 30,
+          "maximum": 300,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        }
+      },
+      "title": "EventsArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "events_mark_seen",
+    "description": "Mark events seen (all, or some ids) and record a dashboard visit. Marcar como visto.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "event_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 500,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to mark everything seen (records a dashboard visit).",
+          "title": "Event Ids"
+        }
+      },
+      "title": "SeenArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "event_dismiss",
+    "description": "Dismiss an event (false positive, not interested). Descartar aviso.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "event_id": {
+          "maxLength": 40,
+          "title": "Event Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_id"
+      ],
+      "title": "EventIdArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "event_notify",
+    "description": "Send an event again through the notification channels that did not get it. Reenviar aviso.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": true
+    },
+    "inputSchema": {
+      "properties": {
+        "event_id": {
+          "maxLength": 40,
+          "title": "Event Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_id"
+      ],
+      "title": "EventIdArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "listings_list",
+    "description": "Second-hand listings found by the watchers, with score, signals and distance. Anuncios de segunda mano.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "watcher_id": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Watcher Id"
+        },
+        "relevant_only": {
+          "default": true,
+          "title": "Relevant Only",
+          "type": "boolean"
+        },
+        "statuses": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "new",
+                  "seen",
+                  "saved",
+                  "dismissed",
+                  "gone"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Statuses"
+        },
+        "order": {
+          "default": "score",
+          "enum": [
+            "recent",
+            "score"
+          ],
+          "title": "Order",
+          "type": "string"
+        },
+        "limit": {
+          "default": 30,
+          "maximum": 300,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        }
+      },
+      "title": "ListingsArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "listing_set",
+    "description": "Mark a second-hand listing seen / saved / dismissed / gone. Guardar o descartar anuncio.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "listing_id": {
+          "maxLength": 40,
+          "title": "Listing Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "new",
+            "seen",
+            "saved",
+            "dismissed",
+            "gone"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "listing_id",
+        "status"
+      ],
+      "title": "ListingSetArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "info_items_list",
+    "description": "News found by information watchers with verdict (confirmed / leak / estimate). Novedades informativas.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "watcher_id": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Watcher Id"
+        },
+        "material_only": {
+          "default": true,
+          "title": "Material Only",
+          "type": "boolean"
+        },
+        "include_dismissed": {
+          "default": false,
+          "title": "Include Dismissed",
+          "type": "boolean"
+        },
+        "limit": {
+          "default": 30,
+          "maximum": 300,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        }
+      },
+      "title": "InfoArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "info_item_set",
+    "description": "Mark a news item seen or dismissed. Marcar noticia vista o descartada.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "item_id": {
+          "maxLength": 40,
+          "title": "Item Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "new",
+            "seen",
+            "dismissed"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "item_id",
+        "status"
+      ],
+      "title": "InfoSetArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "candidates_list",
+    "description": "URLs proposed by discovery for availability watchers. Páginas propuestas.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "watcher_id": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Watcher Id"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "enum": [
+                "proposed",
+                "accepted",
+                "rejected"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": "proposed",
+          "title": "Status"
+        },
+        "limit": {
+          "default": 30,
+          "maximum": 300,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        }
+      },
+      "title": "CandidatesArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "candidate_accept",
+    "description": "Turn a proposed URL into a watched target. Aceptar propuesta.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": true
+    },
+    "inputSchema": {
+      "properties": {
+        "candidate_id": {
+          "maxLength": 40,
+          "title": "Candidate Id",
+          "type": "string"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "msrp": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Msrp"
+        },
+        "price_threshold": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Price Threshold"
+        },
+        "check_now": {
+          "default": true,
+          "title": "Check Now",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "candidate_id"
+      ],
+      "title": "CandidateAcceptArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "candidate_reject",
+    "description": "Reject a proposed URL. Rechazar propuesta.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "candidate_id": {
+          "maxLength": 40,
+          "title": "Candidate Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "candidate_id"
+      ],
+      "title": "CandidateIdArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "discovery_run",
+    "description": "Search the web for new product / retailer URLs for an availability watcher. Descubrir nuevas URLs.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": true
+    },
+    "inputSchema": {
+      "properties": {
+        "watcher_id": {
+          "maxLength": 40,
+          "title": "Watcher Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "watcher_id"
+      ],
+      "title": "WatcherIdArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "web_search",
+    "description": "Web or news search (DuckDuckGo, Bing, Google News, Bing News, SearXNG, Brave). Buscar en web o noticias.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": true
+    },
+    "inputSchema": {
+      "properties": {
+        "query": {
+          "maxLength": 300,
+          "minLength": 2,
+          "title": "Query",
+          "type": "string"
+        },
+        "limit": {
+          "default": 10,
+          "maximum": 30,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "freshness_days": {
+          "anyOf": [
+            {
+              "maximum": 365,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Freshness Days"
+        },
+        "news": {
+          "default": false,
+          "description": "Search news (Google News and Bing News RSS) instead of the web.",
+          "title": "News",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "title": "WebSearchArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "secondhand_search",
+    "description": "One-off Wallapop or Facebook search scored by a pack, near a town, without saving. Buscar de segunda mano.\nPacks: books_bulk (free books in bulk), generic, collectibles_sealed (sealed TCG, anti-scalper). Sinónimos: wallapop, segunda mano, lotes, gratis, cerca de mí.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": true
+    },
+    "inputSchema": {
+      "properties": {
+        "query": {
+          "maxLength": 200,
+          "minLength": 2,
+          "title": "Query",
+          "type": "string"
+        },
+        "source": {
+          "default": "wallapop",
+          "enum": [
+            "wallapop",
+            "facebook"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "pack": {
+          "default": "generic",
+          "description": "books_bulk | generic | collectibles_sealed",
+          "maxLength": 40,
+          "title": "Pack",
+          "type": "string"
+        },
+        "origin_location": {
+          "default": "Madrid",
+          "maxLength": 80,
+          "title": "Origin Location",
+          "type": "string"
+        },
+        "radius_km": {
+          "default": 30,
+          "maximum": 500,
+          "minimum": 1,
+          "title": "Radius Km",
+          "type": "number"
+        },
+        "max_price": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Price"
+        },
+        "msrp": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Msrp"
+        },
+        "limit": {
+          "default": 20,
+          "maximum": 80,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "title": "SecondhandSearchArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "secondhand_facebook_login",
+    "description": "Open a visible browser to log in to Facebook once (for Marketplace). Iniciar sesión en Facebook.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": true
+    },
+    "inputSchema": {
+      "description": "A tool without arguments.",
+      "properties": {},
+      "title": "Empty",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "packs_list",
+    "description": "Second-hand scoring packs with their fields. Perfiles de puntuación.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "description": "A tool without arguments.",
+      "properties": {},
+      "title": "Empty",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "presets_list",
+    "description": "Ready-made watchers and whether they are installed. Plantillas.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "description": "A tool without arguments.",
+      "properties": {},
+      "title": "Empty",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "presets_install",
+    "description": "Install ready-made watchers. Instalar plantillas.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Omit to install every preset that is not installed yet.",
+          "title": "Ids"
+        }
+      },
+      "title": "PresetsInstallArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "products_notify_status",
+    "description": "Notification channels (toast, hub, ntfy, telegram, email): setup, switches, recent sends. Canales de aviso.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "description": "A tool without arguments.",
+      "properties": {},
+      "title": "Empty",
+      "type": "object"
+    },
+    "module": "products",
+    "native_name": "notify_status"
+  },
+  {
+    "name": "products_notify_test",
+    "description": "Send a test notification through one channel. Probar canal.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": true
+    },
+    "inputSchema": {
+      "properties": {
+        "channel": {
+          "default": "hub",
+          "enum": [
+            "toast",
+            "hub",
+            "ntfy",
+            "telegram",
+            "email"
+          ],
+          "title": "Channel",
+          "type": "string"
+        },
+        "via": {
+          "default": "own",
+          "description": "hub = a sample notification through the family hub's notification centre (it decides the channels); own = test the channel itself.",
+          "enum": [
+            "own",
+            "hub"
+          ],
+          "title": "Via",
+          "type": "string"
+        }
+      },
+      "title": "NotifyTestArgs",
+      "type": "object"
+    },
+    "module": "products",
+    "native_name": "notify_test"
+  },
+  {
+    "name": "products_telegram_find_chat_id",
+    "description": "After the user writes to the bot, find the chat id with getUpdates. Obtener chat id de Telegram.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": true
+    },
+    "inputSchema": {
+      "description": "A tool without arguments.",
+      "properties": {},
+      "title": "Empty",
+      "type": "object"
+    },
+    "module": "products",
+    "native_name": "telegram_find_chat_id"
+  },
+  {
+    "name": "products_settings_set",
+    "description": "Change settings: channels, ntfy server, e-mail backend and Faustus folder, language, model, pause. Ajustes.\nKeys: notify.via auto|hub|own, mail.source auto|hub|faustus, notify.<channel>.enabled|min_severity, notify.ntfy.server, notify.email.backend|faustus_dir|faustus_owner, notify.language, llm.enabled, scheduler.paused, mail.deals.enabled|interval_min|history_days|ttl_days|stores|domains|gamerhoard_file|wishlist, mail.noise.days.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "values": {
+          "additionalProperties": true,
+          "description": "notify.<channel>.enabled 1|0, notify.<channel>.min_severity low|medium|high, notify.ntfy.server, notify.language es|en, llm.enabled 1|0, scheduler.paused 0|1",
+          "title": "Values",
+          "type": "object"
+        }
+      },
+      "required": [
+        "values"
+      ],
+      "title": "SettingsSetArgs",
+      "type": "object"
+    },
+    "module": "products",
+    "native_name": "settings_set"
+  },
+  {
+    "name": "products_secret_set",
+    "description": "Save a write-only secret (Telegram, ntfy, SMTP, Brave key, SearXNG URL). Guardar credencial.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "name": {
+          "description": "TELEGRAM_TOKEN, TELEGRAM_CHAT_ID, NTFY_TOPIC, NTFY_TOKEN, SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM, SMTP_TO, BRAVE_KEY, SEARXNG_URL",
+          "maxLength": 40,
+          "title": "Name",
+          "type": "string"
+        },
+        "value": {
+          "default": "",
+          "description": "Empty removes it. Write-only: the value is never returned.",
+          "maxLength": 500,
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "SecretSetArgs",
+      "type": "object"
+    },
+    "module": "products",
+    "native_name": "secret_set"
+  },
+  {
+    "name": "products_scheduler_status",
+    "description": "Scheduler queue and per-host fetch state (blocks, cooldowns, preferred tier). Estado del planificador.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "description": "A tool without arguments.",
+      "properties": {},
+      "title": "Empty",
+      "type": "object"
+    },
+    "module": "products",
+    "native_name": "scheduler_status"
+  },
+  {
+    "name": "products_runs_list",
+    "description": "Recent runs (checks, sweeps, discovery) with their summaries. Ejecuciones recientes.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "watcher_id": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Watcher Id"
+        },
+        "limit": {
+          "default": 30,
+          "maximum": 300,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        }
+      },
+      "title": "RunsArgs",
+      "type": "object"
+    },
+    "module": "products",
+    "native_name": "runs_list"
+  },
+  {
+    "name": "config_export",
+    "description": "Export every watcher and target as data (declarative config). Exportar configuración.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "description": "A tool without arguments.",
+      "properties": {},
+      "title": "Empty",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "config_import",
+    "description": "Import watchers and targets from config_export data (updates by name). Importar configuración.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "data": {
+          "additionalProperties": true,
+          "description": "The object config_export returns: {tantalus: 1, watchers: [...]}",
+          "title": "Data",
+          "type": "object"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "title": "ImportArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "mail_deals",
+    "description": "Sale mails of game and book stores found in the mailbox, with wishlist matches. Ofertas del correo.\nRead from the Faustus mailbox (read-only), parsed into deals: store, title, discount, price, end date, link, and whether it matches a wishlist (game library, own list, the store's wishlist mails) or a watcher. Only matches notify. Sinónimos: ofertas de Steam, GOG, libros, rebajas del correo, lista de deseados.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "status": {
+          "default": "active",
+          "enum": [
+            "active",
+            "expired",
+            "dismissed",
+            "all"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "matched_only": {
+          "default": false,
+          "description": "Only deals that match a wishlist or a watcher.",
+          "title": "Matched Only",
+          "type": "boolean"
+        },
+        "store": {
+          "default": "",
+          "description": "Store id: steam, gog, game, epic, bibliostock, casadellibro, fnac...",
+          "maxLength": 40,
+          "title": "Store",
+          "type": "string"
+        },
+        "query": {
+          "default": "",
+          "description": "Text in the title, the item titles or the subject.",
+          "maxLength": 100,
+          "title": "Query",
+          "type": "string"
+        },
+        "limit": {
+          "default": 40,
+          "maximum": 300,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        }
+      },
+      "title": "MailDealsArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "mail_deals_scan",
+    "description": "Read new sale mails now (read-only) and match them to wishlists. Escanear ofertas del correo.\nThe first scan is quiet (no alerts); later matches notify once. rematch_only re-checks stored deals; rebuild re-reads everything. Sinónimos: buscar ofertas en el correo, actualizar ofertas, revisar correo de tiendas.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": true
+    },
+    "inputSchema": {
+      "properties": {
+        "days": {
+          "anyOf": [
+            {
+              "maximum": 365,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How far back to read (default: setting mail.deals.history_days).",
+          "title": "Days"
+        },
+        "rematch_only": {
+          "default": false,
+          "description": "Do not read the mailbox: only check the stored deals against the lists again.",
+          "title": "Rematch Only",
+          "type": "boolean"
+        },
+        "rebuild": {
+          "default": false,
+          "description": "Forget the stored deals and read the mailbox again with the current parser (quiet, no alerts).",
+          "title": "Rebuild",
+          "type": "boolean"
+        }
+      },
+      "title": "MailScanArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "mail_noise_report",
+    "description": "Which sender domains flood the mailbox with promotions, and who reads them. Informe de ruido del correo.\nRead-only: counts per domain, share, Gmail category, unsubscribe link or address (never opened), last mail, and whether a Hoard uses that sender. Nothing is unsubscribed, moved or deleted. Sinónimos: spam, newsletters, darse de baja, promociones, limpieza del correo.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": true
+    },
+    "inputSchema": {
+      "properties": {
+        "days": {
+          "anyOf": [
+            {
+              "maximum": 365,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Window in days (default: setting mail.noise.days).",
+          "title": "Days"
+        },
+        "top": {
+          "default": 25,
+          "maximum": 60,
+          "minimum": 1,
+          "title": "Top",
+          "type": "integer"
+        },
+        "refresh": {
+          "default": false,
+          "description": "Ignore the ten-minute cache and read the headers again.",
+          "title": "Refresh",
+          "type": "boolean"
+        }
+      },
+      "title": "MailNoiseArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "mail_deal_set",
+    "description": "Dismiss a mail deal or bring it back. Descartar o restaurar una oferta del correo.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "deal_id": {
+          "minimum": 1,
+          "title": "Deal Id",
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "active",
+            "dismissed"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "deal_id",
+        "status"
+      ],
+      "title": "MailDealSetArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "radar_status",
+    "description": "Aggregator radar: shops with stock now per chain (Carrefour, GAME, El Corte Inglés...). Radar de tiendas.\nPer chain, the matching products it has in stock or on pre-order and the ones that sold out recently, read from stock aggregators (stocktcg.net / stocktcg.es) because Carrefour and others block direct reading. Sinónimos: stock en Carrefour, qué hay en GAME, tiendas.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "description": "A tool without arguments.",
+      "properties": {},
+      "title": "Empty",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "radar_run",
+    "description": "Read the stock aggregators now: feeds, chain pages, release pages, product pages. Comprobar radar ahora.\nRaises RESTOCK / PREORDER_OPEN per shop and RELEASE for matching releases. Sinónimos: actualizar stock, mirar tiendas ahora.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": true
+    },
+    "inputSchema": {
+      "properties": {
+        "watcher_id": {
+          "default": "",
+          "description": "Only this watcher; empty = every watcher with the radar on.",
+          "maxLength": 40,
+          "title": "Watcher Id",
+          "type": "string"
+        }
+      },
+      "title": "RadarRunArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "releases_list",
+    "description": "Upcoming releases for the watchers: date, where to buy, where sold out. Calendario de lanzamientos.\nDate, products, chains (in stock / pre-order / sold out with price) and the cheapest shops with stock or pre-order. Sinónimos: qué sale hoy, próximos lanzamientos, oleada, preventas, dónde comprar.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "watcher_id": {
+          "default": "",
+          "maxLength": 40,
+          "title": "Watcher Id",
+          "type": "string"
+        },
+        "upcoming_days": {
+          "default": 60,
+          "maximum": 365,
+          "minimum": 0,
+          "title": "Upcoming Days",
+          "type": "integer"
+        },
+        "past_days": {
+          "default": 7,
+          "maximum": 90,
+          "minimum": 0,
+          "title": "Past Days",
+          "type": "integer"
+        }
+      },
+      "title": "ReleasesArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "radar_offers",
+    "description": "Shop offers seen on the stock aggregators, filterable by shop, state and product. Ofertas por tienda.\nSinónimos: quién tiene stock, precio por tienda, dónde hay, agotado en.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "watcher_id": {
+          "default": "",
+          "maxLength": 40,
+          "title": "Watcher Id",
+          "type": "string"
+        },
+        "store": {
+          "default": "",
+          "description": "Shop slug or name: carrefour, game, el-corte-ingles, amazon, alcampo, toys-r-us...",
+          "maxLength": 80,
+          "title": "Store",
+          "type": "string"
+        },
+        "buyable": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "true = in stock or pre-order now; false = sold out.",
+          "title": "Buyable"
+        },
+        "chains_only": {
+          "default": false,
+          "title": "Chains Only",
+          "type": "boolean"
+        },
+        "product_key": {
+          "default": "",
+          "description": "Aggregator product slug, e.g. 30th-anniversary--etb.",
+          "maxLength": 120,
+          "title": "Product Key",
+          "type": "string"
+        },
+        "limit": {
+          "default": 60,
+          "maximum": 500,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        }
+      },
+      "title": "RadarOffersArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "watchers_match_purchase",
+    "description": "Which watchers were waiting for this purchase? Score 0..1 by title, shop and EAN/ASIN. ¿Ya lo he comprado?\nFuzzy match of a purchase (title, merchant, URL) against active watchers: shared product words, same EAN, ASIN or product page. Read-only. Sinónimos: compré esto, vigilante de este producto, coincide con una compra.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "title": {
+          "description": "What was bought (the order's item title).",
+          "maxLength": 300,
+          "minLength": 2,
+          "title": "Title",
+          "type": "string"
+        },
+        "merchant": {
+          "default": "",
+          "maxLength": 120,
+          "title": "Merchant",
+          "type": "string"
+        },
+        "url": {
+          "default": "",
+          "description": "Product URL of the purchase when known (EAN, ASIN or product id are matched).",
+          "maxLength": 2000,
+          "title": "Url",
+          "type": "string"
+        },
+        "min_score": {
+          "default": 0.3,
+          "description": "Hide matches below this score.",
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Min Score",
+          "type": "number"
+        }
+      },
+      "required": [
+        "title"
+      ],
+      "title": "WatchersMatchPurchaseArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "watcher_mark_bought",
+    "description": "Mark a watcher as bought: stops its checks, keeps the history. Ya lo he comprado, dejar de vigilar.\nStatus bought, emits tantalus.watcher.bought {watcher_id, purchase_ref}. watcher_update enabled=true watches it again. Sinónimos: comprado, dejar de vigilar, archivar vigilante.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "watcher_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "description": "Watcher id (from watcher_list or watchers_match_purchase).",
+          "title": "Watcher Id"
+        },
+        "purchase_ref": {
+          "default": "",
+          "description": "hoard:// reference of the purchase, kept on the watcher.",
+          "maxLength": 300,
+          "title": "Purchase Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "watcher_id"
+      ],
+      "title": "WatcherMarkBoughtArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "watcher_add",
+    "description": "Watch a product for a price or a restock from just a name (and URL). Vigilar algo, idea de regalo.\nCreates an availability watcher with the name's words, an optional product page and price limit (budget), idempotent by source_ref. Sinónimos: vigila esto, avísame cuando baje de precio, regalo, lista de deseos.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "name": {
+          "default": "",
+          "description": "What to watch for (product name). title or text work as aliases.",
+          "maxLength": 200,
+          "title": "Name",
+          "type": "string"
+        },
+        "title": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Title",
+          "type": "string"
+        },
+        "text": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Text",
+          "type": "string"
+        },
+        "url": {
+          "default": "",
+          "description": "Optional product page to watch right away.",
+          "maxLength": 2000,
+          "title": "Url",
+          "type": "string"
+        },
+        "budget": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Alert when the price falls to or below this. max_price is an alias.",
+          "title": "Budget"
+        },
+        "max_price": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Price"
+        },
+        "source_ref": {
+          "default": "",
+          "description": "hoard:// reference of where the idea came from (a gift idea); same ref = same watcher.",
+          "maxLength": 300,
+          "title": "Source Ref",
+          "type": "string"
+        },
+        "budget_category": {
+          "default": "",
+          "maxLength": 80,
+          "title": "Budget Category",
+          "type": "string"
+        },
+        "notes": {
+          "default": "",
+          "maxLength": 2000,
+          "title": "Notes",
+          "type": "string"
+        },
+        "interval_min": {
+          "default": 60,
+          "maximum": 10080,
+          "minimum": 5,
+          "title": "Interval Min",
+          "type": "integer"
+        }
+      },
+      "title": "WatcherAddArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "radar_setup",
+    "description": "Turn the aggregator radar on or off for a watcher and choose chains, languages, sources. Configurar radar.\nSinónimos: activar radar, avisar de Carrefour, cadenas, idiomas de edición.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "watcher_id": {
+          "maxLength": 40,
+          "title": "Watcher Id",
+          "type": "string"
+        },
+        "enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Enabled"
+        },
+        "sources": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "stocktcg.net",
+                  "stocktcg.es"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sources"
+        },
+        "chains": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 20,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Shop slugs that always alert (game, carrefour, el-corte-ingles, alcampo, amazon, toys-r-us, toy-planet...).",
+          "title": "Chains"
+        },
+        "languages": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 10,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Edition languages that may alert, e.g. [ES, EN]. Empty = any.",
+          "title": "Languages"
+        },
+        "alert_other_shops": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Small shops alert too, only at a sane price (cheapest chain price or MSRP × multiplier).",
+          "title": "Alert Other Shops"
+        },
+        "price_multiplier": {
+          "anyOf": [
+            {
+              "maximum": 5,
+              "minimum": 1,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Price Multiplier"
+        },
+        "release_days_before": {
+          "anyOf": [
+            {
+              "maximum": 30,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Release Days Before"
+        }
+      },
+      "required": [
+        "watcher_id"
+      ],
+      "title": "RadarSetupArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "phileas_overview",
+    "description": "Parcels on their way with estimated arrival, today, needs attention. Mis envíos y cuándo llegan.\nActive shipments sorted by estimated day, what arrives today, problems (incidence, failed attempt, pickup waiting, late), deliveries of the last week, notifications since the last visit. Sinónimos: paquetes, pedidos, seguimiento, qué me llega, cuándo llega, envíos pendientes, tracking.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "description": "A tool without arguments.",
+      "properties": {},
+      "title": "Empty",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "phileas_status",
+    "description": "Health: mail source, carrier sources, channels, scheduler, settings. Estado de Phileas.\nSinónimos: configuración, claves, canales de aviso, último escaneo de correo.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "description": "A tool without arguments.",
+      "properties": {},
+      "title": "Empty",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "shipments_list",
+    "description": "List shipments (active, delivered, all, archived, history) with filters. Lista de envíos.\nSinónimos: buscar envío, pedidos de Amazon, paquetes de UPS, historial.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "filter": {
+          "default": "active",
+          "enum": [
+            "active",
+            "delivered",
+            "all",
+            "archived",
+            "history"
+          ],
+          "title": "Filter",
+          "type": "string"
+        },
+        "text": {
+          "default": "",
+          "description": "Matches label, item, shop, tracking number or order number.",
+          "maxLength": 80,
+          "title": "Text",
+          "type": "string"
+        },
+        "carrier": {
+          "default": "",
+          "maxLength": 30,
+          "title": "Carrier",
+          "type": "string"
+        },
+        "merchant": {
+          "default": "",
+          "maxLength": 60,
+          "title": "Merchant",
+          "type": "string"
+        },
+        "limit": {
+          "default": 50,
+          "maximum": 500,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        }
+      },
+      "title": "ListArgs",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "shipment_get",
+    "description": "One shipment: status, estimate, carrier events, mails, similar parcels. Detalle de un envío.\nAccepts the id, the tracking number or the order number. Sinónimos: dónde está mi paquete, seguimiento de X.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "shipment": {
+          "description": "Shipment id (s_…), tracking number or order number.",
+          "maxLength": 60,
+          "minLength": 1,
+          "title": "Shipment",
+          "type": "string"
+        }
+      },
+      "required": [
+        "shipment"
+      ],
+      "title": "ShipmentRef",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "shipment_add",
+    "description": "Track a parcel by its tracking number (carrier guessed if empty). Añadir seguimiento a mano.\nSinónimos: sigue este número, añade este envío, tracking.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": true
+    },
+    "inputSchema": {
+      "properties": {
+        "tracking_number": {
+          "maxLength": 40,
+          "minLength": 6,
+          "title": "Tracking Number",
+          "type": "string"
+        },
+        "carrier": {
+          "default": "",
+          "description": "ups, correos, dhl, seur, gls, mrw, nacex, ctt, inpost, fedex, yunexpress… Empty = guess.",
+          "maxLength": 30,
+          "title": "Carrier",
+          "type": "string"
+        },
+        "label": {
+          "default": "",
+          "description": "What it is, e.g. «Portátil PCSpecialist».",
+          "maxLength": 120,
+          "title": "Label",
+          "type": "string"
+        },
+        "merchant": {
+          "default": "",
+          "maxLength": 60,
+          "title": "Merchant",
+          "type": "string"
+        },
+        "notes": {
+          "default": "",
+          "maxLength": 2000,
+          "title": "Notes",
+          "type": "string"
+        },
+        "check_now": {
+          "default": true,
+          "title": "Check Now",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "tracking_number"
+      ],
+      "title": "AddArgs",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "shipment_update",
+    "description": "Edit a shipment: label, carrier, number, notes, archive, mute, status. Editar envío.\nSinónimos: renombrar, silenciar avisos, archivar, marcar como entregado.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "shipment": {
+          "maxLength": 60,
+          "minLength": 1,
+          "title": "Shipment",
+          "type": "string"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "maxLength": 120,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "item": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Item"
+        },
+        "merchant": {
+          "anyOf": [
+            {
+              "maxLength": 60,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Merchant"
+        },
+        "carrier": {
+          "anyOf": [
+            {
+              "maxLength": 30,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Carrier"
+        },
+        "tracking_number": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tracking Number"
+        },
+        "origin_country": {
+          "anyOf": [
+            {
+              "maxLength": 2,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "ISO country the parcel leaves from, e.g. NL.",
+          "title": "Origin Country"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        },
+        "archived": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Archived"
+        },
+        "muted": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "No notifications for this parcel.",
+          "title": "Muted"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Set by hand: ordered, label_created, not_found, in_transit, customs, out_for_delivery, available_for_pickup, failed_attempt, exception, delivered, returned, unknown.",
+          "title": "Status"
+        }
+      },
+      "required": [
+        "shipment"
+      ],
+      "title": "UpdateArgs",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "shipment_delete",
+    "description": "Delete a shipment and its events (confirm=true). Borrar envío.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "shipment": {
+          "maxLength": 60,
+          "minLength": 1,
+          "title": "Shipment",
+          "type": "string"
+        },
+        "confirm": {
+          "default": false,
+          "title": "Confirm",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "shipment"
+      ],
+      "title": "DeleteArgs",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "shipment_received",
+    "description": "Mark received: stop tracking, clear its alerts and keep it in history. Recibido.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "shipment": {
+          "description": "Shipment id (s_…), tracking number or order number.",
+          "maxLength": 60,
+          "minLength": 1,
+          "title": "Shipment",
+          "type": "string"
+        }
+      },
+      "required": [
+        "shipment"
+      ],
+      "title": "ShipmentRef",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "shipment_reopen",
+    "description": "Undo a manual receipt and resume its previous status. Volver a seguir.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "shipment": {
+          "description": "Shipment id (s_…), tracking number or order number.",
+          "maxLength": 60,
+          "minLength": 1,
+          "title": "Shipment",
+          "type": "string"
+        }
+      },
+      "required": [
+        "shipment"
+      ],
+      "title": "ShipmentRef",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "shipment_merge",
+    "description": "Merge two shipments that are the same parcel (confirm=true). Fusionar envíos duplicados.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "keep": {
+          "maxLength": 60,
+          "title": "Keep",
+          "type": "string"
+        },
+        "drop": {
+          "maxLength": 60,
+          "title": "Drop",
+          "type": "string"
+        },
+        "confirm": {
+          "default": false,
+          "title": "Confirm",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "keep",
+        "drop"
+      ],
+      "title": "MergeArgs",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "shipment_refresh",
+    "description": "Ask the carrier now for one shipment. Comprobar ya un envío.\nSinónimos: actualiza, mira cómo va, refresca el seguimiento.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": true
+    },
+    "inputSchema": {
+      "properties": {
+        "shipment": {
+          "description": "Shipment id (s_…), tracking number or order number.",
+          "maxLength": 60,
+          "minLength": 1,
+          "title": "Shipment",
+          "type": "string"
+        }
+      },
+      "required": [
+        "shipment"
+      ],
+      "title": "ShipmentRef",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "eta_explain",
+    "description": "Why the estimated date: sources used, carrier track record, similar past parcels. Explicar la fecha estimada.\nSinónimos: cuándo llega, por qué esa fecha, envíos parecidos, retraso.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "shipment": {
+          "description": "Shipment id (s_…), tracking number or order number.",
+          "maxLength": 60,
+          "minLength": 1,
+          "title": "Shipment",
+          "type": "string"
+        }
+      },
+      "required": [
+        "shipment"
+      ],
+      "title": "ShipmentRef",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "mail_scan",
+    "description": "Read new shipping mail now (or search back N days / a query). Leer el correo ya.\nSinónimos: revisa el correo, busca el correo de la tienda, importar pedidos.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": true
+    },
+    "inputSchema": {
+      "properties": {
+        "since_days": {
+          "anyOf": [
+            {
+              "maximum": 730,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How far back to read (default: the configured window).",
+          "title": "Since Days"
+        },
+        "query": {
+          "default": "",
+          "description": "Optional search, e.g. a shop name or a tracking number.",
+          "maxLength": 200,
+          "title": "Query",
+          "type": "string"
+        },
+        "reprocess": {
+          "default": false,
+          "description": "Re-read previously scanned messages to reconcile missed deliveries without duplicating parcels.",
+          "title": "Reprocess",
+          "type": "boolean"
+        }
+      },
+      "title": "ScanArgs",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "shipments_history_repair",
+    "description": "Move old stuck parcels to the history (dry run first). Limpiar envíos antiguos del listado activo.\nParcels whose newest mail, carrier event and change are older than mail.history_days (default 30) and that are not delivered or archived go to the history quietly. dry_run=true (default) only lists them. Sinónimos: envíos viejos activos, limpiar historial, reparar envíos.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "dry_run": {
+          "default": true,
+          "description": "Only report what would move to the history (default). Pass false to do it.",
+          "title": "Dry Run",
+          "type": "boolean"
+        }
+      },
+      "title": "HistoryRepairArgs",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "mail_list",
+    "description": "Mails Phileas read: to review (maybe), shipping, noise. Correos leídos y dudosos.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "kind": {
+          "default": "maybe",
+          "enum": [
+            "maybe",
+            "shipping",
+            "noise",
+            "travel",
+            "all"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "state": {
+          "default": "all",
+          "enum": [
+            "new",
+            "linked",
+            "ignored",
+            "skipped",
+            "all"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "limit": {
+          "default": 30,
+          "maximum": 300,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        }
+      },
+      "title": "MailListArgs",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "mail_accept",
+    "description": "Turn a doubtful mail into a shipment update. Aceptar correo dudoso como envío.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "message_id": {
+          "maxLength": 300,
+          "minLength": 3,
+          "title": "Message Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "message_id"
+      ],
+      "title": "MailRef",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "mail_ignore",
+    "description": "Ignore a doubtful mail. Ignorar correo dudoso.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "message_id": {
+          "maxLength": 300,
+          "minLength": 3,
+          "title": "Message Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "message_id"
+      ],
+      "title": "MailRef",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "mail_paste",
+    "description": "File a shipping mail pasted as text (shops outside the inbox). Pegar un correo de envío.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "subject": {
+          "default": "",
+          "maxLength": 300,
+          "title": "Subject",
+          "type": "string"
+        },
+        "text": {
+          "description": "The mail body as plain text.",
+          "maxLength": 60000,
+          "minLength": 10,
+          "title": "Text",
+          "type": "string"
+        },
+        "from_address": {
+          "default": "",
+          "maxLength": 200,
+          "title": "From Address",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "PasteArgs",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "mail_status",
+    "description": "Which inbox Phileas reads (account in Faustus) and whether it answers. Estado del correo.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": true
+    },
+    "inputSchema": {
+      "description": "A tool without arguments.",
+      "properties": {},
+      "title": "Empty",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "detect_numbers",
+    "description": "Find tracking numbers and carriers in any text. Detectar números de seguimiento.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "text": {
+          "maxLength": 60000,
+          "minLength": 6,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "TextArgs",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "track_number",
+    "description": "One-off lookup of a tracking number without saving it. Consultar un número sin guardarlo.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": true
+    },
+    "inputSchema": {
+      "properties": {
+        "tracking_number": {
+          "maxLength": 40,
+          "minLength": 6,
+          "title": "Tracking Number",
+          "type": "string"
+        },
+        "carrier": {
+          "default": "",
+          "maxLength": 30,
+          "title": "Carrier",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tracking_number"
+      ],
+      "title": "TrackArgs",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "delivery_stats",
+    "description": "Delivery days per carrier and shop on past parcels, and how accurate their dates were. Estadísticas.\nSinónimos: cuánto tarda UPS, qué transportista es más rápido, retrasos habituales.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "description": "A tool without arguments.",
+      "properties": {},
+      "title": "Empty",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "carriers_list",
+    "description": "Known carriers and which source answers for each. Transportistas y fuentes.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "description": "A tool without arguments.",
+      "properties": {},
+      "title": "Empty",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "notifications_list",
+    "description": "Notifications sent (newest first). Avisos enviados.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "limit": {
+          "default": 30,
+          "maximum": 300,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        }
+      },
+      "title": "LimitArgs",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "shipments_notify_status",
+    "description": "Notification channels: toast, hub, ntfy, Telegram, email. Canales de aviso.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "description": "A tool without arguments.",
+      "properties": {},
+      "title": "Empty",
+      "type": "object"
+    },
+    "module": "shipments",
+    "native_name": "notify_status"
+  },
+  {
+    "name": "shipments_notify_test",
+    "description": "Send a test notification through one channel or the family hub. Probar un canal de aviso.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": true
+    },
+    "inputSchema": {
+      "properties": {
+        "channel": {
+          "default": "hub",
+          "enum": [
+            "toast",
+            "hub",
+            "ntfy",
+            "telegram",
+            "email"
+          ],
+          "title": "Channel",
+          "type": "string"
+        },
+        "via": {
+          "default": "own",
+          "description": "hub = a sample notification through the family hub's notification centre (it decides the channels); own = test the channel itself.",
+          "enum": [
+            "own",
+            "hub"
+          ],
+          "title": "Via",
+          "type": "string"
+        }
+      },
+      "title": "NotifyTestArgs",
+      "type": "object"
+    },
+    "module": "shipments",
+    "native_name": "notify_test"
+  },
+  {
+    "name": "shipments_telegram_find_chat_id",
+    "description": "Find and save the Telegram chat id after writing to the bot. Buscar chat de Telegram.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": true
+    },
+    "inputSchema": {
+      "description": "A tool without arguments.",
+      "properties": {},
+      "title": "Empty",
+      "type": "object"
+    },
+    "module": "shipments",
+    "native_name": "telegram_find_chat_id"
+  },
+  {
+    "name": "shipments_settings_set",
+    "description": "Change settings (mail source, alert delivery, mail interval, holidays region, channels…). Cambiar ajustes.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "values": {
+          "additionalProperties": true,
+          "description": "Setting key -> value. See phileas_status → settings for the keys.",
+          "title": "Values",
+          "type": "object"
+        }
+      },
+      "required": [
+        "values"
+      ],
+      "title": "SettingsArgs",
+      "type": "object"
+    },
+    "module": "shipments",
+    "native_name": "settings_set"
+  },
+  {
+    "name": "shipments_secret_set",
+    "description": "Store a key (17TRACK, UPS, DHL, Telegram, ntfy, SMTP). Guardar una clave.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "name": {
+          "enum": [
+            "TRACK17_KEY",
+            "UPS_CLIENT_ID",
+            "UPS_CLIENT_SECRET",
+            "DHL_API_KEY",
+            "FAUSTUS_DIR",
+            "TELEGRAM_TOKEN",
+            "TELEGRAM_CHAT_ID",
+            "NTFY_TOPIC",
+            "NTFY_TOKEN",
+            "SMTP_HOST",
+            "SMTP_PORT",
+            "SMTP_USER",
+            "SMTP_PASSWORD",
+            "SMTP_FROM",
+            "SMTP_TO"
+          ],
+          "title": "Name",
+          "type": "string"
+        },
+        "value": {
+          "default": "",
+          "description": "Empty clears it.",
+          "maxLength": 2000,
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "SecretArgs",
+      "type": "object"
+    },
+    "module": "shipments",
+    "native_name": "secret_set"
+  },
+  {
+    "name": "shipments_scheduler_status",
+    "description": "Background jobs: lanes, queue, last mail scan. Estado del planificador.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "description": "A tool without arguments.",
+      "properties": {},
+      "title": "Empty",
+      "type": "object"
+    },
+    "module": "shipments",
+    "native_name": "scheduler_status"
+  },
+  {
+    "name": "shipments_runs_list",
+    "description": "Recent mail scans and carrier checks with their result. Últimas comprobaciones.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "limit": {
+          "default": 30,
+          "maximum": 300,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        }
+      },
+      "title": "LimitArgs",
+      "type": "object"
+    },
+    "module": "shipments",
+    "native_name": "runs_list"
+  },
+  {
+    "name": "housekeeping_run",
+    "description": "Archive old deliveries, flag stale parcels, pickup reminders, refresh estimates. Mantenimiento.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "description": "A tool without arguments.",
+      "properties": {},
+      "title": "Empty",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "travel_overview",
+    "description": "Trips on now, next trip, check-ins to do, mails to review. Mis viajes de un vistazo.\nWhat is happening today on a trip in progress, the next trip with days to go, flights whose online check-in is open or about to open, bookings from mail waiting for review and counts. Sinónimos: viajes, qué viaje tengo, mi próximo viaje, qué hago hoy de viaje, check-in pendiente.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "description": "A tool without arguments.",
+      "properties": {},
+      "title": "Empty",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "trips_list",
+    "description": "List trips (upcoming, ongoing, past, cancelled, all). Lista de viajes.\nEach trip has title, dates, destination, status, days to go, kinds of segments and what needs review. Sinónimos: mis viajes, viajes pasados, viajes cancelados, cuándo es mi próximo viaje.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "filter": {
+          "default": "upcoming",
+          "enum": [
+            "upcoming",
+            "ongoing",
+            "past",
+            "cancelled",
+            "active",
+            "all"
+          ],
+          "title": "Filter",
+          "type": "string"
+        }
+      },
+      "title": "TripsListArgs",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "trip_get",
+    "description": "One trip: segments, day-by-day timeline, links, people, expenses and balances. Detalle de un viaje.\nTakes the trip id or its exact title. Segments carry check-in state, times with their time zone and the mails they came from. Sinónimos: vuelos de mi viaje, dónde me alojo, a qué hora sale, itinerario, enlaces de la reserva.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "trip": {
+          "description": "Trip id (t_…) or its exact title.",
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Trip",
+          "type": "string"
+        }
+      },
+      "required": [
+        "trip"
+      ],
+      "title": "TripArg",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "trip_create",
+    "description": "Create a trip by hand with a title and dates. Crear un viaje.\nSinónimos: nuevo viaje, apunta un viaje, viaje sin reservas.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "title": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "start_date": {
+          "default": "",
+          "description": "YYYY-MM-DD; filled from the segments once there are some.",
+          "maxLength": 10,
+          "title": "Start Date",
+          "type": "string"
+        },
+        "end_date": {
+          "default": "",
+          "maxLength": 10,
+          "title": "End Date",
+          "type": "string"
+        },
+        "currency": {
+          "default": "EUR",
+          "description": "Base currency of the trip's shared expenses.",
+          "maxLength": 3,
+          "minLength": 3,
+          "title": "Currency",
+          "type": "string"
+        },
+        "notes": {
+          "default": "",
+          "maxLength": 4000,
+          "title": "Notes",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title"
+      ],
+      "title": "TripCreateArgs",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "trip_update",
+    "description": "Rename, mute, cancel, merge, split a trip or move a segment between trips. Editar un viaje.\nmerge_from (confirm=true) merges another trip into this one; split_segments moves some segments into a new trip; move_segment + to_trip moves one segment ('new' = its own trip, empty = let the grouping place it); delete (confirm=true) removes the trip and its bookings (keep_segments=true keeps them without a trip). Sinónimos: renombrar viaje, unir viajes, separar viaje, mover vuelo a otro viaje, silenciar avisos del viaje.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "trip": {
+          "description": "Trip id (t_…) or its exact title.",
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Trip",
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "maxLength": 120,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Rename. An empty string gives the automatic title back.",
+          "title": "Title"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "maxLength": 4000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        },
+        "currency": {
+          "anyOf": [
+            {
+              "maxLength": 3,
+              "minLength": 3,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Currency"
+        },
+        "pinned": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Keep the trip even with no segments.",
+          "title": "Pinned"
+        },
+        "muted": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "No reminders for this trip.",
+          "title": "Muted"
+        },
+        "cancelled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mark the whole trip cancelled (or not).",
+          "title": "Cancelled"
+        },
+        "merge_from": {
+          "anyOf": [
+            {
+              "maxLength": 120,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Another trip (id or title) to merge INTO this one; needs confirm=true.",
+          "title": "Merge From"
+        },
+        "split_segments": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 60,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Segment ids to split off into a new trip (not all of them).",
+          "title": "Split Segments"
+        },
+        "split_title": {
+          "default": "",
+          "description": "Title for the trip created by split_segments.",
+          "maxLength": 120,
+          "title": "Split Title",
+          "type": "string"
+        },
+        "move_segment": {
+          "anyOf": [
+            {
+              "maxLength": 60,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Segment id to move.",
+          "title": "Move Segment"
+        },
+        "to_trip": {
+          "default": "",
+          "description": "With move_segment: target trip id or title, 'new' for a trip of its own, or empty to let the grouping place it again.",
+          "maxLength": 120,
+          "title": "To Trip",
+          "type": "string"
+        },
+        "delete": {
+          "default": false,
+          "description": "Delete the trip AND its bookings (they are remembered as deleted, so reading the same mail again does not bring them back); needs confirm=true.",
+          "title": "Delete",
+          "type": "boolean"
+        },
+        "keep_segments": {
+          "default": false,
+          "description": "With delete: keep the bookings instead, detached and marked 'no trip' (the grouping leaves them alone).",
+          "title": "Keep Segments",
+          "type": "boolean"
+        },
+        "confirm": {
+          "default": false,
+          "title": "Confirm",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "trip"
+      ],
+      "title": "TripUpdateArgs",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "segment_add",
+    "description": "Add a flight, train, bus, ferry, car rental, stay or activity by hand. Añadir un tramo o reserva.\nTimes are local at the place; the airport table fills the city and time zone from IATA codes. Sinónimos: añade un vuelo, apunta un hotel, añadir reserva, he comprado un billete de tren, alquiler de coche.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "carrier": {
+          "anyOf": [
+            {
+              "maxLength": 60,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Airline, rail or bus company.",
+          "title": "Carrier"
+        },
+        "number": {
+          "anyOf": [
+            {
+              "maxLength": 12,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Flight number like IB3166, train number or bus line.",
+          "title": "Number"
+        },
+        "booking_ref": {
+          "anyOf": [
+            {
+              "maxLength": 20,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Booking reference (localizador / PNR).",
+          "title": "Booking Ref"
+        },
+        "provider": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Hotel, rental company or host (stays and cars).",
+          "title": "Provider"
+        },
+        "from_code": {
+          "anyOf": [
+            {
+              "maxLength": 3,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "IATA airport code (flights).",
+          "title": "From Code"
+        },
+        "from_name": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Station, port, pick-up point or the stay's name.",
+          "title": "From Name"
+        },
+        "to_code": {
+          "anyOf": [
+            {
+              "maxLength": 3,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "To Code"
+        },
+        "to_name": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "To Name"
+        },
+        "dep_local": {
+          "anyOf": [
+            {
+              "maxLength": 16,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Departure, check-in or pick-up. Local time at the place, YYYY-MM-DDTHH:MM (or just YYYY-MM-DD).",
+          "title": "Dep Local"
+        },
+        "arr_local": {
+          "anyOf": [
+            {
+              "maxLength": 16,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Arrival, check-out or drop-off. Local time at the place, YYYY-MM-DDTHH:MM (or just YYYY-MM-DD).",
+          "title": "Arr Local"
+        },
+        "dep_tz": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "IANA zone of the departure place; filled from the airport when empty.",
+          "title": "Dep Tz"
+        },
+        "arr_tz": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Arr Tz"
+        },
+        "terminal": {
+          "anyOf": [
+            {
+              "maxLength": 8,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Terminal"
+        },
+        "gate": {
+          "anyOf": [
+            {
+              "maxLength": 8,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Gate"
+        },
+        "seat": {
+          "anyOf": [
+            {
+              "maxLength": 8,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seat"
+        },
+        "coach": {
+          "anyOf": [
+            {
+              "maxLength": 8,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Coach"
+        },
+        "travel_class": {
+          "anyOf": [
+            {
+              "maxLength": 30,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Travel Class"
+        },
+        "passengers": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 9,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "First names only.",
+          "title": "Passengers"
+        },
+        "price": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Price of the booking.",
+          "title": "Price"
+        },
+        "currency": {
+          "anyOf": [
+            {
+              "maxLength": 3,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Currency"
+        },
+        "address": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Address"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "enum": [
+                "confirmed",
+                "cancelled"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Status"
+        },
+        "kind": {
+          "description": "flight, train, bus, ferry, car (rental), lodging or event.",
+          "enum": [
+            "flight",
+            "train",
+            "bus",
+            "ferry",
+            "car",
+            "lodging",
+            "event"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "trip": {
+          "default": "",
+          "description": "Trip id or title to put it in; empty lets the grouping decide.",
+          "maxLength": 120,
+          "title": "Trip",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "SegmentAddArgs",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "segment_update",
+    "description": "Edit a segment: times, places, number, seat, terminal, price, status. Editar un tramo.\nSinónimos: cambiar hora del vuelo, cambiar asiento, corregir fecha, el hotel es otro, marcar como cancelado.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "carrier": {
+          "anyOf": [
+            {
+              "maxLength": 60,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Airline, rail or bus company.",
+          "title": "Carrier"
+        },
+        "number": {
+          "anyOf": [
+            {
+              "maxLength": 12,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Flight number like IB3166, train number or bus line.",
+          "title": "Number"
+        },
+        "booking_ref": {
+          "anyOf": [
+            {
+              "maxLength": 20,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Booking reference (localizador / PNR).",
+          "title": "Booking Ref"
+        },
+        "provider": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Hotel, rental company or host (stays and cars).",
+          "title": "Provider"
+        },
+        "from_code": {
+          "anyOf": [
+            {
+              "maxLength": 3,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "IATA airport code (flights).",
+          "title": "From Code"
+        },
+        "from_name": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Station, port, pick-up point or the stay's name.",
+          "title": "From Name"
+        },
+        "to_code": {
+          "anyOf": [
+            {
+              "maxLength": 3,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "To Code"
+        },
+        "to_name": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "To Name"
+        },
+        "dep_local": {
+          "anyOf": [
+            {
+              "maxLength": 16,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Departure, check-in or pick-up. Local time at the place, YYYY-MM-DDTHH:MM (or just YYYY-MM-DD).",
+          "title": "Dep Local"
+        },
+        "arr_local": {
+          "anyOf": [
+            {
+              "maxLength": 16,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Arrival, check-out or drop-off. Local time at the place, YYYY-MM-DDTHH:MM (or just YYYY-MM-DD).",
+          "title": "Arr Local"
+        },
+        "dep_tz": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "IANA zone of the departure place; filled from the airport when empty.",
+          "title": "Dep Tz"
+        },
+        "arr_tz": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Arr Tz"
+        },
+        "terminal": {
+          "anyOf": [
+            {
+              "maxLength": 8,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Terminal"
+        },
+        "gate": {
+          "anyOf": [
+            {
+              "maxLength": 8,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Gate"
+        },
+        "seat": {
+          "anyOf": [
+            {
+              "maxLength": 8,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seat"
+        },
+        "coach": {
+          "anyOf": [
+            {
+              "maxLength": 8,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Coach"
+        },
+        "travel_class": {
+          "anyOf": [
+            {
+              "maxLength": 30,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Travel Class"
+        },
+        "passengers": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 9,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "First names only.",
+          "title": "Passengers"
+        },
+        "price": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Price of the booking.",
+          "title": "Price"
+        },
+        "currency": {
+          "anyOf": [
+            {
+              "maxLength": 3,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Currency"
+        },
+        "address": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Address"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "enum": [
+                "confirmed",
+                "cancelled"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Status"
+        },
+        "segment": {
+          "description": "Segment id (g_…); the ids are in trip_get.",
+          "maxLength": 60,
+          "minLength": 1,
+          "title": "Segment",
+          "type": "string"
+        }
+      },
+      "required": [
+        "segment"
+      ],
+      "title": "SegmentUpdateArgs",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "segment_delete",
+    "description": "Delete a segment (confirm=true). Borrar un tramo o reserva.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "segment": {
+          "description": "Segment id (g_…); the ids are in trip_get.",
+          "maxLength": 60,
+          "minLength": 1,
+          "title": "Segment",
+          "type": "string"
+        },
+        "confirm": {
+          "default": false,
+          "title": "Confirm",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "segment"
+      ],
+      "title": "SegmentDeleteArgs",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "checkin_status",
+    "description": "Online check-in window of each flight: opens, closes, link, done or not. Estado del check-in.\nUses the airline table verified 02-10-2026 and says its source; an airline not in the table is reported as unknown. Sinónimos: cuándo abre el check-in, puedo hacer ya el check-in, check-in online, hora límite del check-in.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "trip": {
+          "default": "",
+          "description": "Only this trip's flights; empty = flights in the next 45 days.",
+          "maxLength": 120,
+          "title": "Trip",
+          "type": "string"
+        }
+      },
+      "title": "CheckinStatusArgs",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "checkin_done",
+    "description": "Mark a flight's check-in as done (or not). Check-in hecho.\nSinónimos: ya hice el check-in, marcar check-in, deshacer check-in.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "segment": {
+          "description": "Segment id (g_…); the ids are in trip_get.",
+          "maxLength": 60,
+          "minLength": 1,
+          "title": "Segment",
+          "type": "string"
+        },
+        "done": {
+          "default": true,
+          "title": "Done",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "segment"
+      ],
+      "title": "CheckinDoneArgs",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "trip_documents_check",
+    "description": "Will the ID card or passport in Kafka still be valid when the trip ends? Comprobar documentos.\nAsks Kafka through the hub; if Kafka is down the status is unknown, never an error. Document numbers are never shown. Sinónimos: caduca mi pasaporte, DNI en regla para viajar, documentos para el viaje.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": true
+    },
+    "inputSchema": {
+      "properties": {
+        "trip": {
+          "description": "Trip id (t_…) or its exact title.",
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Trip",
+          "type": "string"
+        }
+      },
+      "required": [
+        "trip"
+      ],
+      "title": "TripArg",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "trip_people",
+    "description": "People sharing the trip's expenses: add, rename, remove, which one is the user. Personas del viaje.\nSinónimos: añade a Marta al viaje, quién viaja, yo soy.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "trip": {
+          "description": "Trip id (t_…) or its exact title.",
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Trip",
+          "type": "string"
+        },
+        "add": {
+          "description": "Names to add (first names).",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Add",
+          "type": "array"
+        },
+        "remove": {
+          "description": "Names to remove (only if they are in no expense).",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Remove",
+          "type": "array"
+        },
+        "rename": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "{old name: new name}.",
+          "title": "Rename",
+          "type": "object"
+        },
+        "me": {
+          "default": "",
+          "description": "Which of the people is the user.",
+          "maxLength": 40,
+          "title": "Me",
+          "type": "string"
+        }
+      },
+      "required": [
+        "trip"
+      ],
+      "title": "PeopleArgs",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "trip_expenses",
+    "description": "A trip's shared expenses with each person's share, balances and transfers. Gastos del viaje.\nSinónimos: gastos compartidos, cuánto llevamos gastado, quién debe a quién, cuentas del viaje.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "trip": {
+          "description": "Trip id (t_…) or its exact title.",
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Trip",
+          "type": "string"
+        }
+      },
+      "required": [
+        "trip"
+      ],
+      "title": "TripArg",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "trip_expense_add",
+    "description": "Add a shared expense: who paid, split equal/shares/exact, currency with its rate. Añadir gasto del viaje.\nfrom_segment turns a booking's price into one expense. Another currency than the trip's needs the rate you paid. Sinónimos: he pagado la cena, apunta un gasto del viaje, pagó Marta, dividir a partes iguales.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "trip": {
+          "description": "Trip id (t_…) or its exact title.",
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Trip",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Description",
+          "type": "string"
+        },
+        "amount": {
+          "default": 0,
+          "description": "Amount paid in `currency` (the trip currency by default).",
+          "minimum": 0,
+          "title": "Amount",
+          "type": "number"
+        },
+        "payer": {
+          "default": "",
+          "description": "Who paid (name); default: the user.",
+          "maxLength": 40,
+          "title": "Payer",
+          "type": "string"
+        },
+        "currency": {
+          "default": "",
+          "maxLength": 3,
+          "title": "Currency",
+          "type": "string"
+        },
+        "rate": {
+          "default": 1.0,
+          "description": "1 unit of `currency` in the trip currency; required when they differ (never fetched from the network).",
+          "exclusiveMinimum": 0,
+          "title": "Rate",
+          "type": "number"
+        },
+        "split_mode": {
+          "default": "equal",
+          "enum": [
+            "equal",
+            "shares",
+            "exact"
+          ],
+          "title": "Split Mode",
+          "type": "string"
+        },
+        "split": {
+          "additionalProperties": true,
+          "description": "equal: {\"people\": [names]} (default everybody); shares: {\"shares\": {name: weight}}; exact: {\"amounts\": {name: amount}} adding up to the amount.",
+          "title": "Split",
+          "type": "object"
+        },
+        "date": {
+          "default": "",
+          "description": "YYYY-MM-DD; default today.",
+          "maxLength": 10,
+          "title": "Date",
+          "type": "string"
+        },
+        "category": {
+          "default": "other",
+          "enum": [
+            "transport",
+            "lodging",
+            "food",
+            "activities",
+            "shopping",
+            "other"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "from_segment": {
+          "default": "",
+          "description": "Instead of description/amount: the price found in that segment's mail, as one expense.",
+          "maxLength": 60,
+          "title": "From Segment",
+          "type": "string"
+        }
+      },
+      "required": [
+        "trip"
+      ],
+      "title": "ExpenseAddArgs",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "trip_expense_update",
+    "description": "Change a shared expense. Editar gasto del viaje.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "expense": {
+          "description": "Expense id (x_…).",
+          "maxLength": 60,
+          "minLength": 1,
+          "title": "Expense",
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "amount": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Amount"
+        },
+        "payer": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Payer"
+        },
+        "currency": {
+          "anyOf": [
+            {
+              "maxLength": 3,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Currency"
+        },
+        "rate": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rate"
+        },
+        "split_mode": {
+          "anyOf": [
+            {
+              "enum": [
+                "equal",
+                "shares",
+                "exact"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Split Mode"
+        },
+        "split": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Split"
+        },
+        "date": {
+          "anyOf": [
+            {
+              "maxLength": 10,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Date"
+        },
+        "category": {
+          "anyOf": [
+            {
+              "enum": [
+                "transport",
+                "lodging",
+                "food",
+                "activities",
+                "shopping",
+                "other"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Category"
+        }
+      },
+      "required": [
+        "expense"
+      ],
+      "title": "ExpenseUpdateArgs",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "trip_expense_delete",
+    "description": "Delete a shared expense (confirm=true). Borrar gasto del viaje.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "expense": {
+          "maxLength": 60,
+          "minLength": 1,
+          "title": "Expense",
+          "type": "string"
+        },
+        "confirm": {
+          "default": false,
+          "title": "Confirm",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "expense"
+      ],
+      "title": "ExpenseDeleteArgs",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "trip_settle",
+    "description": "Balances and the fewest transfers that settle a trip's expenses. Saldar cuentas del viaje.\nSinónimos: quién paga a quién, repartir gastos, liquidar el viaje, cuánto me deben.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "trip": {
+          "description": "Trip id (t_…) or its exact title.",
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Trip",
+          "type": "string"
+        }
+      },
+      "required": [
+        "trip"
+      ],
+      "title": "TripArg",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "trip_to_ledger",
+    "description": "Send my share of each trip expense not yet sent to Ledger. Pasar mi parte a Ledger.\nEach expense goes once (remembered); Ledger down or an account in another currency is explained, nothing is invented. dry_run lists what would go. Sinónimos: pasa los gastos del viaje a mis cuentas, apunta mi parte en Ledger, registrar gastos del viaje.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": true
+    },
+    "inputSchema": {
+      "properties": {
+        "trip": {
+          "description": "Trip id (t_…) or its exact title.",
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Trip",
+          "type": "string"
+        },
+        "account": {
+          "default": "",
+          "description": "Ledger account; default the travel.ledger_account setting, or the only account.",
+          "maxLength": 80,
+          "title": "Account",
+          "type": "string"
+        },
+        "dry_run": {
+          "default": false,
+          "description": "Only list what would be sent.",
+          "title": "Dry Run",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "trip"
+      ],
+      "title": "ToLedgerArgs",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "trip_ics",
+    "description": "Export a trip (or every upcoming trip) to a calendar .ics file. Exportar al calendario.\nOne event per segment with its time zone, and an alarm when online check-in opens. Saved under data/exports. Sinónimos: añadir el viaje al calendario, exportar a ics, calendario de viajes.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "trip": {
+          "default": "",
+          "description": "One trip; empty = every upcoming and ongoing trip.",
+          "maxLength": 120,
+          "title": "Trip",
+          "type": "string"
+        }
+      },
+      "title": "IcsArgs",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "trip_paste",
+    "description": "Read a booking mail pasted as text into segments and trips. Pegar un correo de reserva.\nReads schema.org markup, sender rules or the local model; says what was read and what needs review. Sinónimos: pega este correo de vuelo, lee esta confirmación de hotel, añadir reserva desde un email.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "subject": {
+          "default": "",
+          "maxLength": 300,
+          "title": "Subject",
+          "type": "string"
+        },
+        "text": {
+          "description": "The booking mail as plain text.",
+          "maxLength": 60000,
+          "minLength": 10,
+          "title": "Text",
+          "type": "string"
+        },
+        "from_address": {
+          "default": "",
+          "description": "Sender address, when known: it helps pick the right rules.",
+          "maxLength": 200,
+          "title": "From Address",
+          "type": "string"
+        },
+        "trip": {
+          "default": "",
+          "description": "Put what is read into this trip.",
+          "maxLength": 120,
+          "title": "Trip",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "TripPasteArgs",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "travel_mail_list",
+    "description": "Travel mails read: waiting for review, filed, ignored. Correos de viajes leídos.\nEach shows what was read (source schema, rules or model, with evidence lines). Accept with mail_accept, ignore with mail_ignore. Sinónimos: correos de reservas pendientes, qué reservas ha leído.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "state": {
+          "default": "new",
+          "enum": [
+            "new",
+            "linked",
+            "ignored",
+            "skipped",
+            "all"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "limit": {
+          "default": 30,
+          "maximum": 200,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        }
+      },
+      "title": "TravelMailListArgs",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "travel_mail_read_again",
+    "description": "Ask the local model to read a travel mail from the review list again. Releer reserva con el modelo.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "message_id": {
+          "maxLength": 300,
+          "minLength": 3,
+          "title": "Message Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "message_id"
+      ],
+      "title": "MailIdArg",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
+    "name": "travel_mail_recheck",
+    "description": "Drop non-bookings from the travel review list. Limpiar la lista de revisión de viajes.\nRuns the booking-evidence check again over the mails waiting for review and moves marketing, notices and event tickets out of the list. Sinónimos: limpiar correos de viajes, quitar publicidad de la lista de reservas.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "description": "A tool without arguments.",
+      "properties": {},
+      "title": "Empty",
+      "type": "object"
+    },
+    "module": "shipments"
+  }
+]
