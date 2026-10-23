@@ -437,6 +437,55 @@ function InfoPanel({ watcher, sources }) {
   );
 }
 
+function PurchasePanel({ watcher, onChanged }) {
+  const { t, lang, notify } = useApp();
+  const [open, setOpen] = useState(false);
+  const [reference, setReference] = useState("");
+  const [busy, run] = useBusy();
+  const button = useRef(null);
+  const bought = watcher.config?.bought || {};
+  const submit = (event) => {
+    event.preventDefault();
+    run("purchase", async () => {
+      await api.call("watcher_mark_bought", { watcher_id: watcher.id, purchase_ref: reference.trim() });
+      notify(t("purchase_marked"));
+      setOpen(false);
+      setReference("");
+      onChanged();
+    });
+  };
+  return (
+    <Section id="sec-purchase" title={t(watcher.status === "bought" ? "purchase_record" : "purchase_register")}>
+      <p className="help">{t("purchase_manual")}</p>
+      {watcher.status === "bought" ? (
+        <div className="space-y-2">
+          <dl className="m-0 grid gap-x-4 gap-y-1 sm:grid-cols-[auto_1fr]">
+            <dt className="help">{t("purchase_marked_at")}</dt><dd className="m-0">{bought.ts ? clock(bought.ts, lang) : "—"}</dd>
+            <dt className="help">{t("purchase_reference_saved")}</dt><dd className="m-0 min-w-0 break-all">{bought.purchase_ref || "—"}</dd>
+          </dl>
+          <p className="help">{t("purchase_resume_hint")}</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <button ref={button} type="button" className="btn" disabled={busy.purchase} aria-expanded={open} onClick={() => setOpen(!open)}>{t("purchase_mark_bought")}</button>
+          <p className="help">{t("purchase_stop_hint")}</p>
+          {open && (
+            <form className="space-y-3" onSubmit={submit}>
+              <Field label={t("purchase_reference")} hint={t("purchase_reference_hint")}>
+                <input className="field" value={reference} onChange={(event) => setReference(event.target.value)} maxLength={300} disabled={busy.purchase} autoFocus placeholder="hoard://…" />
+              </Field>
+              <div className="flex flex-wrap gap-2">
+                <Busy type="submit" className="btn btn-primary" busy={busy.purchase}>{t("purchase_mark_bought")}</Busy>
+                <button type="button" className="btn" disabled={busy.purchase} onClick={() => { setOpen(false); button.current?.focus(); }}>{t("cancel")}</button>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
+    </Section>
+  );
+}
+
 function WatcherDetail({ id, editing }) {
   const { t, refreshDash, notify, confirm, packs, loadPacks } = useApp();
   const [busy, run] = useBusy();
@@ -498,6 +547,8 @@ function WatcherDetail({ id, editing }) {
         {busy.run && <p className="help" role="status">{t("may_take_long")}</p>}
         {w.last_error && <div className="banner banner-danger">{w.last_error}</div>}
       </header>
+
+      {!editing && w.mode === "availability" && <PurchasePanel key={w.id} watcher={w} onChanged={refreshAll} />}
 
       {editing ? (
         needPacks ? <p className="help">…</p> : <WatcherForm watcher={w} onCancel={() => go(`#/watchers/${encodeURIComponent(w.id)}`)} onSaved={() => { refreshAll(); go(`#/watchers/${encodeURIComponent(w.id)}`); }} />
