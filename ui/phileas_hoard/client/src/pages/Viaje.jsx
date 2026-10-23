@@ -10,6 +10,7 @@ import { afterAddSave } from "../copilot-context.js";
 import { publishView } from "../copilot-context.js";
 import { dayLabel, money, num } from "../format.js";
 import PersonNameEditor from "../components/PersonNameEditor.jsx";
+import TripSplit from "../components/TripSplit.jsx";
 
 const ICS_ICON = "M5 5h14v15H5zM5 10h14M9 3v4M15 3v4M12 13v5M9.5 15.5L12 18l2.5-2.5";
 
@@ -516,12 +517,6 @@ export default function Viaje({ param, query }) {
     run(`ds-${s.id}`, async () => { await api.call("segment_delete", { segment: s.id, confirm: true }); notify(t("seg_deleted")); await after(); });
   };
   const select = (sid, on) => setPicked((p) => { const n = new Set(p); on ? n.add(sid) : n.delete(sid); return n; });
-  const split = () => run("split", async () => {
-    await api.call("trip_update", { trip: trip.id, split_segments: [...picked] });
-    setPicked(new Set());
-    notify(t("trip_split_done"));
-    await after();
-  });
   const canSplit = picked.size > 0 && picked.size < segments.length;
   const reviewCount = trip.needs_review;
 
@@ -562,7 +557,7 @@ export default function Viaje({ param, query }) {
           <Timeline days={data.timeline} today={today} />
 
           <Section id="sec-segments" title={t("sec_segments")} count={segments.length}
-            actions={canSplit ? <Busy className="btn btn-sm" busy={busy.split} onClick={split}>{t("trip_split_n", { n: picked.size })}</Busy> : null}>
+            actions={canSplit ? <button type="button" className="btn btn-sm" onClick={() => setModal({ kind: "split" })}>{t(picked.size === 1 ? "trip_split_1" : "trip_split_n", { n: picked.size })}</button> : null}>
             {segments.length === 0 ? <div className="panel help text-center">{t("trips_empty_body")}</div> : (
               <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
                 {segments.map((s) => (
@@ -611,6 +606,9 @@ export default function Viaje({ param, query }) {
       {modal?.kind === "rename" && <RenameModal trip={trip} onClose={() => setModal(null)} onSaved={after} />}
       {modal?.kind === "merge" && <MergeModal trip={trip} others={others} onClose={() => setModal(null)} onSaved={after} />}
       {modal?.kind === "move" && <MoveModal trip={trip} segment={modal.segment} others={others} onClose={() => setModal(null)} onSaved={after} />}
+      <TripSplit key={trip.id} trip={trip} selected={segments.filter((s) => picked.has(s.id))} open={modal?.kind === "split"}
+        onClose={() => setModal(null)} onChanged={after}
+        onSeparated={(ids) => setPicked((current) => new Set([...current].filter((sid) => !ids.includes(sid))))} />
     </div>
   );
 }
