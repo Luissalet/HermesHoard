@@ -1,5 +1,7 @@
 # Hermes's Hoard
 
+La ficha de cada vigilante de disponibilidad ofrece **Marcar comprado**, con referencia local de compra opcional. El registro manual detiene las comprobaciones programadas, conserva productos e historial y muestra fecha/referencia registradas sin verificar una compra externa. El interruptor **Activado** existente permite volver a vigilar y retira la marca de compra. La UI usa `watcher_mark_bought` y `watcher_update` de API/MCP; abrir o cancelar no modifica el vigilante, y cancelar o fallar el guardado conserva el borrador de la referencia.
+
 <img src="app-icon.png" width="96" alt="Hermes icon">
 
 Productos, ofertas, seguimiento de envíos y viajes en un único proceso. Absorbe **Tantalus y Phileas**, conservando sus funciones, herramientas e historiales.

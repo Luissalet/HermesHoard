@@ -1,5 +1,7 @@
 # Hermes's Hoard
 
+Availability watcher details offer **Mark as bought**, with an optional local purchase reference. This manual record stops scheduled checks while preserving products and history, and shows the recorded date/reference without verifying an external purchase. The existing **Enabled** switch resumes watching and clears the purchase mark. The UI uses the existing `watcher_mark_bought` and `watcher_update` API/MCP operations; opening or cancelling the form does not change the watcher, and cancelling or a failed save keeps the reference draft.
+
 <img src="app-icon.png" width="96" alt="Hermes icon">
 
 Product watching, shopping alerts, shipment tracking and travel in one local process. Incorporates Tantalus and Phileas, including their complete native tools, interfaces and stored histories.
