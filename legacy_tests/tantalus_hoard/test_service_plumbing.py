@@ -64,3 +64,29 @@ def test_new_ids_are_ulids_and_old_ids_still_resolve(svc):
     new = svc.store.create_watcher(name="new", mode="availability", config={})
     assert svc.store.watcher("w_mur1nyclbe4c77")["name"] == "old" and svc.store.watcher(new["id"])["name"] == "new"
     assert old["id"] != new["id"]
+
+
+def test_ui_gone_and_saved_preserve_listing_content_and_history(client):
+    store = client.svc.store
+    watcher = store.create_watcher(name="Local listings", mode="secondhand", config={}, enabled=False)
+    for price in (0, None):
+        original = store.insert_listing(watcher["id"], {
+            "source": "fixture", "external_id": str(price), "url": f"https://example.invalid/listing/{price}",
+            "title": "Anuncio ficticio ñ", "description": "Contenido original", "price": price,
+            "currency": "EUR", "seller": "Vendedor ficticio", "reserved": False, "shipping": True,
+            "relevant": True, "score": 85, "signals": ["fixture"], "status": "saved",
+            "extra": {"untouched": "ñ"},
+        })
+        history = store.listing_prices(original["id"])
+        events = [dict(r) for r in client.svc.db.query("SELECT * FROM events ORDER BY id")]
+        for status in ("gone", "saved"):
+            response = client.post("/api/ui/call", headers=LOCAL, json={
+                "name": "listing_set", "arguments": {"listing_id": original["id"], "status": status},
+            })
+            assert response.status_code == 200
+            assert response.json()["listing"] == {**original, "status": status}
+            assert original["id"] in {item["id"] for item in store.listings(watcher_id=watcher["id"], statuses=[status], limit=120)}
+            assert store.listing_prices(original["id"]) == history
+            assert store.watcher(watcher["id"]) == watcher
+            assert [dict(r) for r in client.svc.db.query("SELECT * FROM events ORDER BY id")] == events
+        assert store.listing(original["id"]) == original
