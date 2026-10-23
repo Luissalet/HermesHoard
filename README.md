@@ -8,6 +8,8 @@ Availability watcher details offer **Mark as bought**, with an optional local pu
 
 Product watching, shopping alerts, shipment tracking and travel in one local process. Incorporates Tantalus and Phileas, including their complete native tools, interfaces and stored histories.
 
+Shipment details offer **Merge duplicate record** for two local records of the same parcel. The open record keeps its identity; choose the other record manually and review both identities and the seven fields that can fill empty values. Existing values win. The native `shipment_merge` API/MCP operation moves linked mail, non-duplicate events and recorded notifications, removes the selected record and quietly recomputes the local delivery estimate. Notes, names and other fields are not combined; the normal confirmation describes the removal and absence of undo. Opening/cancelling only reads, and search or save errors preserve the selection and existing unsaved shipment edits. No carrier request, mail scan or external order change occurs.
+
 [Castellano](README.es.md) · [Complete tool inventory](provenance/CAPABILITIES.md) · [Source provenance](provenance/sources.json)
 
 ## Independent modules
