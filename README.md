@@ -1,5 +1,7 @@
 # Hermes's Hoard
 
+**Shipments → Look up a number** runs a one-off carrier lookup without adding a shipment or scheduling tracking. The native `track_number` API/MCP capability returns status, source, carrier estimate and up to 40 events, distinguishing not found, unavailable source and failure. Only **Look up** triggers a request. Configured sources may use external services and their quota; no mail is read or shipment saved. Editing either field removes the previous result; closing or failure keeps the draft.
+
 Availability watcher details offer **Mark as bought**, with an optional local purchase reference. This manual record stops scheduled checks while preserving products and history, and shows the recorded date/reference without verifying an external purchase. The existing **Enabled** switch resumes watching and clears the purchase mark. The UI uses the existing `watcher_mark_bought` and `watcher_update` API/MCP operations; opening or cancelling the form does not change the watcher, and cancelling or a failed save keeps the reference draft.
 
 <img src="app-icon.png" width="96" alt="Hermes icon">
