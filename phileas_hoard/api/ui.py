@@ -8,6 +8,7 @@ The request guard (same-origin JSON only) protects these routes; the Bearer toke
 from __future__ import annotations
 
 import time
+from datetime import date
 from typing import Any
 
 from fastapi import APIRouter, Request
@@ -56,6 +57,12 @@ def ui_call(request: Request, body: CallBody):
         raise
     finally:
         family.record_call(body.name, ok, int((time.monotonic() - t0) * 1000), caller="ui", error=error)
+
+
+@router.get("/shipments/ics")
+def shipments_ics_file(request: Request, date_from: date | None = None, date_to: date | None = None):
+    from ..shipment_calendar import calendar
+    return _ics_response(calendar(services(request), date_from, date_to))
 
 
 @router.get("/shipments/{sid}")

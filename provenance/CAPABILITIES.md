@@ -4,6 +4,7 @@ Source tool definitions and implementations are incorporated in this repository.
 
 | Module | Combined tool | Native tool |
 |---|---|---|
+| shipments | shipments_ics | shipments_ics |
 | products | fleet_status | fleet_status |
 | products | tantalus_overview | tantalus_overview |
 | products | tantalus_status | tantalus_status |

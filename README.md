@@ -43,7 +43,9 @@ Only the central map `data/modules.json` is written. Original databases, mail wa
 
 ## API and MCP
 
-`GET /api/modules`, `PUT /api/modules/{id}` with `{"enabled":true|false}`, and `POST /api/modules/stop-all` control the modules. The combined API exposes **114 tools**: all 112 native functions plus `hermes_modules` and `hermes_set_module`. Calls to OFF modules return `module_disabled` without starting them.
+`GET /api/modules`, `PUT /api/modules/{id}` with `{"enabled":true|false}`, and `POST /api/modules/stop-all` control the modules. The combined API exposes **115 tools**: 113 native functions plus `hermes_modules` and `hermes_set_module`. Calls to OFF modules return `module_disabled` without starting them.
+
+**Delivery calendar:** Shipments has a date-range preview and ICS download for stored estimated delivery dates and recorded pickup deadlines. Deliveries are marked tentative, deadlines confirmed, and all events are all-day and transparent. Undated parcels and dates outside the selected period are counted; completed, archived and history-only parcels are excluded. The downloaded file is a snapshot, not a live subscription. `shipments_ics` exposes the same dates, complete ICS and download URL through native/combined MCP and API; `GET /shipments/api/shipments/ics?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD` downloads it. Defaults: today through 90 days ahead. Existing storage lists at most 2,000 active parcels; reaching that boundary is shown. No carrier lookup, mail scan, model request or shipment mutation occurs.
 
 Seven names occurred in both source catalogues: `settings_set`, `secret_set`, `scheduler_status`, `notify_status`, `notify_test`, `telegram_find_chat_id` and `runs_list`. In the combined catalogue they use `products_` or `shipments_` prefixes; their original schemas and behaviour remain intact. Each module's own API keeps its native names. The [inventory](provenance/CAPABILITIES.md) gives every mapping.
 

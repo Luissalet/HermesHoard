@@ -1,6 +1,23 @@
 // Bilingual UI: Spanish (castellano) by default, English on request. The choice is kept in localStorage.
 // Each entry is [español, English]; `{name}` placeholders are filled by t(key, { name }).
 const D = {
+  shipment_calendar: ["Calendario de entregas", "Delivery calendar"],
+  shipment_calendar_close: ["Cerrar calendario", "Close calendar"],
+  shipment_calendar_help: ["Entrega estimada indica una previsión; fecha límite de recogida es el plazo registrado. Solo se usan fechas guardadas, sin consultar al transportista.", "Estimated delivery is a forecast; pickup deadline is the recorded cutoff. Only stored dates are used, without contacting the carrier."],
+  shipment_calendar_from: ["Desde", "From"],
+  shipment_calendar_to: ["Hasta", "Until"],
+  shipment_calendar_show: ["Mostrar fechas", "Show dates"],
+  shipment_calendar_loading: ["Leyendo fechas…", "Reading dates…"],
+  shipment_calendar_download: ["Descargar ICS", "Download ICS"],
+  shipment_calendar_count: ["{n} fechas · {undated} envíos sin fecha · {outside} fuera del periodo", "{n} dates · {undated} undated shipments · {outside} outside the range"],
+  shipment_calendar_date: ["Fecha", "Date"],
+  shipment_calendar_event: ["Envío", "Shipment"],
+  shipment_calendar_kind: ["Tipo de fecha", "Date type"],
+  shipment_calendar_deadline: ["Plazo de recogida registrado", "Recorded pickup deadline"],
+  shipment_calendar_estimated: ["Estimación de entrega", "Delivery estimate"],
+  shipment_calendar_empty: ["No hay fechas guardadas en este periodo. Puedes ampliar las fechas para incluir envíos pendientes anteriores.", "There are no stored dates in this range. Widen the range to include earlier pending shipments."],
+  shipment_calendar_snapshot: ["El archivo es una copia de estas fechas al descargarlo. No se actualiza automáticamente cuando cambia un envío.", "The file is a snapshot of these dates when downloaded. It does not update automatically when a shipment changes."],
+  shipment_calendar_limit: ["Se han consultado los primeros 2.000 envíos activos del listado.", "The first 2,000 active shipments in the list were inspected."],
   // shell
   nav_shipments: ["Envíos", "Shipments"],
   nav_mail: ["Correo", "Mail"],
