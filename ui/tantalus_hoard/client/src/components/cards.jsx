@@ -55,7 +55,7 @@ export function EventCard({ event, watcherName, onChanged, compact }) {
   );
 }
 
-// A second-hand listing: thumb, price, distance, score (signals in the tooltip), reason and save / dismiss.
+// A second-hand listing: thumb, price, distance, score, reason and local status actions.
 export function ListingCard({ listing, onChanged, watcherName, showStatus }) {
   const { t, lang, notify } = useApp();
   const [busy, run] = useBusy();
@@ -91,7 +91,9 @@ export function ListingCard({ listing, onChanged, watcherName, showStatus }) {
           {listing.status === "saved" && <Busy className="btn btn-sm" busy={busy.seen} onClick={() => set("seen")}>{t("unsave")}</Busy>}
           {listing.status !== "dismissed" && <Busy className="btn btn-sm" busy={busy.dismissed} onClick={() => set("dismissed")}>{t("dismiss")}</Busy>}
           {listing.status === "dismissed" && <Busy className="btn btn-sm" busy={busy.new} onClick={() => set("new")}>{t("restore")}</Busy>}
+          {listing.status !== "gone" && <Busy className="btn btn-sm" busy={busy.gone} onClick={() => set("gone")}>{t("listing_mark_gone")}</Busy>}
         </div>
+        <p className="help">{t(listing.status === "gone" ? "listing_gone_recovery" : "listing_gone_hint")}</p>
       </div>
     </article>
   );
