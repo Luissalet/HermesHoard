@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { initialLookup, trackingLookup as reduce } from './src/components/tracking-lookup.js';
+
+test('a delayed lookup cannot replace a new draft or result; failure keeps both fields', () => {
+  let state = reduce(initialLookup, { type: 'change', field: 'tracking_number', value: 'QA111111' });
+  state = reduce(state, { type: 'change', field: 'carrier', value: 'correos' });
+  state = reduce(state, { type: 'start', id: 1 });
+  state = reduce(state, { type: 'change', field: 'tracking_number', value: 'QA222222' });
+  state = reduce(state, { type: 'change', field: 'carrier', value: 'dhl' });
+  state = reduce(state, { type: 'start', id: 2 });
+  const pending = state;
+  state = reduce(state, { type: 'resolved', id: 1, query: { tracking_number: 'QA111111', carrier: 'correos' }, data: { result: { found: true, status: 'delivered' } } });
+  assert.equal(state, pending);
+  const failure = new Error('synthetic transport failure');
+  state = reduce(state, { type: 'failed', id: 2, error: failure });
+  assert.deepEqual(state.fields, { tracking_number: 'QA222222', carrier: 'dhl' });
+  assert.equal(state.error, failure);
+  assert.equal(state.result, null);
+  state = reduce(state, { type: 'start', id: 3 });
+  const native = { result: { ok: true, found: false, events: [] }, carrier: 'dhl' };
+  state = reduce(state, { type: 'resolved', id: 3, query: { ...state.fields }, data: native });
+  assert.equal(state.result.data, native);
+  assert.deepEqual(state.result.query, state.fields);
+  const current = state;
+  assert.equal(reduce(state, { type: 'failed', id: 1, error: new Error('old error') }), current);
+  state = reduce(state, { type: 'change', field: 'carrier', value: '' });
+  assert.equal(state.result, null);
+  assert.equal(state.request, null);
+});

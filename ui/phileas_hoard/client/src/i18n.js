@@ -1,6 +1,22 @@
 // Bilingual UI: Spanish (castellano) by default, English on request. The choice is kept in localStorage.
 // Each entry is [español, English]; `{name}` placeholders are filled by t(key, { name }).
 const D = {
+  tracking_lookup: ["Consultar número", "Look up a number"],
+  tracking_lookup_close: ["Cerrar consulta", "Close lookup"],
+  tracking_lookup_help: ["Consulta puntual a las fuentes del transportista configuradas. No añade el número a tus envíos ni programa seguimiento.", "One-off lookup using the configured carrier sources. Does not add the number to your shipments or schedule tracking."],
+  tracking_lookup_go: ["Consultar", "Look up"],
+  tracking_lookup_loading: ["Consultando…", "Looking up…"],
+  tracking_lookup_sent_carrier: ["Transportista solicitado", "Requested carrier"],
+  tracking_lookup_no_source: ["No hay una fuente disponible para este transportista", "No source is available for this carrier"],
+  tracking_lookup_failed: ["No se pudo completar la consulta", "Could not complete the lookup"],
+  tracking_lookup_not_found: ["La fuente respondió, pero no encontró el envío", "The source responded but did not find the parcel"],
+  tracking_lookup_found: ["Envío encontrado", "Parcel found"],
+  tracking_lookup_eta: ["Entrega estimada por el transportista", "Carrier delivery estimate"],
+  tracking_lookup_no_eta: ["Sin fecha informada", "No date reported"],
+  tracking_lookup_service: ["Servicio", "Service"],
+  tracking_lookup_source: ["Fuente de la respuesta", "Response source"],
+  tracking_lookup_events_help: ["Hasta 40 eventos devueltos por la consulta, del más reciente al más antiguo. No es un historial completo garantizado.", "Up to 40 events returned by the lookup, newest first. A complete history is not guaranteed."],
+  tracking_lookup_attempts: ["Fuentes consultadas ({n})", "Sources attempted ({n})"],
   shipment_calendar: ["Calendario de entregas", "Delivery calendar"],
   shipment_calendar_close: ["Cerrar calendario", "Close calendar"],
   shipment_calendar_help: ["Entrega estimada indica una previsión; fecha límite de recogida es el plazo registrado. Solo se usan fechas guardadas, sin consultar al transportista.", "Estimated delivery is a forecast; pickup deadline is the recorded cutoff. Only stored dates are used, without contacting the carrier."],

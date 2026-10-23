@@ -6,6 +6,7 @@ import { useMailScan } from "../components/hooks.js";
 import { Busy, Chip, Empty, ErrorBox, Icon, ICONS, Rel, Section } from "../components/ui.jsx";
 import { clock, dayLabel } from "../format.js";
 import ShipmentCalendar from "../components/ShipmentCalendar.jsx";
+import TrackingLookup from "../components/TrackingLookup.jsx";
 
 function NewsList({ items, onClear }) {
   const { t, lang } = useApp();
@@ -55,6 +56,7 @@ export default function Envios() {
   const { t, lang, dash, dashError, refreshDash } = useApp();
   const [adding, setAdding] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [lookupOpen, setLookupOpen] = useState(false);
   const [view, setView] = useState("all");
   const [reconciling, setReconciling] = useState(false);
   const { notify, toastError } = useApp();
@@ -108,6 +110,7 @@ export default function Envios() {
         </div>
         <div className="flex flex-wrap gap-2">
           <button type="button" className="btn" aria-pressed={calendarOpen} onClick={() => setCalendarOpen(!calendarOpen)}><Icon d="M4 5h16v16H4zM8 3v4M16 3v4M4 10h16" size={15} />{t("shipment_calendar")}</button>
+          <button type="button" className="btn" aria-pressed={lookupOpen} onClick={() => setLookupOpen(!lookupOpen)}>{t("tracking_lookup")}</button>
           <Busy className="btn" busy={scanning} onClick={() => scan()}><Icon d={ICONS.mail} size={15} />{t("read_mail_now")}</Busy>
           <button type="button" className="btn btn-primary" onClick={() => setAdding(true)}><Icon d={ICONS.plus} size={15} />{t("add_number")}</button>
         </div>
@@ -131,6 +134,7 @@ export default function Envios() {
 
 
       {calendarOpen && <ShipmentCalendar onClose={() => setCalendarOpen(false)} />}
+      <TrackingLookup open={lookupOpen} onClose={() => setLookupOpen(false)} />
       {empty && (
         <Empty>
           <div className="mx-auto max-w-[520px] space-y-2 py-4 text-left">

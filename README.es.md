@@ -6,6 +6,8 @@ La ficha de cada vigilante de disponibilidad ofrece **Marcar comprado**, con ref
 
 Productos, ofertas, seguimiento de envíos y viajes en un único proceso. Absorbe **Tantalus y Phileas**, conservando sus funciones, herramientas e historiales.
 
+En **Envíos → Consultar número** puedes consultar puntualmente un seguimiento sin añadirlo a la biblioteca ni programar comprobaciones. Muestra la respuesta nativa del transportista: estado, fuente, estimación y hasta 40 eventos; diferencia envío no encontrado, falta de fuente y error. Consulta sólo al pulsar **Consultar**, mediante `track_number` existente en API/MCP. Usa las fuentes configuradas, que pueden realizar peticiones externas y consumir su cuota; no lee correo ni guarda el envío. Cambiar número o transportista retira el resultado anterior, y cerrar o fallar conserva el borrador.
+
 [English](README.md) · [Inventario de herramientas](provenance/CAPABILITIES.md) · [Procedencia del código](provenance/sources.json)
 
 ## Funciones independientes
