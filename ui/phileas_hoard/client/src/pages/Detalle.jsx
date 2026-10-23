@@ -4,6 +4,7 @@ import { useApp } from "../context.js";
 import { Eta, ReceivedButton, TrackingNumber, useRefresh } from "../components/cards.jsx";
 import { Busy, Chip, Confidence, CopyButton, Empty, ErrorBox, ExtLink, Field, Icon, ICONS, Progress, Rel, Section, StatusPill, useBusy, useLoad } from "../components/ui.jsx";
 import { useContextProvider, useRebasedDraft } from "../components/hooks.js";
+import ShipmentMerge from "../components/ShipmentMerge.jsx";
 import { clock, dayLabel, shortClock, windowLabel } from "../format.js";
 import { BASIS_ICON, STATUS_META } from "../meta.js";
 
@@ -313,6 +314,7 @@ export default function Detalle({ param }) {
   return (
     <div className="space-y-6">
       <Header s={s} onChanged={reload} />
+      <ShipmentMerge key={param} shipment={s} current={s.id === param} onChanged={reload} />
       <ErrorBox error={error} />
       <EtaPanel s={s} similar={data.similar || []} onChanged={reload} />
       <PickupPanel s={s} />

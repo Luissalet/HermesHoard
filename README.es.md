@@ -6,6 +6,8 @@ La ficha de cada vigilante de disponibilidad ofrece **Marcar comprado**, con ref
 
 Productos, ofertas, seguimiento de envíos y viajes en un único proceso. Absorbe **Tantalus y Phileas**, conservando sus funciones, herramientas e historiales.
 
+La ficha de un envío ofrece **Unir registro duplicado** para dos registros locales del mismo paquete. La ficha abierta conserva su identidad; elige el otro registro y revisa ambas identidades y los siete campos que pueden rellenarse si están vacíos. Los valores existentes tienen prioridad. `shipment_merge` nativo API/MCP traslada correos asociados, eventos no duplicados y notificaciones registradas, elimina el registro seleccionado y recalcula en silencio la estimación local de entrega. No concatena notas, nombres ni los demás campos; la confirmación habitual explica la eliminación y que no hay deshacer. Abrir/cancelar sólo lee, y los errores de búsqueda o guardado conservan la selección y las ediciones sin guardar. No se consulta transportista/correo ni se modifica un pedido externo.
+
 En **Envíos → Consultar número** puedes consultar puntualmente un seguimiento sin añadirlo a la biblioteca ni programar comprobaciones. Muestra la respuesta nativa del transportista: estado, fuente, estimación y hasta 40 eventos; diferencia envío no encontrado, falta de fuente y error. Consulta sólo al pulsar **Consultar**, mediante `track_number` existente en API/MCP. Usa las fuentes configuradas, que pueden realizar peticiones externas y consumir su cuota; no lee correo ni guarda el envío. Cambiar número o transportista retira el resultado anterior, y cerrar o fallar conserva el borrador.
 
 [English](README.md) · [Inventario de herramientas](provenance/CAPABILITIES.md) · [Procedencia del código](provenance/sources.json)
