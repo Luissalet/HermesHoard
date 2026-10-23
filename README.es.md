@@ -1,5 +1,7 @@
 # Hermes's Hoard
 
+En **Viajes → Gastos → Participantes**, **Cambiar nombre** modifica la persona seleccionada mediante el mapa `rename` de `trip_people`, ya disponible por API/MCP y dirigido al ID visible de la persona. Antes de guardar se muestran el viaje y la persona. Los homónimos siguen siendo personas distintas; se conservan el ID, la marca «soy yo», la posición, los gastos, quién pagó y los repartos. Cancelar o fallar conserva el borrador, y una edición posterior durante el guardado sigue pendiente tras refrescar. Sólo guardar escribe el nombre local nativo; no cambia ningún perfil de una cuenta externa.
+
 La ficha de cada vigilante de disponibilidad ofrece **Marcar comprado**, con referencia local de compra opcional. El registro manual detiene las comprobaciones programadas, conserva productos e historial y muestra fecha/referencia registradas sin verificar una compra externa. El interruptor **Activado** existente permite volver a vigilar y retira la marca de compra. La UI usa `watcher_mark_bought` y `watcher_update` de API/MCP; abrir o cancelar no modifica el vigilante, y cancelar o fallar el guardado conserva el borrador de la referencia.
 
 <img src="app-icon.png" width="96" alt="Hermes icon">

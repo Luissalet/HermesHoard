@@ -9,6 +9,7 @@ import { useContextProvider, useRebasedDraft } from "../components/hooks.js";
 import { afterAddSave } from "../copilot-context.js";
 import { publishView } from "../copilot-context.js";
 import { dayLabel, money, num } from "../format.js";
+import PersonNameEditor from "../components/PersonNameEditor.jsx";
 
 const ICS_ICON = "M5 5h14v15H5zM5 10h14M9 3v4M15 3v4M12 13v5M9.5 15.5L12 18l2.5-2.5";
 
@@ -116,7 +117,7 @@ function Timeline({ days, today }) {
 }
 
 // ------------------------------------------------------------------ expenses
-function PeopleBox({ tripId, people, suggested, onChanged }) {
+function PeopleBox({ tripId, tripTitle, people, suggested, onChanged }) {
   const { t, notify } = useApp();
   const [busy, run] = useBusy();
   const [name, setName] = useState("");
@@ -127,13 +128,16 @@ function PeopleBox({ tripId, people, suggested, onChanged }) {
     <div className="panel space-y-2">
       <h3>{t("exp_people")}</h3>
       <p className="help">{t("exp_people_help")}</p>
-      <div className="flex flex-wrap gap-2">
+      <div className="space-y-2">
         {people.map((p) => (
-          <span key={p.id} className="chip" style={{ padding: "2px 4px 2px 9px", gap: 6 }}>
+          <div key={p.id} className="flex min-w-0 flex-wrap items-start gap-2">
+          <span className="chip" style={{ padding: "2px 4px 2px 9px", gap: 6 }}>
             {p.name}{p.is_me && <span className="chip chip-accent">{t("exp_person_me")}</span>}
             {!p.is_me && <button type="button" className="btn-link text-[11px]" onClick={() => makeMe(p)}>{t("exp_person_make_me")}</button>}
             <button type="button" className="btn-link text-[11px]" style={{ color: "var(--muted)" }} aria-label={`${t("exp_person_remove")} ${p.name}`} onClick={() => remove(p)}>×</button>
           </span>
+          <PersonNameEditor person={p} tripId={tripId} tripTitle={tripTitle} onChanged={onChanged} />
+          </div>
         ))}
       </div>
       <form className="flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); if (name.trim()) add([name.trim()]); }}>
@@ -329,7 +333,7 @@ function ExpensesTab({ trip }) {
   return (
     <div className="space-y-5">
       <ErrorBox error={view.error} />
-      <PeopleBox tripId={trip.id} people={people} suggested={detail.data?.suggested_people || []} onChanged={reload} />
+      <PeopleBox tripId={trip.id} tripTitle={trip.title} people={people} suggested={detail.data?.suggested_people || []} onChanged={reload} />
 
       <Section id="sec-expenses" title={t("exp_list")} count={data.expenses.length} actions={<button type="button" className="btn btn-sm btn-primary" onClick={() => setEditing({})} disabled={!people.length}><Icon d={ICONS.plus} size={14} />{t("exp_add")}</button>}>
         {data.expenses.length === 0 ? <div className="panel help text-center">{t("exp_empty")}</div> : (
