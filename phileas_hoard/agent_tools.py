@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any, Callable, Literal, Optional
+from datetime import date
 
 from pydantic import BaseModel, Field
 
@@ -36,6 +37,16 @@ class ListArgs(BaseModel):
     carrier: str = Field("", max_length=30)
     merchant: str = Field("", max_length=60)
     limit: int = Field(50, ge=1, le=500)
+
+
+class CalendarArgs(BaseModel):
+    date_from: Optional[date] = Field(None, description="First day included, YYYY-MM-DD; default today.")
+    date_to: Optional[date] = Field(None, description="Last day included; default 90 days after date_from.")
+
+
+def run_shipments_ics(svc: Services, args: CalendarArgs):
+    from .shipment_calendar import calendar
+    return calendar(svc, args.date_from, args.date_to)
 
 
 class AddArgs(BaseModel):
@@ -338,6 +349,10 @@ TOOLS: list[Tool] = [
          "Sinónimos: configuración, claves, canales de aviso, último escaneo de correo.", Empty, _ann(True), run_status),
     Tool("shipments_list", "List shipments (active, delivered, all, archived, history) with filters. Lista de envíos.\n"
          "Sinónimos: buscar envío, pedidos de Amazon, paquetes de UPS, historial.", ListArgs, _ann(True), run_list),
+    Tool("shipments_ics", "Export a calendar of estimated deliveries and recorded pickup deadlines. Calendario de entregas.\n"
+         "Returns complete ICS, events and a download URL for a date range. Delivery dates are tentative; pickup deadlines are recorded. "
+         "No mail, carrier lookup or model request. Uses up to 2000 active stored shipments. Sinónimos: calendario de paquetes, exportar ICS, fecha de recogida.",
+         CalendarArgs, _ann(True), run_shipments_ics, capped=False),
     Tool("shipment_get", "One shipment: status, estimate, carrier events, mails, similar parcels. Detalle de un envío.\n"
          "Accepts the id, the tracking number or the order number. Sinónimos: dónde está mi paquete, seguimiento de X.",
          ShipmentRef, _ann(True), run_get),

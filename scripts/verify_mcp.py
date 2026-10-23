@@ -20,7 +20,7 @@ async def verify(data_dir):
         async with ClientSession(reader, writer) as session:
             await session.initialize()
             tools = await session.list_tools()
-            assert len(tools.tools) == (93 if PRODUCT == "talos" else 114)
+            assert len(tools.tools) == (93 if PRODUCT == "talos" else 115)
             status = await session.call_tool(PRODUCT + "_modules", {})
             assert not status.isError
             body = json.loads(status.content[0].text)

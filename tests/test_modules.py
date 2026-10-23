@@ -23,7 +23,7 @@ def test_defaults_catalog_and_renamed_collision_routes(tmp_path):
     with client(app) as c:
         assert not any(m["enabled"] for m in c.get("/api/modules").json()["modules"])
         tools = c.get("/api/agent/tools").json()["tools"]
-        assert len(tools) == 114
+        assert len(tools) == 115
         names = {t["name"] for t in tools}
         for name in ("settings_set", "scheduler_status", "notify_status"):
             assert "products_" + name in names

@@ -2739,6 +2739,51 @@
     "module": "shipments"
   },
   {
+    "name": "shipments_ics",
+    "description": "Export a calendar of estimated deliveries and recorded pickup deadlines. Calendario de entregas.\nReturns complete ICS, events and a download URL for a date range. Delivery dates are tentative; pickup deadlines are recorded. No mail, carrier lookup or model request. Uses up to 2000 active stored shipments. Sinónimos: calendario de paquetes, exportar ICS, fecha de recogida.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "date_from": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "First day included, YYYY-MM-DD; default today.",
+          "title": "Date From"
+        },
+        "date_to": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Last day included; default 90 days after date_from.",
+          "title": "Date To"
+        }
+      },
+      "title": "CalendarArgs",
+      "type": "object"
+    },
+    "module": "shipments"
+  },
+  {
     "name": "shipment_get",
     "description": "One shipment: status, estimate, carrier events, mails, similar parcels. Detalle de un envío.\nAccepts the id, the tracking number or the order number. Sinónimos: dónde está mi paquete, seguimiento de X.",
     "annotations": {

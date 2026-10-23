@@ -31,7 +31,9 @@ Desactivar espera a que termine el trabajo en curso antes de mostrar el módulo 
 
 ## Herramientas y compatibilidad
 
-**114 herramientas MCP:** las 112 funciones originales y dos controles de módulos. Siete nombres coincidían entre Tantalus y Phileas; en el catálogo conjunto llevan el prefijo `products_` o `shipments_`. Cada API nativa conserva los nombres originales. El [inventario completo](provenance/CAPABILITIES.md) muestra las correspondencias.
+**115 herramientas MCP:** 113 funciones nativas y dos controles de módulos. Siete nombres coincidían entre Tantalus y Phileas; en el catálogo conjunto llevan el prefijo `products_` o `shipments_`. Cada API nativa conserva los nombres originales. El [inventario completo](provenance/CAPABILITIES.md) muestra las correspondencias.
+
+En **Envíos**, «Calendario de entregas» permite revisar un periodo y descargar un ICS con entregas estimadas y fechas límite de recogida registradas. Las entregas llevan estado provisional y los plazos de recogida, confirmado; todos son eventos de día completo que no bloquean la agenda. Se cuentan envíos sin fecha y fechas fuera del periodo, excluyendo finalizados, archivados e históricos. Es una instantánea descargada, sin actualización automática. La herramienta `shipments_ics` ofrece fechas, ICS completo y enlace de descarga por API/MCP; `GET /shipments/api/shipments/ics?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD` descarga el archivo. Por defecto abarca desde hoy hasta dentro de 90 días. El listado existente admite hasta 2.000 envíos activos y avisa al alcanzar esa cifra. No se consulta correo, transportistas ni modelos, ni se modifican envíos.
 
 El puente `mcp_server.py` descubre las herramientas sin arrancar Hermes. Las llamadas a módulos apagados devuelven `module_disabled`. Las identidades antiguas pueden permanecer en el Hub como entradas de compatibilidad **sin lanzador**, apuntando a Hermes; conservan correo, tokens, referencias y llamadas internas sin ejecutar servidores antiguos.
 
