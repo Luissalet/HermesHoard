@@ -1,5 +1,13 @@
 # Hermes's Hoard
 
+In **Trips → Edit segment**, flight Gate, train Coach and transport Class can be
+recorded directly. Coach and Seat have separate inputs. Existing values load
+into the editor; clearing a field clears its native stored value. Saves send only
+edited fields through existing `segment_add/update` API/MCP operations and retain
+the current editor's error/retry and later-draft behavior. These are local notes,
+without checking live boarding information or changing the carrier's reservation.
+Other booking fields, calendar export and existing trip actions stay available.
+
 In **Products → Second-hand**, **Mark as gone** sets a listing's local `gone` status. It leaves the active list and remains under the watcher's **Gone** filter; **Save** returns it to Saved. This uses existing `listing_set` API/MCP without checking or changing the listing on its platform or pausing the watcher. Only status changes: identity, zero/unknown prices, stored dates, content and price history remain intact. No removal date is inferred.
 
 In **Trips → Plan**, select some bookings and choose **Split off** to review the selection and optionally name the new trip. Leaving the name blank retains native automatic naming. The receipt shows returned IDs, dates and segment counts for the original and new trips, with an explicit **Open created trip** link and no automatic navigation. Bookings retain their identity and associated mail. People and recorded expenses, including expenses for moved bookings, remain in the original trip. Cancel writes nothing; errors retain the name and selection. Uses existing API/MCP `trip_update(split_segments, split_title)` without contacting providers or reading mail.
