@@ -11,6 +11,7 @@ import { publishView } from "../copilot-context.js";
 import { dayLabel, money, num } from "../format.js";
 import PersonNameEditor from "../components/PersonNameEditor.jsx";
 import TripSplit from "../components/TripSplit.jsx";
+import TripMerge from "../components/TripMerge.jsx";
 
 const ICS_ICON = "M5 5h14v15H5zM5 10h14M9 3v4M15 3v4M12 13v5M9.5 15.5L12 18l2.5-2.5";
 
@@ -429,32 +430,6 @@ function RenameModal({ trip, onClose, onSaved }) {
   );
 }
 
-function MergeModal({ trip, others, onClose, onSaved }) {
-  const { t, notify, confirm } = useApp();
-  const [busy, run] = useBusy();
-  const [other, setOther] = useState(others[0]?.id || "");
-  const go = async (e) => {
-    e.preventDefault();
-    const target = others.find((x) => x.id === other);
-    const ok = await confirm({ title: t("trip_merge"), message: t("trip_merge_msg", { name: target?.title || "" }), confirmLabel: t("trip_merge_go"), danger: false });
-    if (!ok) return;
-    run("merge", async () => { await api.call("trip_update", { trip: trip.id, merge_from: other, confirm: true }); notify(t("trip_merged")); await onSaved(); onClose(); });
-  };
-  return (
-    <Modal title={t("trip_merge")} onClose={onClose}>
-      <form className="space-y-3" onSubmit={go}>
-        <Field label={t("trip_merge_pick")}>
-          <select className="field" value={other} onChange={(e) => setOther(e.target.value)}>{others.map((x) => <option key={x.id} value={x.id}>{x.title}</option>)}</select>
-        </Field>
-        <div className="flex justify-end gap-2">
-          <button type="button" className="btn" onClick={onClose}>{t("cancel")}</button>
-          <Busy type="submit" className="btn btn-primary" busy={busy.merge} disabled={!other}>{t("trip_merge_go")}</Busy>
-        </div>
-      </form>
-    </Modal>
-  );
-}
-
 function MoveModal({ trip, segment, others, onClose, onSaved }) {
   const { t, notify } = useApp();
   const [busy, run] = useBusy();
@@ -486,7 +461,9 @@ export default function Viaje({ param, query }) {
   const { t, lang, refreshDash, confirm, notify } = useApp();
   const id = param || "";
   const { data, error, loading, reload } = useLoad(() => api.call("trip_get", { trip: id }), [id]);
-  const others = useTripChoices(id);
+  const choices = useTripChoices(id);
+  const [incorporatedTrips, setIncorporatedTrips] = useState(() => new Set());
+  const others = choices.filter((item) => !incorporatedTrips.has(item.id));
   const [tab, setTab] = useState(query?.get("tab") === "gastos" ? "expenses" : "plan");
   useEffect(() => { publishView({ tab }, window.location.hash); }, [tab, id]);
   const [busy, run] = useBusy();
@@ -604,7 +581,7 @@ export default function Viaje({ param, query }) {
       {modal?.kind === "edit" && <SegmentEditor segment={segments.find((x) => x.id === modal.segment.id) || modal.segment} onClose={() => setModal(null)} onSaved={after} />}
       {modal?.kind === "paste" && <PasteModal trips={[trip, ...others]} tripId={trip.id} onClose={() => setModal(null)} onDone={after} />}
       {modal?.kind === "rename" && <RenameModal trip={trip} onClose={() => setModal(null)} onSaved={after} />}
-      {modal?.kind === "merge" && <MergeModal trip={trip} others={others} onClose={() => setModal(null)} onSaved={after} />}
+      {modal?.kind === "merge" && <TripMerge trip={trip} others={others} onClose={() => setModal(null)} onSaved={(incorporated) => { setIncorporatedTrips((ids) => new Set([...ids, incorporated])); return after(); }} />}
       {modal?.kind === "move" && <MoveModal trip={trip} segment={modal.segment} others={others} onClose={() => setModal(null)} onSaved={after} />}
       <TripSplit key={trip.id} trip={trip} selected={segments.filter((s) => picked.has(s.id))} open={modal?.kind === "split"}
         onClose={() => setModal(null)} onChanged={after}

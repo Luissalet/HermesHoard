@@ -1,5 +1,14 @@
 # Hermes's Hoard
 
+En **Viajes → Fusionar con otro viaje**, IDs, fechas, destino, cantidades nativas
+de reservas/gastos y monedas distinguen ambos viajes, incluso con títulos iguales.
+La misma confirmación existente reúne reservas y gastos, remapea personas,
+pagadores y repartos según el motor, concatena notas guardadas y elimina el otro
+viaje. No añade conversión de divisas ni deshacer. El recibo del viaje conservado
+permanece hasta Cerrar, aunque falle la recarga; las notas de la ficha pendientes
+siguen separadas y sin guardar. La página retira de sus opciones el ID cuya unión
+se confirmó. Motor y `trip_update(merge_from, confirm)` API/MCP115 siguen iguales.
+
 En **Viajes → Editar tramo** se pueden anotar Puerta de vuelo, Coche de tren y
 Clase de transporte. Coche y Asiento tienen campos distintos. El editor carga los
 valores guardados; vaciar un campo borra su valor nativo. Guardar envía sólo campos
