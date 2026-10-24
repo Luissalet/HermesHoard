@@ -1,5 +1,15 @@
 # Hermes's Hoard
 
+**Trips → Merge with another trip** now identifies both trips by ID, dates,
+destination, native booking/expense counts and recorded currencies, including
+trips with equal titles. The same existing confirmation performs the native
+merge: bookings and expenses move, people/payers/splits follow native name
+matching, saved notes join and the other trip is removed. No currency conversion
+or undo is added. The returned kept-trip receipt stays open until Close, even
+if refreshing fails; trip-page notes drafts remain unsaved and separate. A
+confirmed incorporated ID is removed from the page's choices. Existing
+`trip_update(merge_from, confirm)` API/MCP115 and engine remain unchanged.
+
 In **Trips → Edit segment**, flight Gate, train Coach and transport Class can be
 recorded directly. Coach and Seat have separate inputs. Existing values load
 into the editor; clearing a field clears its native stored value. Saves send only
