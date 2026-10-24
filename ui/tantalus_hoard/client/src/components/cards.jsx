@@ -1,4 +1,5 @@
 import React from "react";
+import { EventSeenAction } from "./EventSeenAction.jsx";
 import { api } from "../api.js";
 import { useApp } from "../context.js";
 import { hostOf, num, safeUrl } from "../format.js";
@@ -43,6 +44,7 @@ export function EventCard({ event, watcherName, onChanged, compact }) {
         <div className="flex flex-wrap items-center gap-2 pt-0.5">
           <ExtLink href={event.url}><Icon d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6" size={13} />{t("open")}</ExtLink>
           {event.target_id && <a className="btn btn-sm" href={`#/target/${encodeURIComponent(event.target_id)}`}>{t("see_product")}</a>}
+          <EventSeenAction event={event} onChanged={onChanged} />
           {event.status !== "dismissed" && (
             <>
               <Busy className="btn btn-sm" busy={busy.dismiss} onClick={dismiss}>{t("dismiss")}</Busy>

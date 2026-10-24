@@ -1,6 +1,10 @@
 // Bilingual UI: Spanish (castellano) by default, English on request. The choice is kept in localStorage.
 // Each entry is [español, English]; `{name}` placeholders are filled by t(key, { name }).
 const D = {
+  event_mark_seen: ["Marcar visto", "Mark as seen"],
+  event_mark_seen_hint: ["Marca sólo este aviso como visto; conserva su estado y los demás pendientes.", "Marks only this event as seen; keeps its status and other unread events."],
+  event_seen: ["Visto", "Seen"],
+  event_seen_saved: ["Aviso marcado como visto.", "Event marked as seen."],
   // navigation and shell
   nav_news: ["Novedades", "News"],
   nav_watchers: ["Vigilantes", "Watchers"],

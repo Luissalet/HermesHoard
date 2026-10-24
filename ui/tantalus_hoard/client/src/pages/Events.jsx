@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { EventSeenAction } from "../components/EventSeenAction.jsx";
 import { api } from "../api.js";
 import { useApp } from "../context.js";
 import { Busy, Chip, Confidence, Empty, ErrorBox, EventChip, EventStatusPill, ExtLink, Price, Rel, Tabs, useBusy, useLoad } from "../components/ui.jsx";
@@ -82,6 +83,7 @@ function EventsTab({ initialWatcher }) {
                   <td style={{ width: 110 }}>
                     <div className="flex flex-col items-stretch gap-1.5">
                       <ExtLink href={e.url}>{t("open")}</ExtLink>
+                      <EventSeenAction event={e} onChanged={reload} />
                       {e.status !== "dismissed" && <Busy className="btn btn-sm" busy={busy[`d-${e.id}`]} onClick={() => dismiss(e)}>{t("dismiss")}</Busy>}
                       {e.status !== "dismissed" && <Busy className="btn btn-sm" busy={busy[`n-${e.id}`]} onClick={() => resend(e)}>{t("resend")}</Busy>}
                     </div>
