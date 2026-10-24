@@ -1,5 +1,7 @@
 # Hermes's Hoard
 
+**Productos → Novedades / Historial / avisos de un producto** permiten **Marcar visto** un aviso individual. Sólo cambia su marca local `seen`: conserva estado, precio, historial, otros avisos pendientes y la última visita global. El aviso sigue disponible en Historial al quitar **Sólo no vistos**. Se conservan **Marcar todo visto**, Descartar y Reenviar. Usa `events_mark_seen(event_ids:[ID])` nativo API/MCP115 sin comprobar fuentes ni enviar notificaciones; los errores conservan filtros y permiten reintentar.
+
 En **Viajes → Fusionar con otro viaje**, IDs, fechas, destino, cantidades nativas
 de reservas/gastos y monedas distinguen ambos viajes, incluso con títulos iguales.
 La misma confirmación existente reúne reservas y gastos, remapea personas,

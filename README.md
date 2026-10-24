@@ -1,5 +1,7 @@
 # Hermes's Hoard
 
+**Products → News / History / product events** offer **Mark as seen** for an individual event. Only that event's stored `seen` flag changes; its status, price, history, other unread events and the last global visit stay intact. Seen events remain available in History when **Only unseen** is off. Existing **Mark all seen**, Dismiss and Resend actions remain available. Uses native `events_mark_seen(event_ids:[ID])` API/MCP115 without checking sources or sending notifications; failures keep the current filters and allow retry.
+
 **Trips → Merge with another trip** now identifies both trips by ID, dates,
 destination, native booking/expense counts and recorded currencies, including
 trips with equal titles. The same existing confirmation performs the native
