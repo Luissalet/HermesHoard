@@ -133,7 +133,7 @@ export function SegmentCard({ s, trip, selectable, selected, onSelect, onEdit, o
     notify(t("seg_expense_added"));
     await onChanged();
   });
-  const extra = [s.terminal && `${t("seg_terminal")} ${s.terminal}`, s.gate && `Gate ${s.gate}`, s.coach && `${t("seg_coach")} ${s.coach}`, s.seat && `${t("seg_seat")} ${s.seat}`, s.travel_class].filter(Boolean);
+  const extra = [s.terminal && `${t("seg_terminal")} ${s.terminal}`, s.gate && `${t("seg_gate")} ${s.gate}`, s.coach && `${t("seg_coach")} ${s.coach}`, s.seat && `${t("seg_seat")} ${s.seat}`, s.travel_class].filter(Boolean);
   return (
     <article className={`panel space-y-2 seg-card${cancelled ? " seg-cancelled" : ""}`} aria-label={segmentTitle(s)} style={cancelled ? { opacity: 0.7 } : undefined}>
       <div className="flex flex-wrap items-center gap-2">
@@ -182,16 +182,21 @@ export function SegmentCard({ s, trip, selectable, selected, onSelect, onEdit, o
 }
 
 // ------------------------------------------------------------------ segment editor
-const FIELDS = ["carrier", "number", "booking_ref", "provider", "from_code", "from_name", "to_code", "to_name", "dep_local", "arr_local", "terminal", "seat", "coach", "travel_class", "price", "currency", "address", "notes", "status"];
+const FIELDS = ["carrier", "number", "booking_ref", "provider", "from_code", "from_name", "to_code", "to_name", "dep_local", "arr_local", "terminal", "gate", "seat", "coach", "travel_class", "price", "currency", "address", "notes", "status"];
 
 function blank(kind = "flight") {
-  return { kind, carrier: "", number: "", booking_ref: "", provider: "", from_code: "", from_name: "", to_code: "", to_name: "", dep_local: "", arr_local: "", terminal: "", seat: "", coach: "", travel_class: "", price: "", currency: "", address: "", notes: "", status: "confirmed" };
+  return { kind, carrier: "", number: "", booking_ref: "", provider: "", from_code: "", from_name: "", to_code: "", to_name: "", dep_local: "", arr_local: "", terminal: "", gate: "", seat: "", coach: "", travel_class: "", price: "", currency: "", address: "", notes: "", status: "confirmed" };
 }
 
-function fromSegment(s) {
+export function fromSegment(s) {
   const draft = blank(s.kind);
   for (const key of FIELDS) draft[key] = s[key] === null || s[key] === undefined ? "" : String(s[key]);
   return draft;
+}
+
+export function segmentPatch(draft, original, editing) {
+  const keys = editing ? FIELDS.filter((k) => String(draft[k]) !== String(original[k])) : FIELDS.filter((k) => String(draft[k]) !== "" && !(k === "status" && draft[k] === "confirmed"));
+  return Object.fromEntries(keys.map((k) => [k, k === "price" ? (draft[k] === "" ? 0 : Number(draft[k])) : draft[k]]));
 }
 
 export function SegmentEditor({ segment, trips = [], tripId = "", onClose, onSaved }) {
@@ -224,11 +229,9 @@ export function SegmentEditor({ segment, trips = [], tripId = "", onClose, onSav
     const sent = { ...form.changed };
     run("save", async () => {
       let created = null;
-      const keys = editing ? FIELDS.filter((k) => String(draft[k]) !== String(original[k])) : FIELDS.filter((k) => String(draft[k]) !== "" && !(k === "status" && draft[k] === "confirmed"));
-      const args = {};
-      for (const k of keys) args[k] = k === "price" ? (draft[k] === "" ? 0 : Number(draft[k])) : draft[k];
+      const args = segmentPatch(draft, original, editing);
       if (editing) {
-        if (!keys.length) { notify(t("seg_nothing_changed")); onClose(); return; }
+        if (!Object.keys(args).length) { notify(t("seg_nothing_changed")); onClose(); return; }
         await api.call("segment_update", { segment: segmentId, ...args });
         notify(t("seg_saved"));
       } else {
@@ -273,7 +276,11 @@ export function SegmentEditor({ segment, trips = [], tripId = "", onClose, onSav
           <Field label={depLabel} hint={t("seg_local_hint")}><input className="field" type="datetime-local" value={draft.dep_local.slice(0, 16)} onChange={(e) => set("dep_local", e.target.value)} /></Field>
           <Field label={arrLabel} hint={t("seg_local_hint")}><input className="field" type="datetime-local" value={draft.arr_local.slice(0, 16)} onChange={(e) => set("arr_local", e.target.value)} /></Field>
           {transport && <Field label={t("seg_terminal")}><input className="field" value={draft.terminal} onChange={(e) => set("terminal", e.target.value)} /></Field>}
-          {transport && <Field label={kind === "train" ? `${t("seg_coach")} / ${t("seg_seat")}` : t("seg_seat")}><input className="field" value={draft.seat} onChange={(e) => set("seat", e.target.value)} /></Field>}
+          {kind === "flight" && <Field label={t("seg_gate")}><input className="field" maxLength={8} value={draft.gate} onChange={(e) => set("gate", e.target.value)} /></Field>}
+          {kind === "train" && <Field label={t("seg_coach")}><input className="field" maxLength={8} value={draft.coach} onChange={(e) => set("coach", e.target.value)} /></Field>}
+          {transport && <Field label={t("seg_seat")}><input className="field" value={draft.seat} onChange={(e) => set("seat", e.target.value)} /></Field>}
+          {transport && <Field label={t("seg_class")}><input className="field" maxLength={30} value={draft.travel_class} onChange={(e) => set("travel_class", e.target.value)} /></Field>}
+          {transport && <p className="help sm:col-span-2">{t("seg_boarding_note")}</p>}
           <Field label={t("seg_price")}><input className="field" type="number" min="0" step="0.01" value={draft.price} onChange={(e) => set("price", e.target.value)} /></Field>
           <Field label={t("seg_currency")}><input className="field" maxLength={3} value={draft.currency} onChange={(e) => set("currency", e.target.value.toUpperCase())} placeholder="EUR" /></Field>
           {editing && (

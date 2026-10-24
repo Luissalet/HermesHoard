@@ -598,6 +598,8 @@ const D = {
   seg_terminal: ["Terminal", "Terminal"],
   seg_seat: ["Asiento", "Seat"],
   seg_coach: ["Coche", "Coach"],
+  seg_gate: ["Puerta", "Gate"],
+  seg_boarding_note: ["Datos anotados localmente; no consultan ni cambian la reserva del transportista.", "Locally recorded details; they do not check or change the carrier's booking."],
   seg_class: ["Clase", "Class"],
   seg_price: ["Precio", "Price"],
   seg_currency: ["Moneda", "Currency"],

@@ -1,5 +1,13 @@
 # Hermes's Hoard
 
+En **Viajes → Editar tramo** se pueden anotar Puerta de vuelo, Coche de tren y
+Clase de transporte. Coche y Asiento tienen campos distintos. El editor carga los
+valores guardados; vaciar un campo borra su valor nativo. Guardar envía sólo campos
+editados por `segment_add/update` API/MCP existentes, conservando el comportamiento
+actual de error, reintento y borrador posterior. Son datos locales: no consultan
+información de embarque en directo ni cambian la reserva del transportista.
+Los demás campos, exportación de calendario y acciones de viaje siguen disponibles.
+
 En **Productos → Segunda mano**, **Marcar como retirado** establece el estado local `gone` del anuncio. Sale de los activos y sigue accesible en el filtro **Retirados** del vigilante; **Guardar** lo devuelve a Guardados. Usa `listing_set` existente por API/MCP sin consultar ni cambiar el anuncio en la plataforma ni pausar el vigilante. Sólo cambia el estado: conserva identidad, precios cero/desconocidos, fechas guardadas, contenido e historial de precios. No se infiere una fecha de retirada.
 
 En **Viajes → Plan**, selecciona algunas reservas y pulsa **Separar** para revisar cuáles se trasladan y dar nombre opcional al nuevo viaje. Vacío conserva el nombre automático nativo. El resultado muestra los IDs, fechas y cantidades devueltos del original y del nuevo, con **Abrir viaje creado** explícito; no navega automáticamente. Las reservas conservan su identidad y sus correos asociados. Los participantes y gastos registrados, incluidos los de reservas trasladadas, permanecen en el viaje original. Cancelar no escribe; un error conserva nombre y selección. Usa `trip_update(split_segments, split_title)` existente por API/MCP, sin consultar proveedores o correo.
