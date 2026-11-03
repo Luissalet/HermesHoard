@@ -256,6 +256,10 @@ def test_current_amazon_reservations_keep_history(radar_svc):
         svc.store.add_event({"watcher_id": svc.watcher["id"], "type": "PREORDER_OPEN", "status": "confirmed",
                              "url": "https://other.example/item", "detected_at": ts, "data": {}})
     assert len(svc.store.events(current_offers_only=True)) == 3
+    current = [e for e in svc.store.events(current_offers_only=True) if e["data"].get("store_slug") == "amazon"][0]
+    svc.store.update_event(current["id"], status="dismissed")
+    assert len(svc.store.events(current_offers_only=True, statuses=["confirmed"])) == 2
+    assert len(svc.store.events()) == 4
 
 
 def test_retailer_photo_repairs_existing_cards_without_alerts(radar_svc):
