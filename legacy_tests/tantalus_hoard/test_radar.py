@@ -234,12 +234,51 @@ def test_pages_that_disagree_do_not_make_an_offer_flap(radar_svc):
     assert amazon and amazon[0]["state"] == PREORDER
     product = f"{st.NET}/p/30th-anniversary--etb"
     page = svc.radar.fetcher.pages.pop(product)
-    for _ in range(2):                                # cycles without the product page, then with it again
-        svc.clock_box["now"] += 600
+    for _ in range(2):                                # exceed the six-hour view TTL, not just the cooldown
+        svc.clock_box["now"] += 7 * 3600
         svc.radar.run()
-        assert svc.radar.offers(store="amazon", product_key="30th-anniversary--etb", buyable=True)
     svc.radar.fetcher.pages[product] = page
     svc.db.execute("UPDATE radar_pages SET last_fetch_ts = 0")
     svc.clock_box["now"] += 600
     svc.radar.run()
     assert not [e for e in events(svc) if e["type"] == "PREORDER_OPEN" and e["data"].get("store_slug") == "amazon"]
+
+
+def test_current_amazon_reservations_keep_history(radar_svc):
+    svc = radar_svc
+    for ts in (1, 2):
+        svc.store.add_event({"watcher_id": svc.watcher["id"], "type": "PREORDER_OPEN", "status": "confirmed",
+                             "url": "https://www.amazon.es/dp/B012345678", "detected_at": ts,
+                             "data": {"aggregator": True, "store_slug": "amazon"}})
+    assert len(svc.store.events(current_offers_only=True)) == 1
+    assert len(svc.store.events()) == 2
+    for ts in (1, 2):
+        svc.store.add_event({"watcher_id": svc.watcher["id"], "type": "PREORDER_OPEN", "status": "confirmed",
+                             "url": "https://other.example/item", "detected_at": ts, "data": {}})
+    assert len(svc.store.events(current_offers_only=True)) == 3
+
+
+def test_retailer_photo_repairs_existing_cards_without_alerts(radar_svc):
+    svc = radar_svc
+    o = st.RadarOffer(source=st.SOURCE_NET, store="Shop", store_slug="shop", title="Tin", fmt="Tin",
+                      url="https://shop.example/products/mini-latas", image="https://img.example/large.jpg", state=IN_STOCK)
+    svc.radar._upsert(svc.watcher, o, {"chains": []}, baseline=True, now=svc.clock_box["now"])
+    e = svc.store.add_event({"watcher_id": svc.watcher["id"], "type": "RESTOCK", "url": o.url,
+                             "data": {"aggregator": True, "image": o.image, "fmt": "Tin"}})
+    svc.radar.fetcher.pages[o.url] = '<script type="application/ld+json">' + json.dumps({
+        "@context": "https://schema.org", "@type": "Product", "name": "Mini latas", "url": o.url,
+        "image": "https://img.example/mini.jpg", "offers": {"@type": "Offer", "price": "21.95", "priceCurrency": "EUR"}}) + '</script>'
+    from tantalus_hoard.agent_tools import RadarRunArgs, run_radar_run
+    run_radar_run(svc, RadarRunArgs(watcher_id=svc.watcher["id"], refresh_urls=[o.url]))
+    assert svc.store.event(e["id"])["data"]["image"] == "https://img.example/mini.jpg"
+    row = svc.radar.offers()[0]
+    assert row["image"] == "https://img.example/mini.jpg" and row["fmt"] == "Mini Tin"
+    assert len(events(svc)) == 1 and not svc.notifier.sent
+    from tantalus_hoard.agent_tools import RetailerDetailsArgs
+    run_radar_run(svc, RadarRunArgs(watcher_id=svc.watcher["id"], retailer_details=[RetailerDetailsArgs(
+        url=o.url, image="https://img.example/verified.jpg", fmt="Mini Tin")]))
+    o.image = "https://img.example/wrong-again.jpg"
+    svc.radar._retailer_images(svc.watcher, [o], svc.clock_box["now"] + 90000)
+    assert o.image == "https://img.example/verified.jpg"
+    assert svc.store.event(e["id"])["data"]["image"] == o.image
+    assert len(events(svc)) == 1 and not svc.notifier.sent

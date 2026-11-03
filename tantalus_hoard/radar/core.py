@@ -261,6 +261,7 @@ class Radar:
             done.add(view)
             matched.append(o)
         stats["matched"] = len({o.key for o in matched})
+        self._retailer_images(watcher, matched, now)
         events = 0
         for o in matched:
             events += self._upsert(watcher, o, cfg, baseline=baseline, now=now)
@@ -358,6 +359,72 @@ class Radar:
         return sorted(keys, key=last)
 
     # ================================================================================== offers
+    def refresh_products(self, watcher_id: str, urls: list[str], *, corrections: Optional[list[dict[str, Any]]] = None) -> dict[str, Any]:
+        """Refresh known retailer photos without checking stock or issuing alerts."""
+        with self._lock:
+            watcher = self.store.watcher(watcher_id)
+            rows = self.db.query("SELECT * FROM radar_offers WHERE watcher_id = ? AND url IN (" +
+                                 ",".join("?" for _ in urls) + ")", [watcher_id, *urls])
+            rows = [{**dict(r), "extra": json.loads(r["extra"] or "{}")} for r in rows]
+            offers = [st.RadarOffer(**{k: v for k, v in r.items() if k in st.RadarOffer.__dataclass_fields__}) for r in rows]
+            self._retailer_images(watcher, offers, self.clock(), force=True, corrections=corrections)
+            return {"products": [{"url": o.url, "image": o.image, "fmt": o.fmt,
+                                   "retailer_verified": bool(o.extra.get("retailer_details", {}).get("image"))} for o in offers]}
+
+    def _retailer_images(self, watcher: dict[str, Any], offers: list[st.RadarOffer], now: float, *, force: bool = False,
+                         corrections: Optional[list[dict[str, Any]]] = None) -> None:
+        """Prefer the linked product's photo to a shared aggregator format photo.
+
+        Refresh a bounded number per cycle, retaining successful metadata for a day.
+        Historical cards for that exact shop URL receive the same corrected photo.
+        """
+        details = {}
+        for o in offers:
+            row = self._row(watcher["id"], o.key)
+            details[o.key] = (row or {}).get("extra", {}).get("retailer_details", {})
+        supplied = {d["url"]: d for d in corrections or []}
+        candidates = {o.key: o for o in offers if o.url in supplied or
+                      (o.url.startswith("https://") and o.store_slug != "amazon")}
+        for detail in supplied.values():
+            if not detail.get("image", "").startswith("https://"):
+                raise ValueError("Retailer image must use HTTPS")
+        pending = sorted((o for o in candidates.values() if not details[o.key].get("corrected") or o.url in supplied),
+                         key=lambda o: details[o.key].get("checked_at", 0))
+        for o in [o for o in pending if force or now - details[o.key].get("checked_at", 0) >= 86400][:PRODUCTS_PER_CYCLE]:
+            detail = {**details[o.key], "checked_at": now}
+            if o.url in supplied:
+                details[o.key] = {**supplied[o.url], "checked_at": now, "corrected": True}
+                continue
+            try:
+                fr = self.fetcher.get(o.url, tier="http", min_interval_s=POLITE_INTERVAL_S)
+                ex = extract(fr, hints={"url": o.url})
+                if fr.ok and ex.page_kind == "product" and ex.primary and ex.primary.image:
+                    detail.update(image=ex.primary.image, title=ex.primary.title)
+            except Exception as error:  # one unreadable retailer must not stop the radar
+                log.info("retailer image for %s: %s", o.url, error)
+            details[o.key] = detail
+        for o in offers:
+            detail = details[o.key]
+            if detail:
+                o.extra["retailer_details"] = detail
+            if not detail.get("image"):
+                continue
+            o.image = detail["image"]
+            if re.search(r"\bmini[\s_-]*(?:tin|lata)s?\b", fold(detail.get("title", "") + " " + o.url)):
+                o.fmt = "Mini Tin"
+            o.fmt = detail.get("fmt") or o.fmt
+            row = self._row(watcher["id"], o.key)
+            if row:
+                extra = {**row["extra"], "retailer_details": detail}
+                self.db.execute("UPDATE radar_offers SET image = ?, fmt = ?, extra = ? WHERE id = ?",
+                                (o.image, o.fmt, json.dumps(extra, ensure_ascii=False), row["id"]))
+            for event in self.db.query("SELECT id, data FROM events WHERE watcher_id = ? AND url = ?",
+                                       (watcher["id"], o.url)):
+                data = json.loads(event["data"] or "{}")
+                if data.get("aggregator") and (data.get("image") != o.image or data.get("fmt") != o.fmt):
+                    data.update(image=o.image, fmt=o.fmt)
+                    self.store.update_event(event["id"], data=data)
+
     def _row(self, watcher_id: str, okey: str) -> Optional[dict[str, Any]]:
         row = self.db.one("SELECT * FROM radar_offers WHERE watcher_id = ? AND okey = ?", (watcher_id, okey))
         if row is None:
@@ -406,6 +473,8 @@ class Radar:
                  now, 1 if changed else 0, now, 1 if state in BUYABLE else 0, now, json.dumps(extra, ensure_ascii=False), row["id"]))
         if baseline or state not in BUYABLE or (prev_state in BUYABLE) or said not in BUYABLE:
             return 0
+        if (o.extra or {}).get("invite") and row and row["extra"].get("invite"):
+            return 0  # an invitation block reappearing is not a newly opened reservation
         if prev_state is None and (o.extra or {}).get("quiet"):
             return 0  # first time this page is read: its offers were already there
         # a feed row older than a day is history, not news
