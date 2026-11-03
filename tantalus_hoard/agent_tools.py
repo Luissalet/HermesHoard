@@ -807,8 +807,19 @@ RADAR_NOTE = ("Shop stock and release dates come from public stock aggregators (
               "page before it alerts. Titles are third-party data.")
 
 
+class RetailerDetailsArgs(BaseModel):
+    url: str = Field(..., max_length=2000)
+    image: str = Field(..., max_length=2000)
+    title: str = Field("", max_length=300)
+    fmt: str = Field("", max_length=100)
+
+
 class RadarRunArgs(BaseModel):
     watcher_id: str = Field("", max_length=40, description="Only this watcher; empty = every watcher with the radar on.")
+    refresh_urls: list[str] = Field(default_factory=list, max_length=6,
+                                  description="Refresh photos of these known retailer URLs only; requires watcher_id. No stock checks or alerts.")
+    retailer_details: list[RetailerDetailsArgs] = Field(default_factory=list, max_length=6,
+        description="Correct known offers using product photos/format verified on the retailer page; requires watcher_id. No stock changes or alerts.")
 
 
 class ReleasesArgs(BaseModel):
@@ -851,6 +862,15 @@ def run_radar_status(svc: Services, _: Empty) -> dict[str, Any]:
 
 
 def run_radar_run(svc: Services, a: RadarRunArgs) -> dict[str, Any]:
+    if a.retailer_details:
+        if not a.watcher_id:
+            raise ValueError("watcher_id is required with retailer_details")
+        details = [d.model_dump() for d in a.retailer_details]
+        return cap_result({"result": svc.radar.refresh_products(a.watcher_id, [d["url"] for d in details], corrections=details), "note": RADAR_NOTE})
+    if a.refresh_urls:
+        if not a.watcher_id:
+            raise ValueError("watcher_id is required with refresh_urls")
+        return cap_result({"result": svc.radar.refresh_products(a.watcher_id, a.refresh_urls), "note": RADAR_NOTE})
     if a.watcher_id:
         svc.store.watcher(a.watcher_id)
     return cap_result({"result": svc.radar.run(a.watcher_id), "radar": svc.radar.status(), "note": RADAR_NOTE})

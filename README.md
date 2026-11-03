@@ -1,5 +1,7 @@
 # Hermes's Hoard
 
+Amazon invitation blocks returning after stale or contradictory aggregator views no longer raise another reservation alert. The live panel shows one current Amazon reservation per product URL; History retains all events. Radar prefers retailer product photos, cached for a day with up to six refreshes per cycle. Native `radar_run(watcher_id, refresh_urls)` refreshes known product photos only; `retailer_details` applies explicitly verified HTTPS image/format corrections that survive aggregator refreshes. Neither targeted operation checks stock or sends alerts.
+
 **Products → News / History / product events** offer **Mark as seen** for an individual event. Only that event's stored `seen` flag changes; its status, price, history, other unread events and the last global visit stay intact. Seen events remain available in History when **Only unseen** is off. Existing **Mark all seen**, Dismiss and Resend actions remain available. Uses native `events_mark_seen(event_ids:[ID])` API/MCP115 without checking sources or sending notifications; failures keep the current filters and allow retry.
 
 **Trips → Merge with another trip** now identifies both trips by ID, dates,

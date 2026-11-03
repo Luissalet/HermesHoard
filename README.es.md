@@ -1,5 +1,7 @@
 # Hermes's Hoard
 
+Las invitaciones de Amazon que reaparecen tras caducar o discrepar las vistas del agregador no generan otra alerta de reserva. El panel muestra una reserva actual por URL de Amazon y el historial conserva todos los avisos. El radar prefiere fotos de la tienda, con caché diaria y hasta seis consultas por ciclo. `radar_run(watcher_id, refresh_urls)` actualiza las fotos de productos conocidos; `retailer_details` corrige imagen HTTPS y formato verificados expresamente, conservándolos frente al agregador. Estas operaciones dirigidas no comprueban stock ni envían avisos.
+
 **Productos → Novedades / Historial / avisos de un producto** permiten **Marcar visto** un aviso individual. Sólo cambia su marca local `seen`: conserva estado, precio, historial, otros avisos pendientes y la última visita global. El aviso sigue disponible en Historial al quitar **Sólo no vistos**. Se conservan **Marcar todo visto**, Descartar y Reenviar. Usa `events_mark_seen(event_ids:[ID])` nativo API/MCP115 sin comprobar fuentes ni enviar notificaciones; los errores conservan filtros y permiten reintentar.
 
 En **Viajes → Fusionar con otro viaje**, IDs, fechas, destino, cantidades nativas

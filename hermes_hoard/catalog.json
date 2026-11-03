@@ -2222,6 +2222,40 @@
       "openWorldHint": true
     },
     "inputSchema": {
+      "$defs": {
+        "RetailerDetailsArgs": {
+          "properties": {
+            "url": {
+              "maxLength": 2000,
+              "title": "Url",
+              "type": "string"
+            },
+            "image": {
+              "maxLength": 2000,
+              "title": "Image",
+              "type": "string"
+            },
+            "title": {
+              "default": "",
+              "maxLength": 300,
+              "title": "Title",
+              "type": "string"
+            },
+            "fmt": {
+              "default": "",
+              "maxLength": 100,
+              "title": "Fmt",
+              "type": "string"
+            }
+          },
+          "required": [
+            "url",
+            "image"
+          ],
+          "title": "RetailerDetailsArgs",
+          "type": "object"
+        }
+      },
       "properties": {
         "watcher_id": {
           "default": "",
@@ -2229,6 +2263,24 @@
           "maxLength": 40,
           "title": "Watcher Id",
           "type": "string"
+        },
+        "refresh_urls": {
+          "description": "Refresh photos of these known retailer URLs only; requires watcher_id. No stock checks or alerts.",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 6,
+          "title": "Refresh Urls",
+          "type": "array"
+        },
+        "retailer_details": {
+          "description": "Correct known offers using product photos/format verified on the retailer page; requires watcher_id. No stock changes or alerts.",
+          "items": {
+            "$ref": "#/$defs/RetailerDetailsArgs"
+          },
+          "maxItems": 6,
+          "title": "Retailer Details",
+          "type": "array"
         }
       },
       "title": "RadarRunArgs",

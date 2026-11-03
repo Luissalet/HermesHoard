@@ -272,6 +272,12 @@ class Store:
             # Mail deals may have no watcher and must remain visible.
             sql += " AND (watcher_id = '' OR EXISTS (SELECT 1 FROM watchers w WHERE w.id = events.watcher_id AND w.enabled = 1))"
         if current_offers_only:
+            # One current Amazon reservation per URL; retain every event in History.
+            sql += (" AND NOT (type = 'PREORDER_OPEN' AND COALESCE(json_extract(data, '$.store_slug'), '') = 'amazon'"
+                    " AND COALESCE(json_extract(data, '$.aggregator'), 0) = 1 AND EXISTS (SELECT 1 FROM events newer"
+                    " WHERE newer.watcher_id = events.watcher_id AND newer.url = events.url"
+                    " AND newer.type = events.type AND newer.status = 'confirmed'"
+                    " AND (newer.detected_at > events.detected_at OR (newer.detected_at = events.detected_at AND newer.id > events.id))))")
             # Keep historical events, but remove expired buying opportunities from the live panel.
             # Unknown / blocked checks do not prove an offer has ended; unrelated news stays visible.
             sql += (" AND NOT (type IN ('RESTOCK','LOCAL_RESTOCK','PREORDER_OPEN','SALE_OPEN','PRICE_DROP','PRICE_THRESHOLD_CROSSED')"
