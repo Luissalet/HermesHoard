@@ -12,6 +12,26 @@ from .errors import TantalusError
 from .hoard_link.ids import new_id  # ULID ids (prefix_ULID); the old base36 ids already stored keep working as opaque strings
 from .model import MODES, SELLER_POLICIES, TARGET_STATUSES, UNKNOWN
 
+# Alerts that announce something to buy; they stop being news once the offer ends.
+LIVE_ALERT_TYPES = ("RESTOCK", "LOCAL_RESTOCK", "PREORDER_OPEN", "SALE_OPEN", "PRICE_DROP", "PRICE_THRESHOLD_CROSSED")
+ENDED_STATES = ("OUT_OF_STOCK", "UNAVAILABLE_REGION", "MARKETPLACE_ONLY", "RESTOCK_SCHEDULED", "COMING_SOON")
+_LIVE_SQL = "(" + ",".join(f"'{t}'" for t in LIVE_ALERT_TYPES) + ")"
+_ENDED_SQL = "(" + ",".join(f"'{t}'" for t in ENDED_STATES) + ")"
+# An aggregator alert has ended when the radar saw its shop link turn non-buyable after the alert (sold out, or no page has
+# vouched for it for hours: UNKNOWN) and sees it buyable nowhere.
+_RADAR_ENDED_SQL = (
+    "COALESCE(json_extract(events.data, '$.aggregator'), 0) = 1 AND events.url != ''"
+    " AND EXISTS (SELECT 1 FROM radar_offers r WHERE r.watcher_id = events.watcher_id AND r.url = events.url"
+    " AND r.state NOT IN ('IN_STOCK','PREORDER') AND r.last_change_ts >= events.detected_at)"
+    " AND NOT EXISTS (SELECT 1 FROM radar_offers r WHERE r.watcher_id = events.watcher_id AND r.url = events.url"
+    " AND r.state IN ('IN_STOCK','PREORDER'))")
+# The shop's own product page, read after the alert, says it is over. It speaks for the alerts of its own target and for
+# aggregator alerts that point at the same link (the shop page outranks what an aggregator still lists).
+_TARGET_ENDED_SQL = (
+    "EXISTS (SELECT 1 FROM targets t WHERE (t.id = events.target_id OR (events.target_id = '' AND events.url != ''"
+    " AND t.watcher_id = events.watcher_id AND t.url = events.url)) AND t.last_check_ts >= events.detected_at"
+    " AND t.last_state IN " + _ENDED_SQL + ")")
+
 JSON_COLUMNS = {
     "watchers": ("config",),
     "targets": ("store_ids", "extra"),
@@ -280,9 +300,10 @@ class Store:
                     " AND (newer.detected_at > events.detected_at OR (newer.detected_at = events.detected_at AND newer.id > events.id))))")
             # Keep historical events, but remove expired buying opportunities from the live panel.
             # Unknown / blocked checks do not prove an offer has ended; unrelated news stays visible.
-            sql += (" AND NOT (type IN ('RESTOCK','LOCAL_RESTOCK','PREORDER_OPEN','SALE_OPEN','PRICE_DROP','PRICE_THRESHOLD_CROSSED')"
-                    " AND EXISTS (SELECT 1 FROM targets t WHERE t.id = events.target_id AND t.last_check_ts >= events.detected_at"
-                    " AND t.last_state IN ('OUT_OF_STOCK','UNAVAILABLE_REGION','MARKETPLACE_ONLY','RESTOCK_SCHEDULED','COMING_SOON')))")
+            sql += (f" AND NOT (type IN {_LIVE_SQL} AND (json_extract(data, '$.expired_at') IS NOT NULL"
+                    f" OR {_TARGET_ENDED_SQL} OR (events.target_id = '' AND {_RADAR_ENDED_SQL})))")
+            # The "sold out" follow-up of an alert that ended goes out on the channels; the panel just drops the alert.
+            sql += " AND json_extract(data, '$.ends_event') IS NULL"
         for col, value in (("watcher_id", watcher_id), ("target_id", target_id)):
             if value:
                 sql += f" AND {col} = ?"
@@ -302,6 +323,42 @@ class Store:
             params.append(0 if unseen else 1)
         rows = self.db.query(sql + " ORDER BY detected_at DESC LIMIT ?", params + [limit])
         return [row_dict("events", r) for r in rows]
+
+    def live_alerts(self, *, target_id: Optional[str] = None, watcher_id: Optional[str] = None, url: str = "",
+                    radar_ended: bool = False) -> list[dict[str, Any]]:
+        """Confirmed buying alerts (restock, reservation, price) that have not been marked as ended.
+
+        ``target_id``: the alerts of one watched product page, plus (with ``url`` and ``watcher_id``) the aggregator alerts that
+        point at the same link. ``radar_ended``: the aggregator alerts of ``watcher_id`` whose shop offer the radar no longer
+        sees buyable (it changed after the alert and no row for that link is buyable)."""
+        sql = (f"SELECT * FROM events WHERE status = 'confirmed' AND type IN {_LIVE_SQL}"
+               " AND json_extract(data, '$.expired_at') IS NULL")
+        params: list[Any] = []
+        if target_id and url and watcher_id:
+            sql += " AND (target_id = ? OR (target_id = '' AND watcher_id = ? AND url = ?))"
+            params += [target_id, watcher_id, url]
+            watcher_id = None
+        elif target_id:
+            sql += " AND target_id = ?"
+            params.append(target_id)
+        if watcher_id:
+            sql += " AND watcher_id = ?"
+            params.append(watcher_id)
+        if radar_ended:
+            sql += f" AND target_id = '' AND {_RADAR_ENDED_SQL}"
+        return [row_dict("events", r) for r in self.db.query(sql + " ORDER BY detected_at", params)]
+
+    def radar_offer_state(self, watcher_id: str, url: str) -> Optional[dict[str, Any]]:
+        """The radar's current word on one shop link: its state and when it last changed."""
+        row = self.db.one("SELECT state, last_change_ts FROM radar_offers WHERE watcher_id = ? AND url = ?"
+                          " ORDER BY CASE WHEN state IN ('IN_STOCK','PREORDER') THEN 0 ELSE 1 END, last_change_ts DESC LIMIT 1",
+                          (watcher_id, url))
+        return dict(row) if row else None
+
+    def end_alert(self, event: dict[str, Any], *, state: str, at: float) -> dict[str, Any]:
+        """Mark a buying alert as ended (sold out, gone...). It stays in History; the live panel drops it."""
+        data = {**(event.get("data") or {}), "expired_at": at, "expired_state": state}
+        return self.update_event(event["id"], data=data)
 
     def pending_revalidations(self, now: float) -> list[dict[str, Any]]:
         rows = self.db.query("SELECT * FROM events WHERE status = 'pending' AND revalidate_at IS NOT NULL AND revalidate_at <= ?"

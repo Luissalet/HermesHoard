@@ -26,6 +26,7 @@ DEFAULT_POLICIES: dict[str, Any] = {
     "min_drop_pct": 5.0,
     "scalper_multiplier": 1.5,
     "notify_sold_out": False,
+    "notify_ended_alerts": True,   # "se acabó" follow-up when something already announced sells out
 }
 
 SEVERITY = {RESTOCK: "high", LOCAL_RESTOCK: "high", PREORDER_OPEN: "high", SALE_OPEN: "high", PRICE_THRESHOLD_CROSSED: "high",
