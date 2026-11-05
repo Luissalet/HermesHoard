@@ -237,7 +237,9 @@ class Store:
 
     # =========================================================================== events
     def recent_event(self, dedupe_key: str, since: float) -> Optional[dict[str, Any]]:
+        # An alert that already ended (sold out, gone) does not swallow the next restock of the same offer.
         return row_dict("events", self.db.one("SELECT * FROM events WHERE dedupe_key = ? AND detected_at >= ? AND status != 'dismissed'"
+                                              " AND json_extract(data, '$.expired_at') IS NULL"
                                               " ORDER BY detected_at DESC LIMIT 1", (dedupe_key, since)))
 
     def last_event_of(self, target_id: str, types: Iterable[str], since: float) -> Optional[dict[str, Any]]:
@@ -245,6 +247,7 @@ class Store:
         marks = ",".join("?" * len(types))
         return row_dict("events", self.db.one(
             f"SELECT * FROM events WHERE target_id = ? AND type IN ({marks}) AND detected_at >= ? AND status != 'dismissed'"
+            " AND json_extract(data, '$.expired_at') IS NULL"
             " ORDER BY detected_at DESC LIMIT 1", [target_id, *types, since]))
 
     def add_event(self, ev: dict[str, Any]) -> dict[str, Any]:

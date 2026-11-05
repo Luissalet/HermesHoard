@@ -394,3 +394,25 @@ def test_the_shops_own_page_ends_an_aggregator_alert_for_the_same_link(radar_svc
     svc.store.update_target(t["id"], last_state="OUT_OF_STOCK", last_check_ts=now + 120)
     assert not svc.store.events(current_offers_only=True)
     assert [e["id"] for e in svc.store.live_alerts(target_id=t["id"], watcher_id=svc.watcher["id"], url=url)] == [ev["id"]]
+
+
+def test_a_restock_right_after_the_sell_out_alerts_again(radar_svc):
+    svc = radar_svc
+    now = svc.clock_box["now"]
+    cfg = {"chains": ["toy-planet"], "languages": ["ES", "EN"]}
+    page = f"{st.NET}/tiendas/toy-planet"
+    url = "https://www.toyplanet.com/products/figure-collection-v1"
+
+    def listed(state, at):
+        o = st.RadarOffer(source=st.SOURCE_NET, store="Toy Planet", store_slug="toy-planet", title="Pokémon 30 aniversario Figure Collection",
+                          url=url, state=state, price=49.99, extra={"_page": page})
+        return svc.radar._upsert(svc.watcher, o, cfg, baseline=False, now=at)
+
+    listed(OUT_OF_STOCK, now)
+    assert listed(IN_STOCK, now + 600) == 1                       # restock: alert
+    svc.radar._mark_gone(svc.watcher, {"toy-planet": set()}, now + 1200)
+    svc.radar._end_alerts(svc.watcher, now + 1200)                # sold out: the alert ends
+    svc.notifier.sent.clear()
+    assert listed(IN_STOCK, now + 1800) == 1                      # back 10 minutes later: alert again, not swallowed
+    assert [s[0]["type"] for s in svc.notifier.sent] == ["RESTOCK"]
+    assert len([e for e in svc.store.events(current_offers_only=True) if e["type"] == "RESTOCK"]) == 1

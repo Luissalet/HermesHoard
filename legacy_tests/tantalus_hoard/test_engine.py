@@ -400,3 +400,20 @@ def test_tidying_old_alerts_of_a_page_already_sold_out_sends_nothing(svc):
     svc.notifier.sent.clear()
     svc.engine.check_target(t["id"])
     assert svc.store.event(old["id"])["data"]["expired_state"] == "OUT_OF_STOCK" and not svc.notifier.sent
+
+
+def test_a_page_back_in_stock_after_a_sell_out_alerts_inside_the_cooldown(svc):
+    out, inn = page("game_product_outofstock.html"), page("game_product_instock.html")
+    svc.engine.fetcher = ScriptedFetcher({URL: [out, inn, out, inn]})
+    w = make_watcher(svc, cooldown_minutes=60)
+    t = svc.store.create_target(w["id"], URL, label="Switch 2", retailer="GAME")
+    svc.engine.check_target(t["id"])
+    swap_clock(svc, T0 + 600)
+    assert len(svc.engine.check_target(t["id"])["events"]) == 1
+    swap_clock(svc, T0 + 1200)
+    svc.engine.check_target(t["id"])                                # sold out: alert ends, follow-up sent
+    swap_clock(svc, T0 + 1800)
+    svc.notifier.sent.clear()
+    again = svc.engine.check_target(t["id"])
+    assert [svc.store.event(e)["type"] for e in again["events"]] == ["RESTOCK"]
+    assert [s[0]["type"] for s in svc.notifier.sent] == ["RESTOCK"]
