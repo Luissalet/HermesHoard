@@ -286,3 +286,111 @@ def test_retailer_photo_repairs_existing_cards_without_alerts(radar_svc):
     assert o.image == "https://img.example/verified.jpg"
     assert svc.store.event(e["id"])["data"]["image"] == o.image
     assert len(events(svc)) == 1 and not svc.notifier.sent
+
+
+def _toy_planet_restock(svc, now, url="https://www.toyplanet.com/products/figure-collection-v1"):
+    """A shop offer the radar saw in stock, and the confirmed alert it raised (already sent on the channels)."""
+    o = st.RadarOffer(source=st.SOURCE_NET, store="Toy Planet", store_slug="toy-planet", title="Figure Collection V1",
+                      url=url, state=IN_STOCK, price=49.99, extra={"_page": f"{st.NET}/tiendas/toy-planet"})
+    svc.radar._upsert(svc.watcher, o, {"chains": ["toy-planet"]}, baseline=True, now=now)
+    ev = svc.store.add_event({"watcher_id": svc.watcher["id"], "type": "RESTOCK", "status": "confirmed", "url": url,
+                              "title": "Toy Planet · Figure Collection V1", "new_state": IN_STOCK, "price": 49.99, "detected_at": now,
+                              "data": {"aggregator": True, "store_slug": "toy-planet", "retailer": "Toy Planet"}})
+    svc.store.update_event(ev["id"], notified=True)
+    return o, ev
+
+
+def test_an_aggregator_alert_that_sells_out_leaves_the_panel_and_says_so(radar_svc):
+    svc = radar_svc
+    now = svc.clock_box["now"]
+    o, ev = _toy_planet_restock(svc, now)
+    assert [e["id"] for e in svc.store.events(current_offers_only=True)] == [ev["id"]]
+    # 50 minutes later the shop's page on the aggregator no longer lists it in stock
+    later = now + 50 * 60
+    svc.radar._mark_gone(svc.watcher, {"toy-planet": set()}, later)
+    assert svc.radar.offers()[0]["state"] == OUT_OF_STOCK
+    # the panel drops the stale "en stock" even before the radar marks the alert as ended
+    assert not svc.store.events(current_offers_only=True)
+    svc.notifier.sent.clear()
+    assert svc.radar._end_alerts(svc.watcher, later) == 1
+    ended = svc.store.event(ev["id"])
+    assert ended["data"]["expired_at"] == later and ended["data"]["expired_state"] == OUT_OF_STOCK
+    assert ended["status"] == "confirmed"                       # History keeps it
+    follow = [e for e in svc.store.events(limit=50) if e["data"].get("ends_event") == ev["id"]]
+    assert len(follow) == 1 and follow[0]["type"] == "SOLD_OUT" and follow[0]["status"] == "confirmed"
+    assert follow[0]["summary"].startswith("Se acabó: Toy Planet · Figure Collection V1 — agotado (el aviso duró 50 min)")
+    assert svc.notifier.sent and svc.notifier.sent[-1][0]["type"] == "SOLD_OUT"
+    assert not svc.store.events(current_offers_only=True)        # the follow-up goes to the channels, not the panel
+    # idempotent: a second cycle ends nothing and sends nothing
+    sent = len(svc.notifier.sent)
+    assert svc.radar._end_alerts(svc.watcher, later + 600) == 0 and len(svc.notifier.sent) == sent
+
+
+def test_old_aggregator_alerts_end_quietly_and_a_link_buyable_elsewhere_keeps_its_alert(radar_svc):
+    svc = radar_svc
+    now = svc.clock_box["now"]
+    _o, ev = _toy_planet_restock(svc, now)
+    svc.radar._mark_gone(svc.watcher, {"toy-planet": set()}, now + 3600)
+    svc.notifier.sent.clear()
+    svc.radar._end_alerts(svc.watcher, now + 20 * 3600)        # radar was off: the sell-out is old news
+    assert svc.store.event(ev["id"])["data"]["expired_at"] == now + 3600 and not svc.notifier.sent
+    # a link another aggregator page still sees buyable is not over
+    _o2, ev2 = _toy_planet_restock(svc, now + 21 * 3600, url="https://www.toyplanet.com/products/display-collection")
+    other = st.RadarOffer(source=st.SOURCE_ES, store="Toy Planet", store_slug="toy-planet", title="Display Collection ES",
+                          url=ev2["url"], state=IN_STOCK, extra={"_page": f"{st.NET}/p/display"})
+    svc.radar._upsert(svc.watcher, other, {"chains": ["toy-planet"]}, baseline=True, now=now + 21 * 3600)
+    svc.radar._mark_gone(svc.watcher, {"toy-planet": set()}, now + 22 * 3600)
+    assert svc.radar._end_alerts(svc.watcher, now + 22 * 3600) == 0
+    assert ev2["id"] in [e["id"] for e in svc.store.events(current_offers_only=True)]
+
+
+def test_an_old_feed_card_does_not_outrank_a_fresh_sold_out_view(radar_svc):
+    svc = radar_svc
+    now = svc.clock_box["now"]
+    url = "https://www.toyplanet.com/products/binder"
+    shop = st.RadarOffer(source=st.SOURCE_NET, store="Toy Planet", store_slug="toy-planet", title="Binder", url=url,
+                         state=OUT_OF_STOCK, extra={"_page": f"{st.NET}/tiendas/toy-planet"})
+    svc.radar._upsert(svc.watcher, shop, {"chains": []}, baseline=True, now=now)
+    card = st.RadarOffer(source=st.SOURCE_ES, store="Toy Planet", store_slug="toy-planet", title="Binder", url=url,
+                         state=IN_STOCK, seen_ts=now - 15 * 3600, extra={"_page": f"{st.ES}/"})
+    card_key_row = svc.radar._upsert(svc.watcher, card, {"chains": []}, baseline=False, now=now)
+    assert card_key_row == 0
+    rows = {r["source"]: r for r in svc.radar.offers()}
+    assert rows[st.SOURCE_ES]["state"] != IN_STOCK
+
+
+def test_an_offer_nobody_vouches_for_lapses_quietly_and_resumes_without_a_new_alert(radar_svc):
+    svc = radar_svc
+    now = svc.clock_box["now"]
+    url = "https://www.elcorteingles.es/30th-booster-bundle"
+    card = st.RadarOffer(source=st.SOURCE_NET, store="El Corte Inglés", store_slug="el-corte-ingles", title="Booster Bundle", url=url,
+                         state=IN_STOCK, seen_ts=now, extra={"_page": f"{st.NET}/api/pulse.json"})
+    svc.radar._upsert(svc.watcher, card, {"chains": []}, baseline=True, now=now)
+    ev = svc.store.add_event({"watcher_id": svc.watcher["id"], "type": "RESTOCK", "status": "confirmed", "url": url, "title": "ECI",
+                              "detected_at": now, "data": {"aggregator": True}})
+    svc.store.update_event(ev["id"], notified=True)
+    assert svc.radar._lapse(svc.watcher, now + 30 * 60) == 0          # the feed's word still counts
+    assert svc.radar._lapse(svc.watcher, now + 3 * 3600) == 1
+    svc.notifier.sent.clear()
+    assert svc.radar._end_alerts(svc.watcher, now + 3 * 3600) == 1
+    assert svc.store.event(ev["id"])["data"]["expired_state"] == "UNKNOWN" and not svc.notifier.sent
+    assert not svc.store.events(current_offers_only=True)
+    # a page lists it again the same day: no new restock alert, the old one is live again
+    page = st.RadarOffer(source=st.SOURCE_NET, store="El Corte Inglés", store_slug="el-corte-ingles", title="Booster Bundle", url=url,
+                         state=IN_STOCK, extra={"_page": f"{st.NET}/tiendas/el-corte-ingles"})
+    assert svc.radar._upsert(svc.watcher, page, {"chains": ["el-corte-ingles"]}, baseline=False, now=now + 4 * 3600) == 0
+    assert [e["id"] for e in svc.store.events(current_offers_only=True)] == [ev["id"]]
+
+
+def test_the_shops_own_page_ends_an_aggregator_alert_for_the_same_link(radar_svc):
+    svc = radar_svc
+    now = svc.clock_box["now"]
+    url = "https://www.game.es/pack-de-cartas-album-pokemon-30-aniversario-castellano/266943"
+    ev = svc.store.add_event({"watcher_id": svc.watcher["id"], "type": "RESTOCK", "status": "confirmed", "url": url, "title": "GAME",
+                              "detected_at": now, "data": {"aggregator": True}})
+    t = svc.store.create_target(svc.watcher["id"], url, label="Pack", retailer="GAME")
+    svc.store.update_target(t["id"], last_state="IN_STOCK", last_check_ts=now + 60)
+    assert [e["id"] for e in svc.store.events(current_offers_only=True)] == [ev["id"]]
+    svc.store.update_target(t["id"], last_state="OUT_OF_STOCK", last_check_ts=now + 120)
+    assert not svc.store.events(current_offers_only=True)
+    assert [e["id"] for e in svc.store.live_alerts(target_id=t["id"], watcher_id=svc.watcher["id"], url=url)] == [ev["id"]]

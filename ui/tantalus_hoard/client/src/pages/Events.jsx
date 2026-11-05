@@ -72,7 +72,14 @@ function EventsTab({ initialWatcher }) {
                 <tr key={e.id} style={{ opacity: e.status === "dismissed" ? 0.55 : 1 }}>
                   <td className="whitespace-nowrap" title={clock(e.detected_at, lang)}>{shortClock(e.detected_at, lang)}<div className="help"><Rel ts={e.detected_at} /></div></td>
                   <td><EventChip type={e.type} /></td>
-                  <td><EventStatusPill status={e.status} />{!e.seen && e.status === "confirmed" && <Chip className="chip-accent ml-1">{t("new")}</Chip>}</td>
+                  <td>
+                    <EventStatusPill status={e.status} />
+                    {e.data?.expired_at
+                      ? <Chip className={`ml-1 ${e.data.expired_state === "UNKNOWN" ? "" : "chip-danger"}`}>
+                          {e.data.expired_state === "UNKNOWN" ? t("alert_unconfirmed_short") : t("alert_ended_short")} <Rel ts={e.data.expired_at} />
+                        </Chip>
+                      : !e.seen && e.status === "confirmed" && <Chip className="chip-accent ml-1">{t("new")}</Chip>}
+                  </td>
                   <td style={{ minWidth: 260, maxWidth: 480 }}>
                     <div className="font-semibold">{e.target_id ? <a href={`#/target/${encodeURIComponent(e.target_id)}`}>{e.title}</a> : e.title}</div>
                     {e.summary && <div className="help clamp2" title={e.summary}>{e.summary}</div>}

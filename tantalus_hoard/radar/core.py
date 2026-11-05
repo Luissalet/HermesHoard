@@ -52,6 +52,8 @@ DEFAULTS: dict[str, Any] = {
     "track_chain_products": True,            # chain products on readable sites become direct targets
 }
 INTERVAL_MIN = 10          # normal cycle
+LAPSE_REVIVE_S = 24 * 3600  # a lapsed row listed again within this window resumes quietly
+ENDED_FRESH_S = 3600       # an alert whose offer ended within this window gets the "se acabó" follow-up
 RELEASE_DAY_INTERVAL_MIN = 5   # a matching release is today or tomorrow
 PRODUCT_REFRESH_MIN = 30   # a product page is fetched at most this often (10 on release day)
 RELEASE_PAGE_REFRESH_MIN = 60
@@ -266,6 +268,8 @@ class Radar:
         for o in matched:
             events += self._upsert(watcher, o, cfg, baseline=baseline, now=now)
         stats["gone"] = self._mark_gone(watcher, complete_lists, now)
+        stats["lapsed"] = self._lapse(watcher, now)
+        stats["ended"] = self._end_alerts(watcher, now)
         for rel in self._merge_releases(matched_releases, detailed):
             events += self._release(watcher, rel, cfg, baseline=baseline, now=now, today=today)
         if baseline:
@@ -442,10 +446,14 @@ class Radar:
         # page lists an invitation) and are read at different times, so the row's state is the best fresh view, not the last one.
         views = dict(extra.get("views") or {})
         page = (o.extra or {}).get("_page", "")
+        # A feed card says "restocked at <time>": its word dates from that time, not from when the card was read again,
+        # or an old card that stays on the home page would keep the offer "in stock" for ever.
+        seen_at = min(now, float(o.seen_ts)) if (page and _is_feed(page) and o.seen_ts) else now
+        stale_feed = bool(page and _is_feed(page) and now - seen_at > FEED_VIEW_TTL_S)
         if page and said != UNKNOWN:
-            views[page] = [said, now]
+            views[page] = [said, seen_at]
         extra["views"] = _fresh_views(views, now)
-        state = _best_view(extra["views"]) or said
+        state = _best_view(extra["views"]) or (UNKNOWN if stale_feed and row is not None else said)
         if o.seen_ts:
             extra["aggregator_seen_ts"] = o.seen_ts
         if row is None:
@@ -471,6 +479,11 @@ class Radar:
                 (o.source, o.store, 1 if chain else 0, o.title[:300], o.url, o.url, o.product_key, o.product_key, o.release, o.release,
                  o.set_name, o.set_name, o.fmt, o.fmt, o.lang, o.lang, o.image, o.image, o.kind, state, state, o.price, o.currency or "EUR",
                  now, 1 if changed else 0, now, 1 if state in BUYABLE else 0, now, json.dumps(extra, ensure_ascii=False), row["id"]))
+        if (prev_state == UNKNOWN and state in BUYABLE and row and row.get("last_buyable_ts")
+                and now - float(row["last_buyable_ts"]) < LAPSE_REVIVE_S):
+            # it had only lapsed (no page read it for a while) and is still listed: not a new restock, the alert is live again
+            self._revive(watcher, o.url)
+            return 0
         if baseline or state not in BUYABLE or (prev_state in BUYABLE) or said not in BUYABLE:
             return 0
         if (o.extra or {}).get("invite") and row and row["extra"].get("invite"):
@@ -503,6 +516,42 @@ class Radar:
                 self.db.execute("UPDATE radar_offers SET state = ?, extra = ?, last_change_ts = CASE WHEN ? != state THEN ? ELSE last_change_ts END "
                                 "WHERE id = ?", (state, json.dumps(extra, ensure_ascii=False), state, now, row["id"]))
                 n += state not in BUYABLE
+        return n
+
+    def _lapse(self, watcher: dict[str, Any], now: float) -> int:
+        """A buyable row that no page has vouched for within the view TTL (only an old feed card ever listed it, or its page
+        has not been read for hours) is no longer known to be buyable: it turns UNKNOWN, which ends its alerts quietly."""
+        n = 0
+        rows = self.db.query("SELECT id, extra FROM radar_offers WHERE watcher_id = ? AND state IN ('IN_STOCK','PREORDER')"
+                             " AND last_seen_ts < ?", (watcher["id"], now - FEED_VIEW_TTL_S))
+        for row in rows:
+            extra = json.loads(row["extra"] or "{}")
+            if _fresh_views(dict(extra.get("views") or {}), now):
+                continue
+            self.db.execute("UPDATE radar_offers SET state = ?, last_change_ts = ? WHERE id = ?", (UNKNOWN, now, row["id"]))
+            n += 1
+        return n
+
+    def _revive(self, watcher: dict[str, Any], url: str) -> None:
+        if not url:
+            return
+        for row in self.db.query("SELECT id, data FROM events WHERE watcher_id = ? AND url = ?"
+                                 " AND json_extract(data, '$.expired_state') = 'UNKNOWN'", (watcher["id"], url)):
+            data = json.loads(row["data"] or "{}")
+            data.pop("expired_at", None)
+            data.pop("expired_state", None)
+            self.store.update_event(row["id"], data=data)
+
+    def _end_alerts(self, watcher: dict[str, Any], now: float) -> int:
+        """Alerts of this watcher whose shop link the radar no longer sees buyable are over. One that ended within the hour
+        gets the "se acabó" follow-up on the channels; older ones (a backlog, a radar that was off) end quietly."""
+        n = 0
+        for ev in self.store.live_alerts(watcher_id=watcher["id"], radar_ended=True):
+            row = self.store.radar_offer_state(watcher["id"], ev["url"]) or {}
+            changed = float(row.get("last_change_ts") or now)
+            self.engine.end_alerts(watcher, [ev], state=row.get("state") or OUT_OF_STOCK, at=changed,
+                                   notify=now - changed <= ENDED_FRESH_S)
+            n += 1
         return n
 
     def reference_price(self, watcher: dict[str, Any], o: st.RadarOffer) -> Optional[float]:

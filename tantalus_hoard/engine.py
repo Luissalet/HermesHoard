@@ -26,7 +26,7 @@ from .model import (BUYABLE, CANDIDATE_FOUND, COMING_SOON, IN_STOCK, INFO_CHANGE
 from .secondhand import build_source, get_pack, score_listing
 from .secondhand.dedupe import DedupeIndex
 from .secondhand.distance import find_municipality_coords
-from .store import Store, host_of
+from .store import ENDED_STATES, Store, host_of
 
 log = logging.getLogger("tantalus.engine")
 
@@ -35,6 +35,7 @@ STATE_RANK = {IN_STOCK: 7, LOCAL_PICKUP: 6, PREORDER: 5, RESTOCK_SCHEDULED: 4, C
 NEEDS_HUMAN_RETRY_MIN = 180
 BUSY_RETRY_S = 180        # another app holds the site's browser lane: look again soon, it is not the page's fault
 MAX_BACKOFF_MIN = 6 * 60
+ENDED_NOTICE_WINDOW_S = 48 * 3600   # an alert older than this ends quietly: no "sold out" follow-up
 
 
 def fold(text: str) -> str:
@@ -228,6 +229,12 @@ class Engine:
         created = [self._raise(d, target=target, watcher=watcher, offer=offer, conf=conf, policies=policies, title=title,
                                retailer=retailer) for d in drafts]
         created = [e for e in created if e]
+        if not revalidation and state in ENDED_STATES:
+            # The product page no longer sells it: the restock / reservation / price alerts it raised are over.
+            sold_out_sent = any(e["type"] == rules.SOLD_OUT and e["status"] == "confirmed" for e in created)
+            live = self.store.live_alerts(target_id=target["id"], watcher_id=watcher["id"], url=target["url"])
+            # the follow-up goes out when the page has just stopped selling it, not when old alerts are tidied up
+            self.end_alerts(watcher, live, state=state, at=now, notify=not sold_out_sent and prev_known in BUYABLE)
 
         # ---------------------------------------------------------------- update the target
         if state != UNKNOWN:
@@ -379,6 +386,42 @@ class Engine:
         if kind == rules.SOLD_OUT:
             return state not in BUYABLE
         return state == event.get("new_state") or (kind == rules.RESTOCK and state in BUYABLE)
+
+    # ======================================================================================== ended alerts
+    def end_alerts(self, watcher: dict[str, Any], alerts: list[dict[str, Any]], *, state: str, at: float,
+                   notify: bool = True) -> list[dict[str, Any]]:
+        """Mark buying alerts whose offer is over (sold out, gone, back to "coming soon") and, for an alert that already went
+        out on the channels, send a short "se acabó" follow-up so a stale "en stock" is never the last word.
+
+        The ended alert stays in History with ``expired_at`` / ``expired_state``; the live panel drops it. The follow-up is a
+        ``SOLD_OUT`` event linked by ``data.ends_event``. No follow-up for alerts older than two days, alerts nobody was told
+        about, or when the watcher turned ``notify_ended_alerts`` off."""
+        policies = rules.policies_for(watcher.get("config") or {})
+        # "Unknown" means no page vouches for the offer any more, not that it sold out: end quietly.
+        notify = notify and state != UNKNOWN and policies.get("notify_ended_alerts", True) is not False
+        now = self.clock()
+        follow_ups: list[dict[str, Any]] = []
+        for ev in alerts:
+            self.store.end_alert(ev, state=state, at=at)
+            if not notify or not ev.get("notified") or now - float(ev["detected_at"]) > ENDED_NOTICE_WINDOW_S:
+                continue
+            data = ev.get("data") or {}
+            minutes = max(1, round((at - float(ev["detected_at"])) / 60))
+            lasted = f"{minutes} min" if minutes < 120 else f"{round(minutes / 60)} h"
+            label = rules.STATE_LABEL_ES.get(state, state.lower())
+            summary = f"Se acabó: {ev['title']} — {label} (el aviso duró {lasted})"
+            follow = self.store.add_event({
+                "watcher_id": ev.get("watcher_id") or "", "target_id": ev.get("target_id") or "", "type": rules.SOLD_OUT,
+                "severity": "low", "status": "confirmed", "old_state": ev.get("new_state") or "", "new_state": state,
+                "price": ev.get("price"), "currency": ev.get("currency") or "", "confidence": ev.get("confidence") or 0,
+                "dedupe_key": f"ended:{ev['id']}", "url": ev.get("url") or "", "title": ev.get("title") or "", "summary": summary[:600],
+                "detected_at": now,
+                "data": {"ends_event": ev["id"], "ended_type": ev["type"], "retailer": data.get("retailer", ""),
+                         "store_slug": data.get("store_slug", ""), "aggregator": bool(data.get("aggregator")), "image": data.get("image", ""),
+                         "alert_lasted_s": max(0.0, at - float(ev["detected_at"]))}})
+            self.dispatch(follow, watcher)
+            follow_ups.append(follow)
+        return follow_ups
 
     # ======================================================================================== notification
     def dispatch(self, event: dict[str, Any], watcher: Optional[dict[str, Any]] = None) -> list[dict[str, Any]]:

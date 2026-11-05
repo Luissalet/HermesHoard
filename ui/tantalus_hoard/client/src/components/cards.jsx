@@ -24,8 +24,10 @@ export function EventCard({ event, watcherName, onChanged, compact }) {
     onChanged?.();
   });
   const showOld = event.old_price !== null && event.old_price !== undefined && event.type.includes("DROP");
+  // An alert whose offer is over (sold out, gone) keeps its card in History but says so instead of "En stock".
+  const endedAt = event.data?.expired_at;
   return (
-    <article className="panel flex gap-3" aria-label={event.title}>
+    <article className="panel flex gap-3" aria-label={event.title} style={endedAt ? { opacity: 0.72 } : undefined}>
       {!compact && (image ? <Thumb src={image} large /> : null)}
       <div className="min-w-0 flex-1 space-y-1.5">
         <div className="flex flex-wrap items-center gap-2">
@@ -38,7 +40,11 @@ export function EventCard({ event, watcherName, onChanged, compact }) {
         {event.summary && <p className={event.type === "RELEASE" ? "help" : "help clamp2"} title={event.summary}>{event.summary}</p>}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           {event.price !== null && event.price !== undefined && <Price value={event.price} currency={event.currency} old={showOld ? event.old_price : undefined} />}
-          {event.new_state && <StatePill state={event.new_state} />}
+          {endedAt
+            ? (event.data.expired_state === "UNKNOWN"
+              ? <span className="help">{t("alert_unconfirmed")} <Rel ts={endedAt} /></span>
+              : <><StatePill state={event.data.expired_state || "OUT_OF_STOCK"} /><span className="help">{t("alert_ended")} <Rel ts={endedAt} /></span></>)
+            : event.new_state && <StatePill state={event.new_state} />}
           {watcherName && <span className="help trunc" style={{ maxWidth: 220 }}>{watcherName}</span>}
         </div>
         <div className="flex flex-wrap items-center gap-2 pt-0.5">

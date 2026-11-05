@@ -55,7 +55,7 @@ export function emptyForm(mode = "availability") {
   return {
     mode, name: "", interval_min: DEFAULT_INTERVAL[mode], discovery_interval_h: "24", enabled: true, notes: "", budget_category: "",
     terms: "", must: "", exclude: "", region: "", stores: "", seller: "retail_only", alert_on: [...DEFAULT_ALERTS],
-    require_confidence: "75", revalidate_seconds: "60", cooldown_minutes: "20", min_drop_pct: "5", price_threshold: "", msrp: "", scalper_multiplier: "",
+    require_confidence: "75", revalidate_seconds: "60", cooldown_minutes: "20", min_drop_pct: "5", price_threshold: "", msrp: "", scalper_multiplier: "", notify_ended: true,
     disc_queries: "", disc_retailers: "", targets: "",
     radar_enabled: false, radar_chains: "game, carrefour, el-corte-ingles, alcampo, amazon, toys-r-us, toy-planet", radar_languages: "ES, EN", radar_other_shops: true,
     pack: "generic", sh_sources: ["wallapop"], sh_queries: "", sh: {},
@@ -81,6 +81,7 @@ export function formFromWatcher(w, packs) {
       seller: pol.seller || "retail_only", alert_on: Array.isArray(pol.alert_on) ? pol.alert_on : [...DEFAULT_ALERTS],
       require_confidence: str(pol.require_confidence), revalidate_seconds: str(pol.revalidate_seconds), cooldown_minutes: str(pol.cooldown_minutes),
       min_drop_pct: str(pol.min_drop_pct), price_threshold: str(pol.price_threshold), msrp: str(pol.msrp), scalper_multiplier: str(pol.scalper_multiplier),
+      notify_ended: pol.notify_ended_alerts !== false,
       disc_queries: joinLines(d.queries), disc_retailers: joinList(d.retailers),
     });
     const r = c.radar || {};
@@ -142,6 +143,7 @@ export function buildConfig(form, base, packs) {
     put(pol, "price_threshold", parseNum(form.price_threshold));
     put(pol, "msrp", parseNum(form.msrp));
     put(pol, "scalper_multiplier", parseNum(form.scalper_multiplier));
+    pol.notify_ended_alerts = !!form.notify_ended;
     cfg.policies = pol;
     const disc = { ...(cfg.discovery || {}) };
     put(disc, "queries", splitLines(form.disc_queries));
@@ -363,6 +365,7 @@ export default function WatcherForm({ watcher, draft, onSaved, onCancel }) {
               <div className="flex flex-wrap gap-x-4 gap-y-1.5">
                 {ALERT_TYPES.map((a) => <Check key={a} checked={form.alert_on.includes(a)} onChange={(on) => toggleIn("alert_on", a, on)}>{t(`ev_${a}`)}</Check>)}
               </div>
+              <div className="pt-2"><Check checked={form.notify_ended} onChange={set("notify_ended")}>{t("notify_ended_alerts")}</Check></div>
             </div>
           </Block>
           <Block title={t("form_radar")} hint={t("form_radar_hint")}>
