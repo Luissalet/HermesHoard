@@ -107,3 +107,14 @@ def test_a_new_faustus_conversation_every_few_looks(svc):
         swap_clock(svc, T0 + 300 * i)
         svc.engine.check_target(t["id"])
     assert fake.conversations == 2 and len(fake.turns) == 8
+
+
+def test_a_buyable_row_hermes_does_not_follow_brings_the_check_forward_once_not_every_look(svc):
+    shelf = {"title": "Estantería roble 75x50 cm", "price": 26.9, "status": "in_stock", "evidence": "Añadir", "where": "lista"}
+    w, t = make(svc, [page_text()])
+    fake, eye = attach(svc, [{"rows": verdict_rows() + [shelf], "notes": ""}])
+    svc.engine.check_target(t["id"])                       # first look: the shelf is new -> merge it now
+    assert svc.store.target(t["id"])["next_check_ts"] <= T0
+    swap_clock(svc, T0 + 30)
+    svc.engine.check_target(t["id"])                       # second look says the same: nothing new
+    assert svc.store.target(t["id"])["next_check_ts"] >= T0 + 30 + 240
