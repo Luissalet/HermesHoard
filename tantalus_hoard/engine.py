@@ -19,6 +19,8 @@ from typing import Any, Callable, Optional
 from . import rules
 from .discovery import discover, product_terms, watcher_config
 from .extract import adapter_for, extract, retailer_for_host, source_level_for_host
+from .extract import window_check
+from .faustus_eye import merge as faustus_merge
 from .fetch.open_window import TIER as OPEN_WINDOW
 from .model import (BUYABLE, CANDIDATE_FOUND, COMING_SOON, IN_STOCK, INFO_CHANGE, LISTING_PRICE_DROP, LOCAL_PICKUP, MARKETPLACE_ONLY,
                     MODE_AVAILABILITY, MODE_INFORMATION, MODE_SECONDHAND, NEEDS_HUMAN, NEW_LISTING, NEW_SKU,
@@ -37,6 +39,7 @@ NEEDS_HUMAN_RETRY_MIN = 180
 BUSY_RETRY_S = 180        # another app holds the site's browser lane: look again soon, it is not the page's fault
 MAX_BACKOFF_MIN = 6 * 60
 ENDED_NOTICE_WINDOW_S = 48 * 3600   # an alert older than this ends quietly: no "sold out" follow-up
+RECHECK_SOON_S = 60                 # an open-window row only the model read as buyable is read again this soon
 
 
 def fold(text: str) -> str:
@@ -118,6 +121,9 @@ class Engine:
         else:
             fr = self.fetcher.get(target["url"], tier=target.get("fetch_tier") or "auto")
         ex = extract(fr, hints=hints, llm=self.llm)
+        if fr.tier == OPEN_WINDOW and fr.ok and getattr(fr, "page_lines", None):
+            # second reader: the family model reads the same page text; agreements and gaps are marked on the offers
+            ex.model_check = window_check.reinforce(ex, fr.page_lines, target["url"], self.llm)
         return fr, ex
 
     def check_target(self, target_id: str, *, revalidation: bool = False) -> dict[str, Any]:
@@ -177,6 +183,11 @@ class Engine:
                                    f"o quita este objetivo.", "detected_at": now}))
             return {"target_id": target["id"], "ok": False, "blocked": blocked, "error": reason, "observation": obs,
                     "events": [e["id"] for e in events]}
+
+        # ---------------------------------------------------------------- Faustus's look at the same window, put in common
+        eye = getattr(self, "faustus_eye", None)
+        if fr.tier == OPEN_WINDOW and eye is not None:
+            extra["faustus_check"] = faustus_merge(ex, eye.latest(target["id"]), extra, target["url"], now)
 
         # ---------------------------------------------------------------- choose the offer
         terms, must, exclude = self._match_config(watcher)
@@ -244,6 +255,10 @@ class Engine:
             live = self.store.live_alerts(target_id=target["id"], watcher_id=watcher["id"], url=target["url"])
             # the follow-up goes out when the page has just stopped selling it, not when old alerts are tidied up
             self.end_alerts(watcher, live, state=state, at=now, notify=not sold_out_sent and prev_known in BUYABLE)
+        model_check = getattr(ex, "model_check", None)
+        if model_check is not None:
+            extra["model_check"] = {**model_check, "at": now}
+        look_reason = "recheck" if extra.get("recheck_soon") else "check"
 
         # ---------------------------------------------------------------- update the target
         if state != UNKNOWN:
@@ -255,14 +270,21 @@ class Engine:
         if offer.price is not None and state in BUYABLE and (min_price is None or offer.price < float(min_price)):
             min_price = offer.price
         no_match = is_list and not matched  # a search page where nothing matches: do not keep the old tile's price or title
+        recheck_soon = bool(extra.pop("recheck_soon", False))      # a row only the model saw buyable: read again in a minute
+        next_ts = (now + RECHECK_SOON_S if recheck_soon else self._next_check(target, watcher)) if not revalidation \
+            else target.get("next_check_ts")
         self.store.update_target(
             target["id"], status="active", last_check_ts=now, last_state=state,
             last_price=None if no_match else (offer.price if offer.price is not None else target.get("last_price")),
             last_currency=offer.currency or target.get("last_currency") or "", last_confidence=conf.score,
             last_title="" if no_match else (offer.title or target.get("last_title") or "")[:200],
             last_image="" if no_match else (offer.image or target.get("last_image") or ""),
-            last_error="", fail_count=0, min_price=min_price, extra=extra,
-            next_check_ts=self._next_check(target, watcher) if not revalidation else target.get("next_check_ts"))
+            last_error="", fail_count=0, min_price=min_price, extra=extra, next_check_ts=next_ts)
+        if per_item and not revalidation and eye is not None:
+            # After the target is saved: Faustus takes its own look in the background (the tab through its extension,
+            # product pages, searches). Its verdict is merged at the next check, which it moves to "now" when it sees
+            # something Hermes does not.
+            eye.request(self.store.target(target["id"]), matched, reason=look_reason)
         return {"target_id": target["id"], "ok": True, "state": state, "price": offer.price, "currency": offer.currency,
                 "confidence": conf.score, "band": conf.band, "factors": conf.factors, "method": offer.method, "page_kind": ex.page_kind,
                 "matched_offers": len(matched) if is_list else None, "observation": obs, "events": [e["id"] for e in created],
@@ -313,7 +335,25 @@ class Engine:
             state, notes = rules.effective_state(o, seller_policy=seller_policy, price_ceiling=ceiling)
             if state == UNKNOWN:
                 continue                                   # no button read: say nothing rather than guess
-            conf = rules.score_confidence(o, source_level=level, tier=tier, target_store_ids=[], corroborated=False, price_ok=None)
+            model_only = bool(o.extra.get("model_only"))
+            if model_only and state in BUYABLE and prev_state not in BUYABLE and prev.get("pending_state") != state:
+                # Only the model reads this row as buyable: remember it, read the window again in a minute, alert when the
+                # second reading says the same.
+                items[key] = {**prev, "pending_state": state, "price": o.price, "title": (o.title or "")[:200], "seen": now}
+                extra["recheck_soon"] = True
+                continue
+            faustus_twice = bool(o.extra.get("faustus_twice"))
+            twice = (model_only and prev.get("pending_state") == state) or faustus_twice
+            agrees = bool(o.extra.get("model_agrees")) or bool(o.extra.get("faustus_agrees"))
+            conf = rules.score_confidence(o, source_level=level, tier=tier, target_store_ids=[], corroborated=agrees or twice,
+                                          price_ok=None)
+            if twice:
+                conf.score = min(100, conf.score + 10)
+                conf.factors.append({"key": "faustus_twice" if faustus_twice else "model_twice", "points": 10,
+                                     "label": "Faustus lo vio igual en dos miradas seguidas" if faustus_twice
+                                     else "Leído igual en dos lecturas seguidas"})
+            if o.extra.get("faustus_agrees"):
+                conf.factors.append({"key": "faustus_agrees", "points": 0, "label": "Faustus lo ve igual"})
             row = {**target, "label": o.title or target.get("label") or ""}
             drafts = rules.transitions(target=row, prev_state=prev_state, prev_price=prev.get("price"), state=state, offer=o,
                                        policies=policies, ceiling=ceiling, first_check=first_check or not prev)

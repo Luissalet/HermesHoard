@@ -169,3 +169,92 @@ def test_check_in_the_window_asks_the_person(svc):
     [event] = [svc.store.event(e) for e in res["events"]]
     assert "verificación" in event["summary"] and event["severity"] == "high"
     assert svc.store.target(t["id"])["status"] == "needs_human"
+
+
+# ------------------------------------------------------------------------------------------------ the model reads it too
+class FakeModel:
+    """Stands for the family model: answers the rows it is given (a function of the page text)."""
+
+    def __init__(self, rows_for=None, up=True):
+        self.rows_for = rows_for or (lambda text: [])
+        self.up = up
+        self.calls = 0
+
+    def available(self):
+        return (True, "") if self.up else (False, "no model link")
+
+    def json(self, system, user, **_kw):
+        self.calls += 1
+        return {"rows": self.rows_for(user)}
+
+
+def model_reading(**status):
+    """The model's answer for the three Pokémon rows: ``status`` by short name (mew, mewtwo, ultra), evidence as on the page."""
+    words = {"out_of_stock": OUT, "in_stock": "Añadir", "coming_soon": "Próximamente"}
+
+    def rows(_text):
+        out = []
+        for short, title, price in (("mew", MEW, 49.99), ("mewtwo", MEWTWO, 49.99), ("ultra", ULTRA, 249.99)):
+            st = status.get(short, "out_of_stock")
+            out.append({"title": title, "price": price, "status": st, "evidence": status.get(short + "_evidence", words.get(st, ""))})
+        return out
+    return rows
+
+
+def test_model_agreeing_adds_a_second_reading_to_the_alert(svc):
+    w, t = make(svc, [page_text(), page_text(mew="Añadir")])
+    svc.engine.llm = FakeModel(model_reading(mew="in_stock"))
+    svc.engine.check_target(t["id"])
+    swap_clock(svc, T0 + 300)
+    res = svc.engine.check_target(t["id"])
+    [event] = [svc.store.event(e) for e in res["events"]]
+    assert event["type"] == "RESTOCK" and event["title"] == MEW and event["confidence"] >= 95
+    assert "el modelo lo lee igual" in " ".join(event["data"]["evidence"])
+    check = svc.store.target(t["id"])["extra"]["model_check"]
+    assert check["ok"] and check["agree"] == 3 and check["disagree"] == 0
+
+
+def test_a_button_only_the_model_understands_alerts_after_a_second_reading(svc):
+    w, t = make(svc, [page_text(), page_text(mew="Lo quiero"), page_text(mew="Lo quiero")])
+    svc.engine.llm = FakeModel(model_reading(mew="in_stock", mew_evidence="Lo quiero"))
+    svc.engine.check_target(t["id"])
+    swap_clock(svc, T0 + 300)
+    first = svc.engine.check_target(t["id"])
+    assert first["events"] == []                                          # the model alone: no alert yet
+    assert svc.store.target(t["id"])["next_check_ts"] == T0 + 300 + 60    # but the window is read again in a minute
+    swap_clock(svc, T0 + 360)
+    second = svc.engine.check_target(t["id"])
+    [event] = [svc.store.event(e) for e in second["events"]]
+    assert event["type"] == "RESTOCK" and event["title"] == MEW and event["status"] == "confirmed"
+    assert any(f["key"] == "model_twice" for f in event["data"]["factors"])
+
+
+def test_model_words_that_are_not_on_the_page_are_ignored(svc):
+    w, t = make(svc, [page_text(), page_text(mew="Lo quiero")])
+    svc.engine.llm = FakeModel(model_reading(mew="in_stock", mew_evidence="Comprar ahora con envío urgente"))
+    svc.engine.check_target(t["id"])
+    swap_clock(svc, T0 + 300)
+    res = svc.engine.check_target(t["id"])
+    assert res["events"] == [] and svc.store.target(t["id"])["next_check_ts"] > T0 + 300 + 120
+
+
+def test_disagreement_keeps_the_literal_button_and_notes_it(svc):
+    w, t = make(svc, [page_text(), page_text(mew="Añadir")])
+    svc.engine.llm = FakeModel(model_reading(mew="out_of_stock"))
+    svc.engine.check_target(t["id"])
+    swap_clock(svc, T0 + 300)
+    [event] = [svc.store.event(e) for e in svc.engine.check_target(t["id"])["events"]]
+    assert event["type"] == "RESTOCK" and event["title"] == MEW
+    assert "el modelo lo lee como out_of_stock" in " ".join(event["data"]["evidence"])
+    assert svc.store.target(t["id"])["extra"]["model_check"]["disagree"] == 1
+
+
+def test_without_a_model_the_rules_still_watch(svc):
+    w, t = make(svc, [page_text(), page_text(mew="Añadir")])
+    svc.engine.llm = FakeModel(up=False)
+    svc.engine.check_target(t["id"])
+    swap_clock(svc, T0 + 300)
+    [event] = [svc.store.event(e) for e in svc.engine.check_target(t["id"])["events"]]
+    assert event["type"] == "RESTOCK" and event["title"] == MEW
+    check = svc.store.target(t["id"])["extra"]["model_check"]
+    assert not check["ok"] and "no disponible" in check["reason"]

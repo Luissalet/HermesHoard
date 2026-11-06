@@ -7,3 +7,5 @@ data/
 .env
 *.tsbuildinfo
 .impeccable/review/
+
+.faustus/
