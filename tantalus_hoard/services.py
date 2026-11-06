@@ -40,6 +40,8 @@ SECRET_NAMES = ("TELEGRAM_TOKEN", "TELEGRAM_CHAT_ID", "NTFY_TOPIC", "NTFY_TOKEN"
 UI_SETTINGS = {
     "notify.language": ("es", "en"),
     "llm.enabled": ("1", "0"),
+    "faustus_eye.enabled": ("1", "0"),
+    "faustus_eye.url": None,
     "scheduler.paused": ("0", "1"),
     "notify.ntfy.server": None,
     "notify.via": VIA_MODES,
@@ -87,6 +89,11 @@ class Services:
         self.budget = BudgetNote(clock=clock_fn)
         self.engine = Engine(self.store, self.fetcher, llm=self.llm, notifier=self.notifier, websearch=self.websearch,
                              info_sentry=self.info, settings_get=self.db.get_setting, emit=self._emit, clock=clock_fn, budget=self.budget)
+        # Faustus takes its own look at open-window targets (its browser extension and its model); off on a test transport
+        from .faustus_eye import DEFAULT_URL, FaustusEye
+        self.engine.faustus_eye = None if http_transport is not None else FaustusEye(
+            self.store, url=lambda: self.db.get_setting("faustus_eye.url", "") or DEFAULT_URL, clock=clock_fn,
+            enabled=lambda: self.db.get_setting("faustus_eye.enabled", "1") == "1" and not config.offline)
         self.mail = MailDeals(self.store, self.engine, MailRepo(self.db, clock_fn),
                               MailSource(self.notifier, self.db.get_setting, settings_set=self.db.set_setting, clock=clock_fn),
                               self.db.get_setting, self.db.set_setting, clock=clock_fn)

@@ -406,5 +406,6 @@ def fetch(url: str, *, clock: Callable[[], float] = time.time, reader: Callable[
         return fr
     fr.status, fr.ok, fr.content_type = 200, True, "text/html; charset=utf-8"
     fr.text = to_html(url, page.get("title") or "", page.get("lines") or [], page.get("rows") or [])
+    fr.page_lines = list(page.get("lines") or [])     # the plain text, for the model's second reading (extract/window_check.py)
     fr.note = f"read from the open window ({len(page.get('rows') or [])} rows)"
     return fr
