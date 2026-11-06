@@ -8,3 +8,4 @@ beautifulsoup4==4.15.0
 tzdata==2026.5
 playwright==1.64.0
 winotify==1.1.0; sys_platform == "win32"
+uiautomation==2.0.29; sys_platform == "win32"

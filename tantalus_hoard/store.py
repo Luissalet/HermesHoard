@@ -207,6 +207,15 @@ class Store:
             " ORDER BY t.next_check_ts LIMIT ?", (now, limit))
         return [row_dict("targets", r) for r in rows]
 
+    def due_window_targets(self, now: float, limit: int = 20) -> list[dict[str, Any]]:
+        """Due targets read from an open window (fetch tier ``open_window``): asked for apart so a backlog of other due
+        targets never pushes them out of the tick's batch."""
+        rows = self.db.query(
+            "SELECT t.* FROM targets t JOIN watchers w ON w.id = t.watcher_id"
+            " WHERE w.enabled = 1 AND t.fetch_tier = 'open_window' AND t.status IN ('active', 'needs_human', 'error')"
+            " AND (t.next_check_ts IS NULL OR t.next_check_ts <= ?) ORDER BY t.next_check_ts LIMIT ?", (now, limit))
+        return [row_dict("targets", r) for r in rows]
+
     # =========================================================================== observations
     def add_observation(self, target_id: str, obs: dict[str, Any]) -> dict[str, Any]:
         cur = self.db.execute(

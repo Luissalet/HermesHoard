@@ -508,7 +508,8 @@
             "auto",
             "http",
             "browser",
-            "window"
+            "window",
+            "open_window"
           ],
           "title": "Fetch Tier",
           "type": "string"
@@ -789,7 +790,8 @@
                 "auto",
                 "http",
                 "browser",
-                "window"
+                "window",
+                "open_window"
               ],
               "type": "string"
             },
@@ -989,7 +991,8 @@
             "auto",
             "http",
             "browser",
-            "window"
+            "window",
+            "open_window"
           ],
           "title": "Tier",
           "type": "string"
