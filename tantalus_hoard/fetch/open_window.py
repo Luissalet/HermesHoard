@@ -316,6 +316,49 @@ def read(url: str, *, reload: bool = True, scroll: bool = True, timeout_s: float
 def _read(url: str, *, reload: bool, scroll: bool, timeout_s: float, sleep: Callable[[float], None],
           clock: Callable[[], float]) -> dict[str, Any]:
     win = find_window(url)
+    # A minimised Chromium window stops rendering after a while: a reload then never builds the new page. Show it again
+    # without activating it (no focus, no keys) for the read and minimise it back afterwards.
+    minimised = _is_minimised(win)
+    if minimised:
+        _show_window(win, SW_SHOWNOACTIVATE)
+        sleep(1.0)
+    try:
+        return _read_shown(win, reload=reload, scroll=scroll, timeout_s=timeout_s, sleep=sleep, clock=clock)
+    finally:
+        if minimised:
+            _show_window(win, SW_SHOWMINNOACTIVE)
+
+
+SW_SHOWNOACTIVATE = 4
+SW_SHOWMINNOACTIVE = 7
+
+
+def _hwnd(win: _Window) -> int:
+    try:
+        return int(win.control.NativeWindowHandle or 0)
+    except Exception:  # noqa: BLE001
+        return 0
+
+
+def _is_minimised(win: _Window) -> bool:
+    hwnd = _hwnd(win)
+    if not hwnd:
+        return False
+    import ctypes
+
+    return bool(ctypes.windll.user32.IsIconic(hwnd))
+
+
+def _show_window(win: _Window, command: int) -> None:
+    hwnd = _hwnd(win)
+    if hwnd:
+        import ctypes
+
+        ctypes.windll.user32.ShowWindow(hwnd, command)
+
+
+def _read_shown(win: _Window, *, reload: bool, scroll: bool, timeout_s: float, sleep: Callable[[float], None],
+                clock: Callable[[], float]) -> dict[str, Any]:
     if reload:
         before = _runtime_id(win.document())
         win.reload()
