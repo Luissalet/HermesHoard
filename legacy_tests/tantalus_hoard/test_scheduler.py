@@ -81,7 +81,7 @@ def test_the_tick_queues_what_the_store_says_is_due_and_status_keeps_its_shape()
             time.sleep(0.05)
         assert "check:t9" in engine.done
         status = sched.status()
-        assert status["running"] and status["enabled"] and set(status["lanes"]) == {"checks", "sweeps"}
+        assert status["running"] and status["enabled"] and set(status["lanes"]) == {"checks", "sweeps", "windows"}
         assert status["lanes"]["checks"].keys() == {"queue", "current"} and status["last_tick_ts"] is not None
         assert status["jobs_done"] >= 1 and status["queue"] >= 0
     finally:
@@ -101,4 +101,33 @@ def test_a_paused_scheduler_queues_nothing_but_manual_runs_still_work():
         assert engine.done == [] and sched.status()["paused"] is True
         assert sched.run_now("check", "t2", timeout=5) == {"state": "IN_STOCK"} and engine.done == ["check:t2"]
     finally:
+        sched.stop()
+
+
+def test_open_window_check_has_its_own_lane_and_never_waits_behind_checks():
+    class SlowChecks(SlowEngine):
+        def check_target(self, ref):
+            if ref == "slow":
+                self.release.wait(5)
+            self.done.append(f"check:{ref}")
+            return {"state": "IN_STOCK", "ref": ref}
+
+    class WindowStore(NoStore):
+        def target(self, ref):
+            return {"id": ref, "fetch_tier": "open_window" if ref == "win" else "auto"}
+
+        def due_window_targets(self, now, limit=20):
+            return []
+
+    engine = SlowChecks()
+    sched = Scheduler(engine, WindowStore())
+    sched.start()
+    try:
+        sched.submit("check", "slow")
+        time.sleep(0.2)
+        assert sched.status()["lanes"]["checks"]["current"]["ref"] == "slow"
+        result = sched.run_now("check", "win", timeout=3)          # would time out if it queued behind "slow"
+        assert result["ref"] == "win" and engine.done == ["check:win"]
+    finally:
+        engine.release.set()
         sched.stop()

@@ -19,6 +19,7 @@ from typing import Any, Callable, Optional
 from . import rules
 from .discovery import discover, product_terms, watcher_config
 from .extract import adapter_for, extract, retailer_for_host, source_level_for_host
+from .fetch.open_window import TIER as OPEN_WINDOW
 from .model import (BUYABLE, CANDIDATE_FOUND, COMING_SOON, IN_STOCK, INFO_CHANGE, LISTING_PRICE_DROP, LOCAL_PICKUP, MARKETPLACE_ONLY,
                     MODE_AVAILABILITY, MODE_INFORMATION, MODE_SECONDHAND, NEEDS_HUMAN, NEW_LISTING, NEW_SKU,
                     OUT_OF_STOCK, PREORDER, RESTOCK_SCHEDULED, UNAVAILABLE_REGION, UNKNOWN, Extraction, FetchResult, Offer,
@@ -149,6 +150,10 @@ class Engine:
             self.store.update_target(target["id"], last_error=fr.error[:300], next_check_ts=now + BUSY_RETRY_S)
             return {"target_id": target["id"], "ok": False, "blocked": False, "busy": True, "error": fr.error, "events": []}
 
+        # ---------------------------------------------------------------- an open window of the person's could not be read
+        if fr.tier == OPEN_WINDOW and not fr.ok:
+            return self._window_not_read(target, watcher, fr, now)
+
         # ---------------------------------------------------------------- could not read the page
         if not fr.ok or ex.page_kind == "blocked":
             soft = fr.block_reason in ("offline", "robots", "unsafe_url")
@@ -214,22 +219,26 @@ class Engine:
         prev_price = target.get("last_price")
         first_check = not extra.get("checked_once")
         drafts: list[dict[str, Any]] = []
+        per_item = is_list and fr.tier == OPEN_WINDOW     # every row of the window is followed on its own (see _per_item)
         if not revalidation:
-            if state != UNKNOWN:
+            if state != UNKNOWN and not per_item:
                 drafts = rules.transitions(target=target, prev_state=prev_known, prev_price=prev_price, state=state, offer=offer,
                                            policies=policies, ceiling=ceiling, first_check=first_check)
             if is_list and not first_check:
                 for o in new_skus[:10]:
                     drafts.append({"type": NEW_SKU, "old_state": "", "new_state": o.availability, "price": o.price, "old_price": None,
                                    "severity": "medium", "sku_offer": o})
-        if is_list and new_skus:
+        if is_list and new_skus and not per_item:          # a window row has no product page of its own to watch
             self._track_new_skus(watcher, target, new_skus, first_check=first_check)
         title = offer.title or target.get("label") or target.get("last_title") or watcher["name"]
         retailer = target.get("retailer") or retailer_for_host(target["url"]) or host_of(target["url"])
         created = [self._raise(d, target=target, watcher=watcher, offer=offer, conf=conf, policies=policies, title=title,
                                retailer=retailer) for d in drafts]
         created = [e for e in created if e]
-        if not revalidation and state in ENDED_STATES:
+        if per_item and not revalidation:
+            created += self._per_item(target=target, watcher=watcher, offers=matched, extra=extra, policies=policies, level=level,
+                                      tier=fr.tier, first_check=first_check, now=now, retailer=retailer)
+        elif not revalidation and state in ENDED_STATES:
             # The product page no longer sells it: the restock / reservation / price alerts it raised are over.
             sold_out_sent = any(e["type"] == rules.SOLD_OUT and e["status"] == "confirmed" for e in created)
             live = self.store.live_alerts(target_id=target["id"], watcher_id=watcher["id"], url=target["url"])
@@ -285,6 +294,73 @@ class Engine:
                 count += 1
                 known.add(o.url)
 
+    # ======================================================================================== open windows (fetch tier open_window)
+    def _per_item(self, *, target: dict[str, Any], watcher: dict[str, Any], offers: list[Offer], extra: dict[str, Any],
+                  policies: dict[str, Any], level: int, tier: str, first_check: bool, now: float, retailer: str) -> list[dict[str, Any]]:
+        """The rows of a list read from an open window, each followed on its own: its own last state and price in
+        ``extra["items"]``, its own alerts (deduped by the row's link) and its own "se acabó" follow-up. Two products coming
+        back one after the other give two alerts, not one."""
+        items: dict[str, Any] = dict(extra.get("items") or {})
+        ceiling = rules.price_ceiling_for(target, policies)
+        seller_policy = target.get("seller_policy") or "retail_only"
+        created: list[dict[str, Any]] = []
+        for o in offers:
+            key = o.url or o.title or ""
+            if not key:
+                continue
+            prev = items.get(key) or {}
+            prev_state = prev.get("state") or UNKNOWN
+            state, notes = rules.effective_state(o, seller_policy=seller_policy, price_ceiling=ceiling)
+            if state == UNKNOWN:
+                continue                                   # no button read: say nothing rather than guess
+            conf = rules.score_confidence(o, source_level=level, tier=tier, target_store_ids=[], corroborated=False, price_ok=None)
+            row = {**target, "label": o.title or target.get("label") or ""}
+            drafts = rules.transitions(target=row, prev_state=prev_state, prev_price=prev.get("price"), state=state, offer=o,
+                                       policies=policies, ceiling=ceiling, first_check=first_check or not prev)
+            row_events = []
+            for d in drafts:
+                d["item_key"] = key
+                ev = self._raise(d, target=target, watcher=watcher, offer=o, conf=conf, policies=policies,
+                                 title=o.title or target.get("label") or watcher["name"], retailer=retailer)
+                if ev:
+                    row_events.append(ev)
+            if state in ENDED_STATES and prev_state in BUYABLE:
+                sold_out_sent = any(e["type"] == rules.SOLD_OUT and e["status"] == "confirmed" for e in row_events)
+                live = [e for e in self.store.live_alerts(target_id=target["id"]) if e.get("url") == o.url]
+                self.end_alerts(watcher, live, state=state, at=now, notify=not sold_out_sent)
+            created += row_events
+            items[key] = {"state": state, "price": o.price, "title": (o.title or "")[:200], "seen": now}
+        cutoff = now - 30 * 86400                          # rows gone from the list for a month are forgotten
+        extra["items"] = {k: v for k, v in items.items() if float(v.get("seen") or 0) >= cutoff}
+        return created
+
+    def _window_not_read(self, target: dict[str, Any], watcher: dict[str, Any], fr: FetchResult, now: float) -> dict[str, Any]:
+        """The open window is closed, shows another page, or asks for a check. Not the shop's fault and nothing for a
+        backoff: keep the target's own interval (the person can fix it any moment) and tell them once."""
+        blocked = bool(fr.blocked)
+        reason = fr.error or fr.block_reason or "no se pudo leer la ventana"
+        obs = self.store.add_observation(target["id"], {
+            "checked_at": now, "source_url": fr.url, "tier": fr.tier, "http_status": fr.status, "availability": UNKNOWN,
+            "blocked_reason": reason if blocked else "", "error": "" if blocked else reason, "evidence": []})
+        self.store.update_target(target["id"], status="needs_human" if blocked else "error", last_check_ts=now,
+                                 last_error=reason[:300], next_check_ts=self._next_check(target, watcher))
+        events = []
+        kind = "check" if blocked else (fr.error_kind or "window")
+        key = rules.dedupe_key(target["id"], NEEDS_HUMAN, f"open_window:{kind}", None)
+        quiet_s = 3 * 3600 if blocked else 12 * 3600
+        if not self.store.recent_event(key, now - quiet_s):
+            label = target.get("label") or target.get("retailer") or host_of(target["url"])
+            summary = (f"La ventana de {label} pide una verificación: resuélvela en esa ventana y sigo vigilando." if blocked else
+                       f"No puedo leer la ventana de {label}: {reason}. Déjala abierta en esa página (pestaña activa) y sigo.")
+            event = self.store.add_event({
+                "watcher_id": watcher["id"], "target_id": target["id"], "type": NEEDS_HUMAN, "severity": "high",
+                "status": "confirmed", "dedupe_key": key, "url": target["url"], "title": label, "summary": summary[:600],
+                "detected_at": now, "data": {"open_window": kind}})
+            self.dispatch(event, watcher)
+            events.append(event)
+        return {"target_id": target["id"], "ok": False, "blocked": blocked, "error": reason, "observation": obs,
+                "events": [e["id"] for e in events]}
+
     @staticmethod
     def _best(offers: list[Offer]) -> Offer:
         def key(o: Offer) -> tuple:
@@ -296,14 +372,15 @@ class Engine:
         now = self.clock()
         kind = draft["type"]
         sku_offer: Optional[Offer] = draft.pop("sku_offer", None)
+        item_key: Optional[str] = draft.pop("item_key", None)      # one row of a list read from an open window
         store = ""
-        key = rules.dedupe_key(target["id"] if not sku_offer else (sku_offer.url or target["id"]), kind, draft.get("new_state") or "",
-                               draft.get("price"), store)
+        subject = item_key or (target["id"] if not sku_offer else (sku_offer.url or target["id"]))
+        key = rules.dedupe_key(subject, kind, draft.get("new_state") or "", draft.get("price"), store)
         cooldown = float(policies.get("cooldown_minutes") or 0) * 60
         if self.store.recent_event(key, now - max(cooldown, 60)):
             return None
-        if kind == rules.RESTOCK and cooldown and self.store.last_event_of(target["id"], [rules.RESTOCK], now - cooldown):
-            return None  # IN -> OUT -> IN flap inside the cooldown window
+        if kind == rules.RESTOCK and cooldown and not item_key and self.store.last_event_of(target["id"], [rules.RESTOCK], now - cooldown):
+            return None  # IN -> OUT -> IN flap inside the cooldown window (a row's own flap is caught by its key above)
         require = int(policies.get("require_confidence") or rules.ALERT_THRESHOLD)
         alert_on = set(policies.get("alert_on") or [])
         if alert_on & {rules.RESTOCK, rules.PREORDER_OPEN}:

@@ -14,7 +14,7 @@ from typing import Any, Optional
 from urllib.parse import urljoin
 
 from ..hoard_link.web.meta import jsonld_blocks
-from ..model import (IN_STOCK, LOCAL_PICKUP, OUT_OF_STOCK, PREORDER, RESTOCK_SCHEDULED, UNKNOWN, Offer)
+from ..model import (COMING_SOON, IN_STOCK, LOCAL_PICKUP, OUT_OF_STOCK, PREORDER, RESTOCK_SCHEDULED, UNKNOWN, Offer)
 from .phrases import parse_number
 
 PRODUCT_TYPES = {"product", "productgroup", "individualproduct", "productmodel", "someproducts", "vehicle", "car"}
@@ -34,6 +34,7 @@ AVAILABILITY_MAP = {
     "preorder": PREORDER,
     "presale": PREORDER,
     "backorder": PREORDER,
+    "comingsoon": COMING_SOON,      # not schema.org: what the open-window reader writes for a "Próximamente" row
 }
 
 

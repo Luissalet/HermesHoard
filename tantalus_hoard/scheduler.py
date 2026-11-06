@@ -1,7 +1,9 @@
-"""Background scheduler: two worker lanes, each running one job at a time.
+"""Background scheduler: three worker lanes, each running one job at a time.
 
 - ``checks`` lane: revalidations and product-target checks (short, time-sensitive).
 - ``sweeps`` lane: second-hand sweeps, information sweeps, discovery and the extra kinds (long: many queries, polite pauses).
+- ``windows`` lane: checks of targets read from a window the person has open (fetch tier ``open_window``), so their
+  few-minute rhythm never waits behind a backlog of browser reads.
 
 The lanes, the de-duplication, ``run_now`` and the worker threads are the commons' ``hoard_link.lanes.LaneScheduler``; what stays
 here is what is Tantalus's own: which targets and watchers are due (read from the store on every tick) and how a job kind runs
@@ -29,7 +31,8 @@ TICK_S = 15.0
 MIN_WATCHER_INTERVAL_MIN = 10  # floor inherited from Radar de Libros: never hammer a marketplace
 
 
-LANES = ("checks", "sweeps")
+LANES = ("checks", "sweeps", "windows")
+OPEN_WINDOW = "open_window"     # fetch tier of targets read from a window the person has open (fetch/open_window.py)
 
 
 def lane_of(kind: str) -> str:
@@ -80,12 +83,24 @@ class Scheduler:
 
         lanes = {lane: {"queue": raw["lanes"][lane]["queue"], "current": current(lane)} for lane in LANES}
         return {"enabled": self.enabled, "running": raw["running"], "paused": bool(self.paused()),
-                "queue": sum(v["queue"] for v in lanes.values()), "current": lanes["checks"]["current"] or lanes["sweeps"]["current"],
+                "queue": sum(v["queue"] for v in lanes.values()),
+                "current": lanes["checks"]["current"] or lanes["sweeps"]["current"] or lanes["windows"]["current"],
                 "lanes": lanes, "last_tick_ts": raw["last_tick_ts"], "jobs_done": self.jobs_done}
 
     # ------------------------------------------------------------------ queue
+    def _lane(self, kind: str, ref: str) -> str:
+        """A check of a target read from an open window runs in its own ``windows`` lane: it takes seconds, sends nothing to
+        the shop, and must keep its few-minute rhythm even while the ``checks`` lane works through a backlog of browser reads."""
+        if kind == "check":
+            try:
+                if (self.store.target(ref) or {}).get("fetch_tier") == OPEN_WINDOW:
+                    return "windows"
+            except Exception:  # noqa: BLE001 - an unknown target fails in the engine, where it is reported
+                pass
+        return lane_of(kind)
+
     def _job(self, kind: str, ref: str, reason: str) -> _LaneJob:
-        return _LaneJob(kind, key=f"{kind}:{ref}", fn=partial(self._execute, kind, ref), lane=lane_of(kind), reason=reason)
+        return _LaneJob(kind, key=f"{kind}:{ref}", fn=partial(self._execute, kind, ref), lane=self._lane(kind, ref), reason=reason)
 
     def submit(self, kind: str, ref: str, reason: str = "manual") -> Optional[_LaneJob]:
         return self.lanes.submit(self._job(kind, ref, reason))
@@ -116,6 +131,9 @@ class Scheduler:
             n += bool(self.submit("revalidate", ev["id"], "schedule"))
         for t in self.store.due_targets(now, limit=30):
             n += bool(self.submit("check", t["id"], "schedule"))
+        if hasattr(self.store, "due_window_targets"):
+            for t in self.store.due_window_targets(now):
+                n += bool(self.submit("check", t["id"], "schedule"))    # deduped by key when already queued above
         for w in self.store.watchers(enabled=True):
             if w["mode"] in (MODE_SECONDHAND, MODE_INFORMATION):
                 due = w.get("next_run_ts") is None or w["next_run_ts"] <= now

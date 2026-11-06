@@ -41,6 +41,7 @@ from ..hoard_link.web import safety
 from ..hoard_link.web.blocks import BLOCK_REASONS, detect_block
 from ..hoard_link.web.browser import BrowserRung, playwright_installed
 from ..hoard_link.web.fetch import DEFAULT_USER_AGENT, FetchResult, Fetcher as _CommonsFetcher
+from . import open_window
 from .hoststate import DEFAULT_MIN_INTERVAL_S, SqlHostState, SqlRobotsStore
 
 check_url = safety.check_url
@@ -91,6 +92,7 @@ class Fetcher(_CommonsFetcher):
         # The family web service is for real traffic: a test transport (or an explicit False) keeps everything local.
         self.use_hub = (transport is None) if use_hub is None else bool(use_hub)
         self._hub_local = threading.local()
+        self.open_window_reader: Callable[[str], FetchResult] = open_window.fetch   # tests swap it
 
     # ================================================================== public API
     def get(self, url: str, *, tier: str = "auto", headers: Optional[Mapping[str, str]] = None,
@@ -98,6 +100,9 @@ class Fetcher(_CommonsFetcher):
             respect_robots: bool = True, min_interval_s: Optional[float] = None, timeout: Optional[float] = None,
             **extra: Any) -> FetchResult:
         self.offline = bool(self.config.offline)                  # the setting is live (tests flip it)
+        if tier == open_window.TIER:
+            # A window the person already has open: no traffic of ours, no host state, no lanes (see open_window.py).
+            return self.open_window_reader(url)
         tier = tier if tier in _TIERS else "auto"
         if tier == "auto" and accept == "html" and not self.offline and self._rung_available(self.profile):
             tier, min_interval_s, refused = self._profile_tier(url, params, min_interval_s)

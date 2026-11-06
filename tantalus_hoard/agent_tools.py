@@ -86,7 +86,7 @@ class TargetAddArgs(BaseModel):
     price_ceiling: Optional[float] = Field(None, ge=0)
     price_threshold: Optional[float] = Field(None, ge=0, description="Alert when the price falls to or below this.")
     seller_policy: Optional[Literal["retail_only", "retail_plus_marketplace", "any_below"]] = None
-    fetch_tier: Literal["auto", "http", "browser", "window"] = "auto"
+    fetch_tier: Literal["auto", "http", "browser", "window", "open_window"] = "auto"
     adapter: str = Field("auto", max_length=20, description="auto | html | nvidia")
     interval_min: Optional[int] = Field(None, ge=5, le=7 * 24 * 60)
     check_now: bool = Field(True, description="Run a first check right away.")
@@ -113,7 +113,7 @@ class TargetUpdateArgs(BaseModel):
     price_ceiling: Optional[float] = Field(None, ge=0)
     price_threshold: Optional[float] = Field(None, ge=0)
     seller_policy: Optional[Literal["retail_only", "retail_plus_marketplace", "any_below"]] = None
-    fetch_tier: Optional[Literal["auto", "http", "browser", "window"]] = None
+    fetch_tier: Optional[Literal["auto", "http", "browser", "window", "open_window"]] = None
     adapter: Optional[str] = Field(None, max_length=20)
     interval_min: Optional[int] = Field(None, ge=5, le=7 * 24 * 60)
     status: Optional[Literal["active", "paused"]] = None
@@ -128,7 +128,7 @@ class TargetListArgs(BaseModel):
 
 class InspectArgs(BaseModel):
     url: str = Field(..., min_length=8, max_length=2000)
-    tier: Literal["auto", "http", "browser", "window"] = "auto"
+    tier: Literal["auto", "http", "browser", "window", "open_window"] = "auto"
     sku: str = Field("", max_length=80)
     show_text: bool = Field(False, description="Include up to 3000 chars of the readable page text.")
 
