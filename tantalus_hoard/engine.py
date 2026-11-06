@@ -52,6 +52,16 @@ def _has_term(term: str, text: str) -> bool:
     return bool(t) and re.search(r"(?<![a-z0-9])" + re.escape(t) + r"(?![a-z0-9])", text) is not None
 
 
+_NETWORK_ERRORS = re.compile(r"unresolvable host|getaddrinfo|ERR_NAME_NOT_RESOLVED|ERR_INTERNET_DISCONNECTED|ERR_NETWORK_CHANGED|"
+                             r"ERR_FAILED|ERR_CONNECTION_(?:RESET|REFUSED|TIMED_OUT|CLOSED)|ERR_TIMED_OUT|ConnectError|ConnectTimeout|"
+                             r"timed out|Network is unreachable|No route to host", re.I)
+
+
+def network_error(reason: str) -> bool:
+    """Did the check fail because this computer could not reach the network (not because the shop refused)?"""
+    return bool(_NETWORK_ERRORS.search(reason or ""))
+
+
 def offer_matches(offer: Offer, terms: list[str], must: list[str], exclude: list[str]) -> bool:
     """Does a product tile belong to the watcher? Every ``must`` term and, with three terms or fewer, every product
     term; with more terms, at least 60 % of them. Any ``exclude`` term rejects the tile."""
@@ -170,8 +180,11 @@ class Engine:
                 "availability": UNKNOWN, "blocked_reason": reason if blocked else "", "error": "" if blocked else reason,
                 "is_revalidation": revalidation, "evidence": ex.notes[:3]})
             status = "needs_human" if blocked else "error"
+            # This computer's network failing (DNS, no connection) says nothing about the shop: retry at about the normal
+            # cadence instead of the escalating backoff earned by the site's own refusals.
+            backoff = 1 if (not blocked and network_error(reason)) else fail_count + 1
             self.store.update_target(target["id"], status=status, last_check_ts=now, last_error=reason[:300], fail_count=fail_count + 1,
-                                     next_check_ts=self._next_check(target, watcher, failed=fail_count + 1, needs_human=blocked))
+                                     next_check_ts=self._next_check(target, watcher, failed=backoff, needs_human=blocked))
             events = []
             if blocked and target.get("status") != "needs_human":
                 key = rules.dedupe_key(target["id"], NEEDS_HUMAN, reason, None)
