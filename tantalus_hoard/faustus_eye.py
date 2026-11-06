@@ -195,12 +195,13 @@ class FaustusEye:
     def _store(self, target_id: str, verdict: dict[str, Any]) -> None:
         """Kept in its own setting, not in the target's ``extra``: the engine rewrites ``extra`` at the end of each check
         and a verdict arriving meanwhile would be lost."""
+        previous = self.latest(target_id)
         self.store.db.set_setting(VERDICT_KEY + target_id, json.dumps(verdict, ensure_ascii=False))
         try:
             target = self.store.target(target_id)
         except Exception:  # noqa: BLE001 - the target was deleted meanwhile
             return
-        if verdict.get("ok") and _differs(verdict, dict(target.get("extra") or {})):
+        if verdict.get("ok") and _differs(verdict, dict(target.get("extra") or {}), previous):
             self.store.update_target(target_id, next_check_ts=self.clock())   # merge it now, not in five minutes
 
     def latest(self, target_id: str) -> Optional[dict[str, Any]]:
@@ -219,16 +220,24 @@ class FaustusEye:
 VERDICT_KEY = "faustus_eye.verdict."
 
 
-def _differs(verdict: dict[str, Any], extra: dict[str, Any]) -> bool:
-    """Does Faustus see anything buyable, or a status Hermes did not record for that row?"""
+def _differs(verdict: dict[str, Any], extra: dict[str, Any], previous: Optional[dict[str, Any]] = None) -> bool:
+    """Is this look news for Hermes: a row it follows with another status, or a buyable row it does not follow yet
+    that the previous look did not already report?
+
+    A buyable row Hermes leaves out (an unrelated product in the same list) is reported once, not on every look:
+    otherwise each look would bring the next check forward and the page would be reloaded every minute."""
     items = list((extra.get("items") or {}).values())
+    before = {" ".join(str(row.get("title") or "").casefold().split()): STATUS.get(str(row.get("status") or "").lower(), UNKNOWN)
+              for row in (previous or {}).get("rows") or []}
     for row in verdict.get("rows") or []:
+        title = str(row.get("title") or "")
         status = STATUS.get(str(row.get("status") or "").lower(), UNKNOWN)
-        if status in BUYABLE:
-            return True
-        best = max(items, key=lambda it: similarity(str(row.get("title") or ""), it.get("title") or ""), default=None)
-        if best is not None and similarity(str(row.get("title") or ""), best.get("title") or "") >= MATCH_MIN \
-                and status != UNKNOWN and best.get("state") != status:
+        best = max(items, key=lambda it: similarity(title, it.get("title") or ""), default=None)
+        if best is not None and similarity(title, best.get("title") or "") >= MATCH_MIN:
+            if status != UNKNOWN and best.get("state") != status:
+                return True
+            continue
+        if status in BUYABLE and before.get(" ".join(title.casefold().split())) not in BUYABLE:
             return True
     return False
 
