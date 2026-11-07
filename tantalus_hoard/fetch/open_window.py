@@ -222,7 +222,16 @@ class _Window:
         button = self._find(lambda c: c.ControlTypeName == "ButtonControl" and c.ClassName == "ReloadButton", depth=12)
         if button is None:
             raise OpenWindowError("no_reload", "la ventana no tiene botón de recargar visible (¿modo pantalla completa?)")
-        button.GetInvokePattern().Invoke()
+        invoke = button.GetInvokePattern()
+        if invoke is not None:
+            invoke.Invoke()
+            return
+        # With the computer locked Chromium stops offering the Invoke pattern on its toolbar, but the button still answers
+        # its accessibility default action ("Press"): same button, same tab, still no keys or focus.
+        legacy = button.GetLegacyIAccessiblePattern()
+        if legacy is None:
+            raise OpenWindowError("no_reload", "el botón de recargar no acepta pulsaciones ahora mismo")
+        legacy.DoDefaultAction()
 
     def text(self) -> tuple[str, str]:
         doc = self.document()

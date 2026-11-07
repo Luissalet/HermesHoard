@@ -258,3 +258,49 @@ def test_without_a_model_the_rules_still_watch(svc):
     assert event["type"] == "RESTOCK" and event["title"] == MEW
     check = svc.store.target(t["id"])["extra"]["model_check"]
     assert not check["ok"] and "no disponible" in check["reason"]
+
+
+# ------------------------------------------------------------------------------------------------ reload while locked
+def test_reload_presses_the_button_through_its_default_action_when_invoke_is_gone():
+    """With the computer locked Chromium drops the Invoke pattern from its toolbar; the default action still works."""
+    from tantalus_hoard.fetch.open_window import OpenWindowError, _Window
+
+    pressed = []
+
+    class Legacy:
+        def DoDefaultAction(self):
+            pressed.append("legacy")
+
+    class Button:
+        ControlTypeName, ClassName = "ButtonControl", "ReloadButton"
+
+        def __init__(self, invoke):
+            self.invoke = invoke
+
+        def GetInvokePattern(self):
+            return self.invoke
+
+        def GetLegacyIAccessiblePattern(self):
+            return Legacy()
+
+    class Invoke:
+        def Invoke(self):
+            pressed.append("invoke")
+
+    def window(button):
+        return _Window(object(), "x", type("Auto", (), {"WalkControl": staticmethod(lambda c, maxDepth: [(button, 1)])}))
+
+    window(Button(Invoke())).reload()
+    window(Button(None)).reload()
+    assert pressed == ["invoke", "legacy"]
+
+    class NoPatterns(Button):
+        def GetLegacyIAccessiblePattern(self):
+            return None
+
+    try:
+        window(NoPatterns(None)).reload()
+    except OpenWindowError as exc:
+        assert "no_reload" in exc.args or "no acepta pulsaciones" in str(exc)
+    else:
+        raise AssertionError("expected no_reload")
