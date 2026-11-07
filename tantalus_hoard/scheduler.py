@@ -4,6 +4,8 @@
 - ``sweeps`` lane: second-hand sweeps, information sweeps, discovery and the extra kinds (long: many queries, polite pauses).
 - ``windows`` lane: checks of targets read from a window the person has open (fetch tier ``open_window``), so their
   few-minute rhythm never waits behind a backlog of browser reads.
+- ``alerts`` lane: the aggregator radar and the mailbox scan, short jobs whose whole point is to be early, so they never
+  wait behind a discovery or news sweep.
 
 The lanes, the de-duplication, ``run_now`` and the worker threads are the commons' ``hoard_link.lanes.LaneScheduler``; what stays
 here is what is Tantalus's own: which targets and watchers are due (read from the store on every tick) and how a job kind runs
@@ -31,12 +33,15 @@ TICK_S = 15.0
 MIN_WATCHER_INTERVAL_MIN = 10  # floor inherited from Radar de Libros: never hammer a marketplace
 
 
-LANES = ("checks", "sweeps", "windows")
+LANES = ("checks", "sweeps", "windows", "alerts")
 OPEN_WINDOW = "open_window"     # fetch tier of targets read from a window the person has open (fetch/open_window.py)
+ALERT_KINDS = ("radar", "mail_deals")   # short, time-critical extra jobs: never queued behind a discovery or news sweep
 
 
 def lane_of(kind: str) -> str:
-    return "checks" if kind in ("check", "revalidate") else "sweeps"
+    if kind in ("check", "revalidate"):
+        return "checks"
+    return "alerts" if kind in ALERT_KINDS else "sweeps"
 
 
 class Scheduler:
@@ -84,7 +89,8 @@ class Scheduler:
         lanes = {lane: {"queue": raw["lanes"][lane]["queue"], "current": current(lane)} for lane in LANES}
         return {"enabled": self.enabled, "running": raw["running"], "paused": bool(self.paused()),
                 "queue": sum(v["queue"] for v in lanes.values()),
-                "current": lanes["checks"]["current"] or lanes["sweeps"]["current"] or lanes["windows"]["current"],
+                "current": (lanes["checks"]["current"] or lanes["alerts"]["current"] or lanes["sweeps"]["current"]
+                            or lanes["windows"]["current"]),
                 "lanes": lanes, "last_tick_ts": raw["last_tick_ts"], "jobs_done": self.jobs_done}
 
     # ------------------------------------------------------------------ queue

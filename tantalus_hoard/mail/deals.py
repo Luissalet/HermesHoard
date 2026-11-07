@@ -31,7 +31,7 @@ from .wishlist import SOURCE_STORE, SOURCE_WATCH, Wishlist, evaluate
 
 log = logging.getLogger("tantalus.mail")
 
-DEFAULTS = {"mail.deals.enabled": "1", "mail.deals.interval_min": "180", "mail.deals.history_days": "30", "mail.deals.ttl_days": "7",
+DEFAULTS = {"mail.deals.enabled": "1", "mail.deals.interval_min": "15", "mail.deals.history_days": "30", "mail.deals.ttl_days": "7",
             "mail.deals.stores": "", "mail.deals.domains": "", "mail.deals.gamerhoard_file": "", "mail.deals.wishlist": "",
             "mail.noise.days": "30"}
 NUMERIC = {"mail.deals.interval_min": (15, 1440), "mail.deals.history_days": (1, 365), "mail.deals.ttl_days": (1, 60), "mail.noise.days": (1, 365)}
