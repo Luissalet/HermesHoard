@@ -51,14 +51,19 @@ DEFAULTS: dict[str, Any] = {
     "release_days_before": 3,
     "track_chain_products": True,            # chain products on readable sites become direct targets
 }
-INTERVAL_MIN = 10          # normal cycle
+# Sealed TCG stock sells out in minutes: a cycle reads only the shop pages that changed signals (about eight requests, one
+# every POLITE_INTERVAL_S), so a short cycle stays light for the aggregator. ``radar.interval_min`` /
+# ``radar.release_interval_min`` override these.
+INTERVAL_MIN = 3           # normal cycle
 LAPSE_REVIVE_S = 24 * 3600  # a lapsed row listed again within this window resumes quietly
 ENDED_FRESH_S = 3600       # an alert whose offer ended within this window gets the "se acabó" follow-up
-RELEASE_DAY_INTERVAL_MIN = 5   # a matching release is today or tomorrow
-PRODUCT_REFRESH_MIN = 30   # a product page is fetched at most this often (10 on release day)
+RELEASE_DAY_INTERVAL_MIN = 2   # a matching release is today or tomorrow
+PRODUCT_REFRESH_MIN = 10   # a product page is fetched at most this often
+HOT_PRODUCT_REFRESH_MIN = 5   # ... and this often for a set released today or tomorrow
 RELEASE_PAGE_REFRESH_MIN = 60
 ES_CALENDAR_REFRESH_MIN = 120
-PRODUCTS_PER_CYCLE = 6
+PRODUCTS_PER_CYCLE = 8
+MIN_INTERVAL_MIN = 1
 POLITE_INTERVAL_S = 4.0    # between two requests to the same aggregator
 READABLE_CHAIN_HOSTS = ("game.es", "elcorteingles.es", "carrefour.es")  # carrefour.es through a normal browser window
 SLOW_HOSTS = {"carrefour.es": 60}  # check interval (min) for direct targets read through the window
@@ -126,7 +131,13 @@ class Radar:
         today = local_today(self.clock())
         soon = {today.isoformat(), (today + timedelta(days=1)).isoformat()}
         row = self.db.one("SELECT COUNT(*) AS n FROM radar_releases WHERE date IN (?, ?)", tuple(sorted(soon)))
-        return RELEASE_DAY_INTERVAL_MIN if row and row["n"] else INTERVAL_MIN
+        release = bool(row and row["n"])
+        key, default = ("radar.release_interval_min", RELEASE_DAY_INTERVAL_MIN) if release else ("radar.interval_min", INTERVAL_MIN)
+        try:
+            value = float(self.get(key, "") or default)
+        except (TypeError, ValueError):
+            value = default
+        return max(MIN_INTERVAL_MIN, value)
 
     def due(self, now: float) -> bool:
         if self.get("radar.paused", "0") == "1" or not self.watchers():
@@ -233,7 +244,7 @@ class Radar:
         hot = {o.product_key for r in detailed for o in r.offers if r.date and abs((date.fromisoformat(r.date) - today).days) <= 1}
         for key in keys:
             url = f"{st.NET}/p/{key}"
-            if self._page_due(url, 10 if key in hot else PRODUCT_REFRESH_MIN, now, cache):
+            if self._page_due(url, HOT_PRODUCT_REFRESH_MIN if key in hot else PRODUCT_REFRESH_MIN, now, cache):
                 due_keys.append(key)
         for key in due_keys[:PRODUCTS_PER_CYCLE]:
             url = f"{st.NET}/p/{key}"

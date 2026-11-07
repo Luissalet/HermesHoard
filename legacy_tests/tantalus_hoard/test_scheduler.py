@@ -81,7 +81,7 @@ def test_the_tick_queues_what_the_store_says_is_due_and_status_keeps_its_shape()
             time.sleep(0.05)
         assert "check:t9" in engine.done
         status = sched.status()
-        assert status["running"] and status["enabled"] and set(status["lanes"]) == {"checks", "sweeps", "windows"}
+        assert status["running"] and status["enabled"] and set(status["lanes"]) == {"checks", "sweeps", "windows", "alerts"}
         assert status["lanes"]["checks"].keys() == {"queue", "current"} and status["last_tick_ts"] is not None
         assert status["jobs_done"] >= 1 and status["queue"] >= 0
     finally:

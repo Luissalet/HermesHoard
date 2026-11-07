@@ -249,7 +249,7 @@ def test_noise_report_surfaces_a_mailbox_error(svc, mailbox):
 
 def test_settings_are_validated(svc):
     defaults = svc.settings()
-    assert defaults["mail.deals.enabled"] == "1" and defaults["mail.deals.interval_min"] == "180" and defaults["mail.noise.days"] == "30"
+    assert defaults["mail.deals.enabled"] == "1" and defaults["mail.deals.interval_min"] == "15" and defaults["mail.noise.days"] == "30"
     saved = svc.set_settings({"mail.deals.stores": "steam, gog", "mail.deals.domains": "Shop.Example.org, https://x.example.net/a", "mail.deals.ttl_days": 10})
     assert saved["mail.deals.domains"] == "shop.example.org, x.example.net" and saved["mail.deals.ttl_days"] == "10"
     assert [s["id"] for s in svc.mail.stores()] == ["steam", "gog", "custom:shop.example.org", "custom:x.example.net"]
@@ -275,7 +275,7 @@ def test_the_ui_reaches_the_mail_tools_and_the_new_event_type_is_labelled(client
 
 
 # ----------------------------------------------------------------------------- scheduler and safety
-def test_the_scan_is_an_extra_job_kind_in_the_sweeps_lane():
+def test_the_scan_is_an_extra_job_kind_in_the_alerts_lane():
     ran = []
 
     class Engine:
@@ -292,7 +292,7 @@ def test_the_scan_is_an_extra_job_kind_in_the_sweeps_lane():
             return []
 
     sched = Scheduler(Engine(), NoStore(), extra={"mail_deals": (lambda now: now > 5, lambda ref: ran.append(ref) or {"ok": True})})
-    assert lane_of("mail_deals") == "sweeps"
+    assert lane_of("mail_deals") == "alerts" and lane_of("radar") == "alerts" and lane_of("discovery") == "sweeps"
     assert sched.enqueue_due(1) == 0 and sched.enqueue_due(10) == 1
     assert sched.run_now("mail_deals", "all", timeout=1) == {"ok": True} or ran    # no loop running: runs inline
 
