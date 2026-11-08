@@ -12,6 +12,7 @@ import json
 import logging
 import random
 import re
+import sys
 import time
 import unicodedata
 from typing import Any, Callable, Optional
@@ -40,6 +41,12 @@ BUSY_RETRY_S = 180        # another app holds the site's browser lane: look agai
 MAX_BACKOFF_MIN = 6 * 60
 ENDED_NOTICE_WINDOW_S = 48 * 3600   # an alert older than this ends quietly: no "sold out" follow-up
 RECHECK_SOON_S = 60                 # an open-window row only the model read as buyable is read again this soon
+# Open-window targets read the person's own browser through Windows UI Automation. Off Windows (the Hub moved Hermes to a
+# Spark so the PC can be switched off) they wait quietly instead of raising "needs your help" every few hours.
+WINDOWS_HOST = sys.platform == "win32"
+PAUSED_RECHECK_S = 15 * 60
+PAUSED_OFF_WINDOWS = ("En pausa: Hermes corre ahora en una Spark, sin tu navegador de Windows. "
+                      "Vuelve a vigilar esta ventana en cuanto regrese al PC.")
 
 
 def fold(text: str) -> str:
@@ -154,6 +161,11 @@ class Engine:
 
     def _check(self, target: dict[str, Any], watcher: dict[str, Any], *, revalidation: bool) -> dict[str, Any]:
         now = self.clock()
+        if target.get("fetch_tier") == OPEN_WINDOW and not WINDOWS_HOST:
+            # Running on a Spark (the Hub moved Hermes there so the PC can be off): the person's browser window is not here.
+            # Nothing failed and nothing needs them: keep the target as it is and look again later, back on the PC.
+            self.store.update_target(target["id"], last_error=PAUSED_OFF_WINDOWS, next_check_ts=now + PAUSED_RECHECK_S)
+            return {"target_id": target["id"], "ok": False, "paused": True, "error": PAUSED_OFF_WINDOWS, "events": []}
         cfg = watcher.get("config") or {}
         policies = rules.policies_for(cfg)
         fr, ex = self.fetch_target(target, watcher)
