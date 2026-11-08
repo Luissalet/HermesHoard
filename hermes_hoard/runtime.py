@@ -85,6 +85,21 @@ class Module:
                 return await client.request(method, path, **kwargs)
 
 
+def _local_path(stored, data_dir, windows=os.name == "nt"):
+    """A module's saved data folder, usable on this computer, or None (= the default). ``modules.json`` keeps absolute paths;
+    when the data folder was copied to another operating system (the Hub moves Hermes between Windows and a Linux Spark),
+    a foreign path is re-rooted under this data folder from its ``native`` part, and anything else foreign is ignored."""
+    if not stored:
+        return None
+    text = str(stored)
+    drive = len(text) > 2 and text[1] == ":" and text[0].isalpha()
+    foreign = (not windows and drive) or (windows and text.startswith("/"))
+    if not foreign:
+        return Path(text)
+    parts = [p for p in text.replace("\\", "/").split("/") if p]
+    return data_dir.joinpath(*parts[parts.index("native"):]) if "native" in parts else None
+
+
 def create_runtime(*, name, product, root, data_dir, specs, factory, port):
     root, data_dir = Path(root), Path(data_dir)
     data_dir.mkdir(parents=True, exist_ok=True)
@@ -95,7 +110,7 @@ def create_runtime(*, name, product, root, data_dir, specs, factory, port):
     settings_path = data_dir / "modules.json"
     saved = json.loads(settings_path.read_text(encoding="utf-8")) if settings_path.exists() else {}
     paths = saved.get("data_paths", {})
-    modules = {s["id"]: Module(s, paths.get(s["id"], data_dir / s["id"]), factory) for s in specs}
+    modules = {s["id"]: Module(s, _local_path(paths.get(s["id"]), data_dir) or data_dir / s["id"], factory) for s in specs}
     for key, module in modules.items():
         module.desired = key in saved.get("enabled", [])
     catalog = json.loads((root / "catalog.json").read_text(encoding="utf-8"))
