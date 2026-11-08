@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import secrets
 from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
@@ -140,6 +141,9 @@ def create_runtime(*, name, product, root, data_dir, specs, factory, port):
                     await module.set_enabled(False)
 
     app = FastAPI(title=name, lifespan=lifespan)
+    # Besides loopback, the names listed in HERMES_ALLOWED_HOSTS ("*.ts.net" when the Hub publishes Hermes on a tailnet).
+    from tantalus_hoard.hoard_link.guard import parse_allowed_hosts
+    allowed_hosts = tuple(parse_allowed_hosts(os.environ.get("HERMES_ALLOWED_HOSTS", "")))
     app.state.modules = modules
     app.state.token = token
     app.state.data_dir = data_dir
@@ -148,7 +152,7 @@ def create_runtime(*, name, product, root, data_dir, specs, factory, port):
     async def local_request_guard(request, call_next):
         # Reuse the family's established host/origin protection.
         from .native import check_request
-        verdict = check_request(request.method, dict(request.headers), port, (), strict_ports=True)
+        verdict = check_request(request.method, dict(request.headers), port, allowed_hosts, strict_ports=True)
         if verdict:
             return JSONResponse({"error": verdict[1]}, status_code=verdict[0])
         if request.url.path in ("/api/copilot/info", "/api/copilot/proxy"):
