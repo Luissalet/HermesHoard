@@ -133,9 +133,52 @@ _PROFILES: tuple[SiteProfile, ...] = (
         "ebay.es", "eBay", is_retailer=False, is_marketplace=True, source_level=4, blocks_automation="akamai",
         notes="marketplace. verified: Akamai 403 'Error Page | eBay' over http and headless Edge.",
     ),
+    # Shops Luis reviewed on 2026-11-09 (company identity, reviews, how they answer an automated reader from the Spark).
+    SiteProfile(
+        "juguetilandia.com", "Juguetilandia", first_party_sellers=("juguetilandia",), product_url=r"^/producto/",
+        notes="verified 2026-11-09: product pages over http 200 with microdata Product/Offer (itemprop availability and price); "
+              "answers 503 now and then. Without this profile its restocks scored 40 (unknown host = level 3) and never alerted.",
+    ),
+    SiteProfile(
+        "tiendacpu.com", "TiendaCPU", first_party_sellers=("tiendacpu",), product_url=r"/\d{3,}-[\w-]+$",
+        notes="verified 2026-11-09: PrestaShop, product pages over http 200 with JSON-LD Product/Offer. Real company "
+              "(Cantabria) with weak after-sales reviews: fine for alerts, pay with a card that allows a claim.",
+    ),
+    SiteProfile(
+        "tradeinn.com", "Kidinn (Tradeinn)", first_party_sellers=("tradeinn", "kidinn", "ventas"), product_url=r"/p$",
+        notes="verified 2026-11-09: product pages over http 200 with JSON-LD Product/Offer. Large Girona multi-shop; "
+              "slow deliveries are the usual complaint.",
+    ),
+    SiteProfile(
+        "hipergol.com", "Hipergol", first_party_sellers=("hipergol",), needs_browser=True, blocks_automation="cloudflare",
+        window_ok=True,
+        notes="2026-11-09: toy and TCG shop with physical stores in León for 20+ years. Cloudflare answers 403 over http and "
+              "to headless Chromium from the Spark: only an ordinary browser window on the PC reads it.",
+    ),
+    SiteProfile(
+        "herofreaks.com", "HeroFreaks", first_party_sellers=("herofreaks",), product_url=r"^/comprar/", needs_browser=True,
+        blocks_automation="cloudflare", window_ok=True,
+        notes="2026-11-09: hobby / TCG shop. Cloudflare 403 over http and to headless Chromium from the Spark; the stocktcg "
+              "radar already lists its Pokémon stock.",
+    ),
+    SiteProfile(
+        "collectorage.com", "Collectorage", first_party_sellers=("collectorage",), needs_browser=True, window_ok=True,
+        notes="2026-11-09: collectibles / TCG shop in Madrid (calle Hernani 19). WooCommerce behind a bot wall: 403 over http "
+              "from the Spark, so only an ordinary browser window on the PC reads it.",
+    ),
+    SiteProfile(
+        "alfriki.com", "Alfriki", first_party_sellers=("alfriki",), product_url=r"^/products/", window_ok=True,
+        min_interval_s=120.0,
+        notes="2026-11-09: small Shopify TCG shop (Roda de Berà, Tarragona). Shopify refuses the Spark's clients (http 429/403, "
+              "headless blocked) while the PC reads it; its page can say 'Agotado' next to 'quedan N'.",
+    ),
 )
 
 SITE_PROFILES: dict[str, SiteProfile] = {p.host: p for p in _PROFILES}
+
+# Fake shops seen in paid search ads (an "Ultra Premium Collection" at half its price, no company, no legal pages, template
+# text left in the page): never a discovery candidate, never a target.
+SCAM_HOSTS: frozenset[str] = frozenset({"managermodf.shop", "xeagdyat.shop"})
 # Extra hosts that belong to one profile.
 _ALIASES = {"marketplace.nvidia.com": ("nvidia.com",), "amazon.es": ("amazon.com",), "ebay.es": ("ebay.com", "ebay.co.uk")}
 
@@ -160,6 +203,12 @@ def profile_for_host(host_or_url: str) -> Optional[SiteProfile]:
         if any(host == a or host.endswith("." + a) for a in aliases):
             return SITE_PROFILES[key]
     return None
+
+
+def is_scam_host(host_or_url: str) -> bool:
+    """A host known to be a fake shop (``SCAM_HOSTS``), or a subdomain of one."""
+    host = _host_of(host_or_url)
+    return bool(host) and any(host == h or host.endswith("." + h) for h in SCAM_HOSTS)
 
 
 def retailer_for_host(host_or_url: str) -> Optional[str]:

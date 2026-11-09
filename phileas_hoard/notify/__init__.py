@@ -262,6 +262,9 @@ class Notifier:
             return {"channel": channel, "ok": False, "error": "disabled", "skipped": True}
         if SEVERITY_RANK.get(str(event.get("severity") or "medium").lower(), 1) < SEVERITY_RANK[self._min_severity(channel)]:
             return {"channel": channel, "ok": False, "error": "below minimum severity", "skipped": True}
+        if channel == "toast" and not self._is_windows():
+            # Hermes runs on a Spark: there is no Windows desktop to show a toast on. Not a failure, just not here.
+            return {"channel": channel, "ok": False, "error": "not windows", "skipped": True}
         return self._deliver(channel, event)
 
     def test(self, channel: str) -> dict[str, Any]:
