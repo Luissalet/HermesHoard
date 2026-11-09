@@ -21,6 +21,7 @@ from . import rules
 from .discovery import discover, product_terms, watcher_config
 from .extract import adapter_for, extract, retailer_for_host, source_level_for_host
 from .extract import window_check
+from .extract.sites import window_ok as site_window_ok
 from .faustus_eye import merge as faustus_merge
 from .fetch.open_window import TIER as OPEN_WINDOW
 from .model import (BUYABLE, CANDIDATE_FOUND, COMING_SOON, IN_STOCK, INFO_CHANGE, LISTING_PRICE_DROP, LOCAL_PICKUP, MARKETPLACE_ONLY,
@@ -47,6 +48,11 @@ WINDOWS_HOST = sys.platform == "win32"
 PAUSED_RECHECK_S = 15 * 60
 PAUSED_OFF_WINDOWS = ("En pausa: Hermes corre ahora en una Spark, sin tu navegador de Windows. "
                       "Vuelve a vigilar esta ventana en cuanto regrese al PC.")
+# Shops that only answer an ordinary browser window (Carrefour product pages, Cloudflare shops): the Spark has none, so
+# every read failed (152 errors a night per Carrefour page). They wait the same way and come back on the PC.
+PAUSED_WINDOW_SITE = ("En pausa: esta tienda solo se deja leer en una ventana normal del navegador de Windows y Hermes corre "
+                      "ahora en una Spark. Vuelve a vigilarla en cuanto regrese al PC; mientras, su stock llega por el radar "
+                      "de stocktcg si la tienda aparece allí.")
 
 
 def fold(text: str) -> str:
@@ -159,13 +165,30 @@ class Engine:
             self.store.finish_run(run_id, False, {"error": str(error)[:300]})
             raise
 
+    @staticmethod
+    def _window_site(target: dict[str, Any]) -> bool:
+        """Does this target read through an ordinary browser window (its shop refuses http and headless)?"""
+        if target.get("fetch_tier") not in (None, "", "auto", "window"):
+            return False
+        try:
+            return bool(site_window_ok(target.get("url") or ""))
+        except Exception:  # noqa: BLE001 - a profile lookup never breaks a check
+            return False
+
     def _check(self, target: dict[str, Any], watcher: dict[str, Any], *, revalidation: bool) -> dict[str, Any]:
         now = self.clock()
-        if target.get("fetch_tier") == OPEN_WINDOW and not WINDOWS_HOST:
-            # Running on a Spark (the Hub moved Hermes there so the PC can be off): the person's browser window is not here.
-            # Nothing failed and nothing needs them: keep the target as it is and look again later, back on the PC.
-            self.store.update_target(target["id"], last_error=PAUSED_OFF_WINDOWS, next_check_ts=now + PAUSED_RECHECK_S)
-            return {"target_id": target["id"], "ok": False, "paused": True, "error": PAUSED_OFF_WINDOWS, "events": []}
+        if not WINDOWS_HOST and (target.get("fetch_tier") == OPEN_WINDOW or Engine._window_site(target)):
+            # Running on a Spark (the Hub moved Hermes there so the PC can be off): the person's browser window is not here,
+            # and neither is the ordinary browser window some shops insist on. Nothing failed and nothing needs them: keep
+            # the target as it is and look again later, back on the PC.
+            note = PAUSED_OFF_WINDOWS if target.get("fetch_tier") == OPEN_WINDOW else PAUSED_WINDOW_SITE
+            fields: dict[str, Any] = {"last_error": note, "next_check_ts": now + PAUSED_RECHECK_S}
+            if target.get("status") == "error":
+                fields["status"] = "active"          # the errors were the missing browser, not the page
+            if target.get("fail_count"):
+                fields["fail_count"] = 0
+            self.store.update_target(target["id"], **fields)
+            return {"target_id": target["id"], "ok": False, "paused": True, "error": note, "events": []}
         cfg = watcher.get("config") or {}
         policies = rules.policies_for(cfg)
         fr, ex = self.fetch_target(target, watcher)
@@ -233,7 +256,12 @@ class Engine:
 
         ceiling = rules.price_ceiling_for(target, policies)
         state, notes = rules.effective_state(offer, seller_policy=target.get("seller_policy") or "retail_only", price_ceiling=ceiling)
-        level = int(target.get("source_level") or source_level_for_host(target["url"]) or 3)
+        level = int(target.get("source_level") or 3)
+        # A host that became a known shop after the target was saved (it was stored as an unknown level 3) reads at the
+        # shop's own level now: its own product page is the first-hand source the confidence table rewards.
+        known = source_level_for_host(target["url"], page_kind=str(extra.get("page_kind") or ""))
+        if known is not None and known < level:
+            level = known
         if is_list and level < 2:
             level = 2
         price_ok = None

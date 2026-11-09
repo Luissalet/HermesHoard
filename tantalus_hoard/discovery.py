@@ -71,6 +71,16 @@ def _extract_helpers() -> Optional[tuple[Callable[[str], Any], Callable[[str], A
         return None
 
 
+def _scam(url: str) -> bool:
+    """A known fake shop (``extract.sites.SCAM_HOSTS``): never a candidate."""
+    try:
+        from .extract.sites import is_scam_host
+
+        return is_scam_host(url)
+    except Exception:  # noqa: BLE001 - optional table
+        return False
+
+
 def classify_host(host: str) -> tuple[int, str, str]:
     """``(source_level, retailer, kind)``. kind: retailer | official | community | marketplace | aggregator | other.
 
@@ -320,7 +330,7 @@ def discover(watcher: dict[str, Any], search: WebSearch, *, existing_urls: Itera
             errors.setdefault(engine, message)
         for hit in hits:
             key = url_key(hit.url)
-            if key in known:
+            if key in known or _scam(hit.url):
                 continue
             cand = score_hit(hit, terms=terms, include=include, exclude=exclude, allow=allow, seller_policy=seller_policy)
             if cand is None or cand["score"] < min_score:

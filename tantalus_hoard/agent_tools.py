@@ -370,6 +370,26 @@ def run_watcher_rescore(svc: Services, a: WatcherIdArgs) -> dict[str, Any]:
     return svc.engine.rescore_listings(w["id"])
 
 
+def _refuse_scam(url: str) -> None:
+    from .extract.sites import is_scam_host
+    if is_scam_host(url):
+        raise TantalusError("invalid", "That shop is on the list of fake shops (cheap sealed product in paid ads, no company "
+                            "behind it).", "Watch the product at a real shop instead.")
+
+
+def added_source_level(url: str) -> int:
+    """Source level of a page the person chose to watch. A known host keeps its table level; an unknown one is a shop's own
+    page (level 1) unless discovery knows it as a marketplace, community or aggregator site. Saving unknown shops as level 3
+    meant their restocks could never reach the alert threshold."""
+    from .discovery import classify_host
+    from .extract import source_level_for_host
+    known = source_level_for_host(url)
+    if known is not None:
+        return known
+    level, _retailer, kind = classify_host(host_of(url))
+    return level if kind in ("marketplace", "community", "aggregator") else 1
+
+
 def run_target_add(svc: Services, a: TargetAddArgs) -> dict[str, Any]:
     w = svc.store.watcher(a.watcher_id)
     if w["mode"] != MODE_AVAILABILITY:
@@ -380,9 +400,10 @@ def run_target_add(svc: Services, a: TargetAddArgs) -> dict[str, Any]:
     fields["seller_policy"] = a.seller_policy or policies.get("seller") or "retail_only"
     if fields["seller_policy"] not in SELLER_POLICIES:
         fields["seller_policy"] = "retail_only"
-    from .extract import source_level_for_host, retailer_for_host
+    from .extract import retailer_for_host
+    _refuse_scam(a.url)
     fields["retailer"] = a.retailer or retailer_for_host(a.url) or ""
-    fields["source_level"] = source_level_for_host(a.url) or 3
+    fields["source_level"] = added_source_level(a.url)
     t = svc.store.create_target(a.watcher_id, a.url, **fields)
     out: dict[str, Any] = {"target": svc._target_card(t)}
     if a.check_now:
@@ -711,8 +732,9 @@ def run_watcher_add(svc: Services, a: WatcherAddArgs) -> dict[str, Any]:
                                  discovery_interval_h=24, enabled=True, notes=a.notes)
     target = None
     if a.url.strip():
+        _refuse_scam(a.url)
         target = svc.store.create_target(w["id"], a.url.strip(), seller_policy="retail_only", price_threshold=price,
-                                         retailer=retailer_for_host(a.url) or "", source_level=source_level_for_host(a.url) or 3)
+                                         retailer=retailer_for_host(a.url) or "", source_level=added_source_level(a.url))
     svc._emit("tantalus.watcher.added", {"watcher_id": w["id"], "name": w["name"], "source_ref": ref})
     if ref.startswith("hoard://"):
         _bg(svc, lambda: svc.refs_link(f"hoard://tantalus/watcher/{w['id']}", ref, "source", from_label=w["name"]))
