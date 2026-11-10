@@ -35,7 +35,7 @@ MIN_WATCHER_INTERVAL_MIN = 10  # floor inherited from Radar de Libros: never ham
 
 LANES = ("checks", "sweeps", "windows", "alerts")
 OPEN_WINDOW = "open_window"     # fetch tier of targets read from a window the person has open (fetch/open_window.py)
-ALERT_KINDS = ("radar", "mail_deals")   # short, time-critical extra jobs: never queued behind a discovery or news sweep
+ALERT_KINDS = ("radar", "mail_deals", "mail_notices")   # short, time-critical extra jobs: never queued behind a discovery or news sweep
 
 
 def lane_of(kind: str) -> str:

@@ -54,6 +54,9 @@ Source tool definitions and implementations are incorporated in this repository.
 | products | mail_deals_scan | mail_deals_scan |
 | products | mail_noise_report | mail_noise_report |
 | products | mail_deal_set | mail_deal_set |
+| products | stock_notices | stock_notices |
+| products | stock_notices_scan | stock_notices_scan |
+| products | stock_notice_set | stock_notice_set |
 | products | radar_status | radar_status |
 | products | radar_run | radar_run |
 | products | releases_list | releases_list |
