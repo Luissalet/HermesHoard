@@ -42,6 +42,8 @@ BUSY_RETRY_S = 180        # another app holds the site's browser lane: look agai
 MAX_BACKOFF_MIN = 6 * 60
 ENDED_NOTICE_WINDOW_S = 48 * 3600   # an alert older than this ends quietly: no "sold out" follow-up
 RECHECK_SOON_S = 60                 # an open-window row only the model read as buyable is read again this soon
+ROW_GONE_READINGS = 2               # an open-window row missing from this many readings in a row no longer vouches for its alert
+MAIL_NOTICE_SOURCE = "mail_notice"  # ``data.source`` of an alert raised from the shop's own stock mail (see mail/notices.py)
 # Open-window targets read the person's own browser through Windows UI Automation. Off Windows (the Hub moved Hermes to a
 # Spark so the PC can be switched off) they wait quietly instead of raising "needs your help" every few hours.
 WINDOWS_HOST = sys.platform == "win32"
@@ -302,12 +304,18 @@ class Engine:
         if per_item and not revalidation:
             created += self._per_item(target=target, watcher=watcher, offers=matched, extra=extra, policies=policies, level=level,
                                       tier=fr.tier, first_check=first_check, now=now, retailer=retailer)
-        elif not revalidation and state in ENDED_STATES:
-            # The product page no longer sells it: the restock / reservation / price alerts it raised are over.
+        elif state in ENDED_STATES and not per_item:
+            # The product page no longer sells it: the restock / reservation / price alerts it raised are over. A
+            # revalidation that reads it sold out ends them as well; otherwise the next check would find the state already
+            # "sold out" and end them without telling anyone.
             sold_out_sent = any(e["type"] == rules.SOLD_OUT and e["status"] == "confirmed" for e in created)
             live = self.store.live_alerts(target_id=target["id"], watcher_id=watcher["id"], url=target["url"])
-            # the follow-up goes out when the page has just stopped selling it, not when old alerts are tidied up
-            self.end_alerts(watcher, live, state=state, at=now, notify=not sold_out_sent and prev_known in BUYABLE)
+            # The follow-up goes out when the page has just stopped selling it, not when old alerts are tidied up. An alert
+            # raised from the shop's own mail after the last read of the page is "just announced" too.
+            since = float(target.get("last_check_ts") or 0)
+            fresh_mail = any((e.get("data") or {}).get("source") == MAIL_NOTICE_SOURCE and float(e["detected_at"]) >= since for e in live)
+            self.end_alerts(watcher, live, state=state, at=now,
+                            notify=not sold_out_sent and (prev_known in BUYABLE or fresh_mail))
         model_check = getattr(ex, "model_check", None)
         if model_check is not None:
             extra["model_check"] = {**model_check, "at": now}
@@ -423,6 +431,20 @@ class Engine:
                 self.end_alerts(watcher, live, state=state, at=now, notify=not sold_out_sent)
             created += row_events
             items[key] = {"state": state, "price": o.price, "title": (o.title or "")[:200], "seen": now}
+        if offers:
+            # A buyable row that is no longer on the list (taken off the favourites, or a shop that hides what it does not
+            # sell) stops vouching for its alert after a couple of readings: the alert ends quietly as "unconfirmed".
+            present = {o.url or o.title or "" for o in offers}
+            for key, prev in list(items.items()):
+                if key in present or prev.get("state") not in BUYABLE:
+                    continue
+                missed = int(prev.get("missed") or 0) + 1
+                items[key] = {**prev, "missed": missed}
+                if missed >= ROW_GONE_READINGS:
+                    live = [e for e in self.store.live_alerts(target_id=target["id"])
+                            if (e.get("data") or {}).get("item_key") == key or e.get("url") == key]
+                    self.end_alerts(watcher, live, state=UNKNOWN, at=now)
+                    items[key] = {**prev, "state": UNKNOWN, "missed": missed}
         cutoff = now - 30 * 86400                          # rows gone from the list for a month are forgotten
         extra["items"] = {k: v for k, v in items.items() if float(v.get("seen") or 0) >= cutoff}
         return created
@@ -510,6 +532,8 @@ class Engine:
         data = {k: v for k, v in draft.items() if k not in ("type", "old_state", "new_state", "price", "old_price", "severity")}
         data.update({"retailer": retailer, "factors": conf.factors, "method": offer.method, "evidence": offer.evidence[:4],
                      "image": offer.image or target.get("last_image") or ""})
+        if item_key:
+            data["item_key"] = item_key       # the row of an open window this alert belongs to (ends with that row)
         event = self.store.add_event({
             "watcher_id": watcher["id"], "target_id": target["id"], "type": kind, "severity": draft.get("severity") or "medium",
             "status": status, "old_state": draft.get("old_state") or "", "new_state": draft.get("new_state") or "",
