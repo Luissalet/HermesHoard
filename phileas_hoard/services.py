@@ -13,6 +13,7 @@ from typing import Any, Callable, Optional
 import httpx
 
 from . import SERVICE, __version__, numbers
+from .action import action_required, sort_key as action_sort_key
 from .bizdays import REGIONS
 from .carriers import Carriers
 from .config import Config
@@ -278,7 +279,8 @@ class Services:
                                           "service", "created_ts", "last_change_ts", "notes", "source", "fail_count")},
                 "carrier_name": numbers.carrier_name(s.get("carrier") or ""), "status_label": status_label(s.get("status") or UNKNOWN, lang),
                 "progress": progress(s.get("status") or UNKNOWN), "late": bool(extra.get("late")), "eta_time": extra.get("eta_time") or "", "days_left": extra.get("days_left"),
-                "eta_basis": (s.get("eta_basis") or [])[:3], "mail_only": not s.get("tracking_number"), "received_ts": extra.get("received_ts")}
+                "eta_basis": (s.get("eta_basis") or [])[:3], "mail_only": not s.get("tracking_number"), "received_ts": extra.get("received_ts"),
+                "action": action_required(s, date.fromtimestamp(self.clock()))}
 
     def detail(self, sid: str) -> dict[str, Any]:
         s = self.store.find_shipment(sid)
@@ -302,15 +304,17 @@ class Services:
         today = date.fromtimestamp(now).isoformat()
         active = [self.card(s) for s in self.store.shipments(archived=False, history_only=False, active=True, limit=300)]
         active.sort(key=lambda c: (c["eta_likely"] or "9999", -(c["progress"] or 0)))
-        attention = [c for c in active if c["status"] in (EXCEPTION, FAILED_ATTEMPT, AVAILABLE_FOR_PICKUP) or c["late"] or
+        attention = [c for c in active if c["status"] in (EXCEPTION, FAILED_ATTEMPT, AVAILABLE_FOR_PICKUP) or c["late"] or c["action"] or
                      (c["last_error"] and (c.get("fail_count") or 0) >= 3)]
+        action_list = sorted([c for c in active if c["action"]], key=action_sort_key)
         today_list = [c for c in active if c["status"] == OUT_FOR_DELIVERY or c["eta_likely"] == today]
         week = (date.fromtimestamp(now) - timedelta(days=7)).isoformat()
         delivered = [self.card(s) for s in self.store.shipments(archived=None, history_only=False, active=False, limit=40)
                      if s.get("delivered_ts") and date.fromtimestamp(s["delivered_ts"]).isoformat() >= week]
         last_visit = float(self.db.get_setting("dashboard.last_visit_ts", "0") or 0)
         news = [n for n in self.store.notifications(unseen=True, limit=30) if n["ts"] > last_visit]
-        return {"now": now, "today": today, "active": active, "today_list": today_list, "attention": attention, "delivered": delivered,
+        return {"now": now, "today": today, "active": active, "today_list": today_list, "attention": attention, "action_required": action_list,
+                "delivered": delivered,
                 "news": news, "last_visit_ts": last_visit or None, "counts": self.store.counts(),
                 "review": [{k: m.get(k) for k in ("message_id", "ts", "from_address", "subject", "snippet", "score")}
                            for m in self.store.mails(kind=["maybe"], state=["new"], limit=10)],

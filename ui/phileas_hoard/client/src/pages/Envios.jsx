@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { api } from "../api.js";
 import { useApp } from "../context.js";
-import { AddNumberModal, ShipmentCard } from "../components/cards.jsx";
+import { actionText, AddNumberModal, CompactRow, ShipmentCard } from "../components/cards.jsx";
 import { useMailScan } from "../components/hooks.js";
 import { Busy, Chip, Empty, ErrorBox, Icon, ICONS, Rel, Section } from "../components/ui.jsx";
 import { clock, dayLabel } from "../format.js";
@@ -94,6 +94,7 @@ export default function Envios() {
   const active = dash.active || [];
   const today = dash.today_list || [];
   const attention = dash.attention || [];
+  const actions = dash.action_required || [];
   const delivered = dash.delivered || [];
   const review = dash.counts?.mails_review || 0;
   const empty = !active.length;
@@ -132,6 +133,14 @@ export default function Envios() {
       )}
 
 
+
+      {actions.length > 0 && (
+        <section className="panel space-y-2" aria-labelledby="sec-action" style={{ borderColor: "var(--hoard-danger)" }}>
+          <h2 id="sec-action" className="flex items-center gap-2">{t("sec_action")} <span className="chip chip-danger">{actions.length}</span></h2>
+          <p className="help">{t("action_intro")}</p>
+          <div className="space-y-2">{actions.map((s) => <CompactRow key={s.id} shipment={s} reason={actionText(s, t)} />)}</div>
+        </section>
+      )}
 
       {calendarOpen && <ShipmentCalendar onClose={() => setCalendarOpen(false)} />}
       <TrackingLookup open={lookupOpen} onClose={() => setLookupOpen(false)} />

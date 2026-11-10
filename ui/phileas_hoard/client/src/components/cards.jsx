@@ -114,6 +114,7 @@ export function ShipmentCard({ shipment: s, onChanged }) {
       <div className="flex flex-wrap items-center gap-2">
         <StatusPill status={s.status} label={s.status_label} />
         {s.late && <Chip className="chip-danger">{t("late")}</Chip>}
+        {s.action && <Chip className={s.action.urgent ? "chip-danger" : "chip-amber"} title={s.action.evidence || ""}>{t(`act_${s.action.kind}`)}</Chip>}
         {s.muted && <Chip title={t("muted_hint")}><Icon d={ICONS.bellOff} size={12} />{t("muted")}</Chip>}
       </div>
       <div className="mt-auto flex flex-wrap items-center gap-2 pt-1">
@@ -156,8 +157,25 @@ export function CompactRow({ shipment: s, reason }) {
   );
 }
 
+// What the parcel needs from you, in one line: "Aduanas: paga para que siga · hasta el 12 nov".
+export function actionText(s, t) {
+  const a = s.action;
+  if (!a) return "";
+  const parts = [t(`act_${a.kind}`)];
+  if (a.kind === "pickup") {
+    if (s.pickup_place) parts.push(s.pickup_place);
+    if (a.days_left === 0) parts.push(t("act_today"));
+    else if (a.days_left === 1) parts.push(t("act_tomorrow"));
+    else if (a.deadline) parts.push(t("pickup_until", { date: a.deadline }));
+  } else if (a.evidence) {
+    parts.push(a.evidence);
+  }
+  return parts.join(" · ");
+}
+
 // Why a parcel is in "needs attention".
 export function attentionReason(s, t) {
+  if (s.action && s.action.kind !== "pickup") return actionText(s, t);
   if (s.status === "available_for_pickup") return [s.pickup_place, s.pickup_deadline && t("pickup_until", { date: s.pickup_deadline })].filter(Boolean).join(" · ") || t("att_pickup");
   if (s.status === "failed_attempt") return t("att_failed");
   if (s.status === "exception") return t("att_exception");
