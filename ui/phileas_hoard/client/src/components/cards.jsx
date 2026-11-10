@@ -151,7 +151,7 @@ export function CompactRow({ shipment: s, reason }) {
         <div className="help trunc">{[s.merchant, s.carrier_name].filter(Boolean).join(" · ")}</div>
       </div>
       <StatusPill status={s.status} label={s.status_label} />
-      {reason && <Chip className="chip-amber">{reason}</Chip>}
+      {reason && <Chip className="chip-amber chip-wrap">{reason}</Chip>}
       <span className="help">{[info.main, info.sub].filter(Boolean).join(" · ")}</span>
     </a>
   );
