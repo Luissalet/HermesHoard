@@ -351,14 +351,15 @@ class Notifier:
 
     def _send_email(self, event: dict[str, Any], title: str, body: str) -> str:
         subject, text, html_body = nc.email_parts(title, body, event.get("url"))
+        kind = ("trips." if event.get("trip_id") else "shipments.") + str(event.get("type") or "notification").lower()
         if self.email_backend() == "faustus":
             to = [a.strip() for a in self._secret("SMTP_TO").split(",") if a.strip()]
-            answer = nc.send_via_helper(self.helper.run, subject, text, html=html_body, to=to)
+            answer = nc.send_via_helper(self.helper.run, subject, text, html=html_body, to=to, hermes_kind=kind)
             if not answer.get("ok"):
                 self._faustus_status = None      # re-check the account on the next status
             return self._error(answer)
         e = self._email_settings()
-        return self._error(nc.send_smtp(e, e["to"], subject, text, html=html_body, smtp_factory=self.smtp_factory))
+        return self._error(nc.send_smtp(e, e["to"], subject, text, html=html_body, smtp_factory=self.smtp_factory, hermes_kind=kind))
 
 
 def telegram_discover_chat_id(token: str, *, http: Any = None) -> dict[str, Any]:

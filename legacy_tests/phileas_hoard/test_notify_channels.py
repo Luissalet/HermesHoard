@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import smtplib
+
+import pytest
 from types import SimpleNamespace
 
 from phileas_hoard.hoard_link import family
@@ -118,6 +120,7 @@ def test_email_over_smtp_is_multipart_and_reports_errors_without_secrets():
     smtp = FakeSMTP.instances[0]
     assert (smtp.host, smtp.port, smtp.use_ssl, smtp.quit_called) == ("smtp.gmail.com", 465, True, True)
     msg = smtp.sent[0]
+    assert msg["X-Hermes"] == "1" and msg["X-Hermes-Kind"] == "shipments.out_for_delivery"
     assert msg["To"] == "me@gmail.com" and "https://www.ups.com/track?tracknum=1Z1&x=2" in msg.get_body(("plain",)).get_content()
     html_part = msg.get_body(("html",)).get_content()
     assert "&lt;USB&gt;" in html_part and "<USB>" not in html_part
@@ -168,3 +171,11 @@ def test_toast_script_and_escaping():
     assert xml_escape("<a & b>") == "&lt;a &amp; b&gt;"
     script = build_toast_ps1("Llega hoy", "Cable <USB>", "https://x.example/t")
     assert "Windows.UI.Notifications" in script and "&lt;USB&gt;" in script
+
+
+@pytest.fixture(autouse=True)
+def no_real_imap_for_smtp_stubs(monkeypatch):
+    import imaplib
+    def unavailable(*args, **kwargs):
+        raise OSError("No network in notification tests")
+    monkeypatch.setattr(imaplib, "IMAP4_SSL", unavailable)

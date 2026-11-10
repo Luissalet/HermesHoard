@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import smtplib
+
+import pytest
 from types import SimpleNamespace
 
 from tantalus_hoard import model
@@ -290,7 +292,8 @@ def test_email_defaults_gmail_ssl_and_multipart():
     smtp = FakeSMTP.instances[0]
     assert (smtp.host, smtp.port, smtp.use_ssl, smtp.logged, smtp.quit_called) == ("smtp.gmail.com", 465, True, ("me@gmail.com", "hunter2"), True)
     msg = smtp.sent[0]
-    assert msg["To"] == "me@gmail.com" and msg["From"] == "me@gmail.com" and msg["Subject"].startswith("Bajada de precio")
+    assert msg["X-Hermes"] == "1" and msg["X-Hermes-Kind"] == "products.price_drop"
+    assert msg["To"] == "me@gmail.com" and msg["From"] == "me@gmail.com" and msg["Subject"].startswith("[Hermes] Bajada de precio")
     plain, html_part = msg.get_body(("plain",)).get_content(), msg.get_body(("html",)).get_content()
     assert "https://www.pccomponentes.com/rtx-spark?a=1&b=2" in plain and "&lt;128GB&gt;" in html_part and "<128GB>" not in html_part
 
@@ -467,5 +470,13 @@ def test_faustus_mail_helper_against_a_stub_email_server(tmp_path, monkeypatch):
                                 "to": ["other@example.net", "bad address"]}, str(root))
     assert sent["ok"] and made[0].kind == "starttls"
     msg = made[0].sent[0]
-    assert msg["To"] == "other@example.net" and msg["Subject"] == "Hi Bcc: x@evil.com" and "me@example.org" in msg["From"]
+    assert msg["To"] == "other@example.net" and msg["Subject"] == "[Hermes] Hi Bcc: x@evil.com" and "me@example.org" in msg["From"]
     assert "hunter2" not in json.dumps(sent)
+
+
+@pytest.fixture(autouse=True)
+def no_real_imap_for_smtp_stubs(monkeypatch):
+    import imaplib
+    def unavailable(*args, **kwargs):
+        raise OSError("No network in notification tests")
+    monkeypatch.setattr(imaplib, "IMAP4_SSL", unavailable)

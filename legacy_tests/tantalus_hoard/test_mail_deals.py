@@ -297,9 +297,11 @@ def test_the_scan_is_an_extra_job_kind_in_the_alerts_lane():
     assert sched.run_now("mail_deals", "all", timeout=1) == {"ok": True} or ran    # no loop running: runs inline
 
 
-def test_the_helper_cannot_modify_a_mailbox():
-    # the vendored helper also sends the notification mail; its mailbox side only ever reads
-    source = Path(mail_helper.__file__).read_text(encoding="utf-8")
+def test_helper_reads_are_read_only_except_for_sent_hermes_label():
+    # Only post-send Gmail labelling may create a label or issue UID STORE.
+    import inspect
+    label_source = inspect.getsource(mail_helper.label_hermes)
+    source = Path(mail_helper.__file__).read_text(encoding="utf-8").replace(label_source, "")
     for forbidden in ("EXPUNGE", "conn.expunge", "conn.store", "conn.copy", "conn.append", "conn.delete", "conn.create",
                       "conn.rename", '"STORE"', '"COPY"', '"MOVE"', "\\Seen", "\\Deleted", "RFC822", "BODY[]"):
         assert forbidden not in source, forbidden
