@@ -21,6 +21,7 @@ from datetime import date, datetime, timedelta
 from typing import Any, Callable, Optional
 
 from . import eta as eta_mod
+from .action import NOTIFY_KINDS as ACTION_NOTIFY_KINDS, action_required
 from . import numbers
 from .bizdays import Calendar
 from .mail.parse import analyze
@@ -545,6 +546,8 @@ class Engine:
         self.store.update_shipment(sid, **updates)
         if status != current and not quiet:
             self._notify_status(self.store.shipment(sid), current, status)
+        if not quiet and not (status != current and status in (EXCEPTION, FAILED_ATTEMPT, RETURNED)):
+            self._notify_action(s, self.store.shipment(sid))
         if status != current and events and not s.get("history_only") and current != UNKNOWN:
             self.emit("phileas.status", {"shipment_id": sid, "from": current, "to": status, "label": s.get("label"), "source": source})
         if status == DELIVERED and current != DELIVERED and events and not s.get("history_only"):
@@ -567,6 +570,20 @@ class Engine:
             self.emit(type_, payload)
         except Exception:  # noqa: BLE001 - events are hints
             log.exception("emit %s failed", type_)
+
+    def _notify_action(self, before: dict[str, Any], after: dict[str, Any]) -> None:
+        """Customs to pay, documents to send or an address to fix: a new "action required" is announced once, even when the
+        status itself did not change (the carrier only changed its text)."""
+        if after.get("muted") or after.get("history_only"):
+            return
+        new = action_required(after, self.today())
+        if not new or new["kind"] not in ACTION_NOTIFY_KINDS:
+            return
+        old = action_required(before, self.today())
+        if old and old["kind"] == new["kind"]:
+            return
+        self.notify(after, N_PROBLEM, "high", self._t(f"action_{new['kind']}", after), after.get("status_text") or "",
+                    dedupe=f"{after['id']}|action|{new['kind']}")
 
     def _notify_status(self, s: dict[str, Any], old: str, new: str) -> None:
         sid = s["id"]
@@ -800,14 +817,15 @@ class Engine:
     def _t(self, key: str, s: dict[str, Any], **kw: Any) -> str:
         es = self.lang() == "es"
         name = s.get("label") or s.get("item") or s.get("merchant") or s.get("tracking_number") or "envío"
-        carrier = numbers.carrier_name(s.get("carrier") or "")
+        raw_carrier = numbers.carrier_name(s.get("carrier") or "")
+        carrier = raw_carrier or ("El transportista" if es else "The carrier")     # never "ya lo tiene: X" with no one before it
         likely = s.get("eta_likely") or ""
         when = _human_day(likely, self.today(), es) if likely else ""
         texts = {
             "new_title": (f"Nuevo envío: {name}", f"New shipment: {name}"),
-            "new_body": ((f"{s.get('merchant') or ''} · {carrier} {s.get('tracking_number') or ''}".strip(" ·") +
+            "new_body": ((f"{s.get('merchant') or ''} · {raw_carrier} {s.get('tracking_number') or ''}".strip(" ·") +
                           (f". Llegada estimada {when}" if when else "")),
-                         (f"{s.get('merchant') or ''} · {carrier} {s.get('tracking_number') or ''}".strip(" ·") +
+                         (f"{s.get('merchant') or ''} · {raw_carrier} {s.get('tracking_number') or ''}".strip(" ·") +
                           (f". Expected {when}" if when else ""))),
             "moving_title": (f"En camino: {name}", f"On its way: {name}"),
             "moving_body": ((f"{carrier} ya lo tiene." + (f" Llegada estimada {when}." if when else "")),
@@ -827,13 +845,16 @@ class Engine:
                                                      f"hasta el {s.get('pickup_deadline')}" if s.get("pickup_deadline") else "") if x) or carrier,
                             " · ".join(x for x in (s.get("pickup_place"), f"code {s.get('pickup_code')}" if s.get("pickup_code") else "",
                                                      f"until {s.get('pickup_deadline')}" if s.get("pickup_deadline") else "") if x) or carrier),
+            "action_customs_payment": (f"Aduanas: hay que pagar para que siga: {name}", f"Customs: payment needed to release it: {name}"),
+            "action_customs_documents": (f"Aduanas: piden documentación: {name}", f"Customs: documents requested: {name}"),
+            "action_address": (f"Revisa la dirección: {name}", f"Check the address: {name}"),
             "problem_title": (f"{status_label(kw.get('status', ''), 'es')}: {name}", f"{status_label(kw.get('status', ''), 'en')}: {name}"),
             "eta_title": ((f"Se retrasa: {name}" if kw.get("shift", 0) > 0 else f"Se adelanta: {name}"),
                           (f"Later: {name}" if kw.get("shift", 0) > 0 else f"Earlier: {name}")),
             "eta_body": (f"Nueva llegada estimada {when}.", f"New expected arrival {when}."),
             "stale_title": (f"Sin noticias: {name}", f"No news: {name}"),
-            "stale_body": (f"{kw.get('days', 0)} días de reparto sin movimiento en {carrier}.",
-                           f"{kw.get('days', 0)} delivery days without movement at {carrier}."),
+            "stale_body": (f"{kw.get('days', 0)} días de reparto sin movimiento" + (f" en {raw_carrier}." if raw_carrier else "."),
+                           f"{kw.get('days', 0)} delivery days without movement" + (f" at {raw_carrier}." if raw_carrier else ".")),
             "deadline_title": ((f"Recógelo {'hoy' if kw.get('days') == 0 else 'mañana' if kw.get('days') == 1 else 'en 2 días'}: {name}"),
                                (f"Pick it up {'today' if kw.get('days') == 0 else 'tomorrow' if kw.get('days') == 1 else 'within 2 days'}: {name}")),
         }

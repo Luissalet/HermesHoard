@@ -25,7 +25,8 @@ from typing import Any, Optional
 
 from . import numbers
 from .bizdays import Calendar
-from .model import AVAILABLE_FOR_PICKUP, DELIVERED, FINAL, LABEL_CREATED, NOT_FOUND, ORDERED, OUT_FOR_DELIVERY, RETURNED, UNKNOWN
+from .model import (AVAILABLE_FOR_PICKUP, CUSTOMS, DELIVERED, FINAL, LABEL_CREATED, NOT_FOUND, ORDERED, OUT_FOR_DELIVERY, RETURNED,
+                    UNKNOWN)
 
 EU = {"AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT",
       "RO", "SK", "SI", "SE"}
@@ -43,6 +44,10 @@ TYPICAL = {
 }
 MERCHANT_ORIGIN = {"Amazon": "ES", "PCSpecialist": "EU", "Google Store": "EU", "Wallapop": "ES", "Temu": "WORLD", "AliExpress": "WORLD",
                    "SHEIN": "WORLD", "Miravia": "ES", "PcComponentes": "ES", "El Corte Inglés": "ES", "MediaMarkt": "ES", "Fnac": "ES"}
+
+
+CUSTOMS_CLEARANCE = (2, 5)        # working days from entering customs to delivery, when nothing is asked of you
+CUSTOMS_AFTER_ACTION = (1, 4)     # working days from paying / sending documents to delivery
 
 
 def zone(country: str) -> str:
@@ -247,6 +252,28 @@ def estimate(shipment: dict[str, Any], history: list[dict[str, Any]], cal: Calen
                 if es else f"{shop} says {_span(m_from, m_to, es)}" + (f" (“{quote}”)" if quote else ""))
         candidates.append(Basis("shop", text, _iso(m_from), _iso(m_to or m_from), weight))
 
+    # customs: held until it is cleared (and paid, when the carrier asks for a payment)
+    if status == CUSTOMS:
+        from .action import CUSTOMS_DOCUMENTS, CUSTOMS_PAYMENT, action_required
+        need = (action_required(shipment, today) or {}).get("kind")
+        held = _d(shipment.get("status_ts")) or today
+        if need in (CUSTOMS_PAYMENT, CUSTOMS_DOCUMENTS):
+            # nothing moves until you act: the window starts the next delivery day after today
+            base = cal.next_delivery_day(today + timedelta(days=1), carrier)
+            f, t = base, cal.add(base, CUSTOMS_AFTER_ACTION[1], carrier)
+            what = ("el pago" if need == CUSTOMS_PAYMENT else "la documentación") if es else ("the payment" if need == CUSTOMS_PAYMENT else "the documents")
+            text = (f"Retenido en aduanas hasta que se envíe {what}; suele salir {CUSTOMS_AFTER_ACTION[0]}–{CUSTOMS_AFTER_ACTION[1]} días "
+                    f"laborables después" if es else f"Held at customs until {what} is sent; it usually leaves "
+                    f"{CUSTOMS_AFTER_ACTION[0]}–{CUSTOMS_AFTER_ACTION[1]} working days later")
+            candidates.append(Basis("customs", text, _iso(f), _iso(max(t, f)), 88))
+        else:
+            lo, hi = CUSTOMS_CLEARANCE
+            f = max(cal.add(held, lo, carrier), cal.next_delivery_day(today, carrier))
+            t = max(cal.add(held, hi, carrier), f)
+            text = (f"En aduanas desde el {_h(held, es)}: el despacho suele llevar {lo}–{hi} días laborables y luego el reparto"
+                    if es else f"At customs since {_h(held, es)}: clearance usually takes {lo}–{hi} working days, then delivery")
+            candidates.append(Basis("customs", text, _iso(f), _iso(t), 70))
+
     # history of similar parcels
     if similar and (start or status in (ORDERED, LABEL_CREATED, NOT_FOUND)):
         days = [r["days"] for r in similar]
@@ -322,7 +349,9 @@ def estimate(shipment: dict[str, Any], history: list[dict[str, Any]], cal: Calen
             if c.source in ("carrier", "shop") and primary.source in ("history", "promise", "typical"):
                 f, t, likely = max(f, cf), min(t, ct), max(f, cf)
     # running late: every window is behind us
-    if (t and t < today) or promised_passed:
+    if primary.source == "customs" and promised_passed:
+        est.late = True                    # the promised date passed while it sits at customs: the customs window stands
+    elif (t and t < today) or promised_passed:
         est.late = True
         remaining = [r["days"] for r in similar] if similar else [1, 2]
         f = cal.next_delivery_day(today, carrier)

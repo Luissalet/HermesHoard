@@ -142,8 +142,9 @@ def run_overview(svc: Services, _: Empty) -> dict[str, Any]:
     d = svc.dashboard()
     slim = lambda c: {k: c.get(k) for k in ("id", "label", "merchant", "carrier_name", "tracking_number", "status_label", "status_text",  # noqa: E731
                                             "eta_likely", "eta_from", "eta_to", "eta_confidence", "late", "last_location", "tracking_url",
-                                            "pickup_place", "pickup_deadline", "mail_only")}
+                                            "pickup_place", "pickup_deadline", "mail_only", "action")}
     return cap_result({"today": d["today"], "arriving_today": [slim(c) for c in d["today_list"]],
+                       "action_required": [slim(c) for c in d["action_required"]],
                        "needs_attention": [slim(c) for c in d["attention"]], "active": [slim(c) for c in d["active"]],
                        "delivered_last_week": [slim(c) for c in d["delivered"]],
                        "news_since_last_visit": [{k: n[k] for k in ("ts", "type", "title", "body", "shipment_id")} for n in d["news"]],
@@ -343,7 +344,8 @@ def run_housekeeping(svc: Services, _: Empty) -> dict[str, Any]:
 TOOLS: list[Tool] = [
     Tool("phileas_overview", "Parcels on their way with estimated arrival, today, needs attention. Mis envíos y cuándo llegan.\n"
          "Active shipments sorted by estimated day, what arrives today, problems (incidence, failed attempt, pickup waiting, late), "
-         "deliveries of the last week, notifications since the last visit. Sinónimos: paquetes, pedidos, seguimiento, qué me llega, "
+         "action_required first (customs to pay, documents to send, address to fix, failed delivery, pickup before its deadline), "
+         "deliveries of the last week, notifications since the last visit. Sinónimos: acción requerida, aduanas, pagar aranceles, paquetes, pedidos, seguimiento, qué me llega, "
          "cuándo llega, envíos pendientes, tracking.", Empty, _ann(True), run_overview),
     Tool("phileas_status", "Health: mail source, carrier sources, channels, scheduler, settings. Estado de Phileas.\n"
          "Sinónimos: configuración, claves, canales de aviso, último escaneo de correo.", Empty, _ann(True), run_status),
