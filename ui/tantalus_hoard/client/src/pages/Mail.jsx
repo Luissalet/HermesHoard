@@ -3,6 +3,7 @@ import { api } from "../api.js";
 import { useApp } from "../context.js";
 import { Busy, Check, Chip, Empty, ErrorBox, ExtLink, Price, Rel, Tabs, useBusy, useLoad } from "../components/ui.jsx";
 import { clock, num, shortClock } from "../format.js";
+import MailNotices from "./MailNotices.jsx";
 
 const STATUSES = ["active", "expired", "dismissed", "all"];
 
@@ -224,12 +225,13 @@ function NoiseTab() {
 
 export default function Mail({ query }) {
   const { t } = useApp();
-  const [tab, setTab] = useState(query?.get("tab") === "noise" ? "noise" : "deals");
+  const asked = query?.get("tab");
+  const [tab, setTab] = useState(["noise", "notices"].includes(asked) ? asked : "deals");
   return (
     <div className="space-y-4">
       <h1>{t("nav_mail")}</h1>
-      <Tabs active={tab} onChange={setTab} tabs={[{ key: "deals", label: t("tab_mail_deals") }, { key: "noise", label: t("tab_mail_noise") }]} />
-      {tab === "deals" ? <DealsTab /> : <NoiseTab />}
+      <Tabs active={tab} onChange={setTab} tabs={[{ key: "deals", label: t("tab_mail_deals") }, { key: "notices", label: t("tab_mail_notices") }, { key: "noise", label: t("tab_mail_noise") }]} />
+      {tab === "deals" ? <DealsTab /> : tab === "notices" ? <MailNotices /> : <NoiseTab />}
     </div>
   );
 }

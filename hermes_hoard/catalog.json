@@ -1862,7 +1862,7 @@
   },
   {
     "name": "products_settings_set",
-    "description": "Change settings: channels, ntfy server, e-mail backend and Faustus folder, language, model, pause. Ajustes.\nKeys: notify.via auto|hub|own, mail.source auto|hub|faustus, notify.<channel>.enabled|min_severity, notify.ntfy.server, notify.email.backend|faustus_dir|faustus_owner, notify.language, llm.enabled, scheduler.paused, mail.deals.enabled|interval_min|history_days|ttl_days|stores|domains|gamerhoard_file|wishlist, mail.noise.days.",
+    "description": "Change settings: channels, ntfy server, e-mail backend and Faustus folder, language, model, pause. Ajustes.\nKeys: notify.via auto|hub|own, mail.source auto|hub|faustus, notify.<channel>.enabled|min_severity, notify.ntfy.server, notify.email.backend|faustus_dir|faustus_owner, notify.language, llm.enabled, scheduler.paused, mail.deals.enabled|interval_min|history_days|ttl_days|stores|domains|gamerhoard_file|wishlist, mail.noise.days, mail.notices.enabled|interval_min|history_days|max_age_hours|live_hours|domains (sender=shop pairs).",
     "annotations": {
       "readOnlyHint": false,
       "destructiveHint": false,
@@ -2194,6 +2194,149 @@
         "status"
       ],
       "title": "MailDealSetArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "stock_notices",
+    "description": "Stock notices from the shops' own mail, matched to watched products. Avisos de stock del correo.\nEach notice: shop, kind (available / preorder / price_drop / sold_out), the phrase that classified it, the target it was matched to and how (product link, product number, product name, by hand), and the alert it raised. Also the phrase rules and the watched shops with the sender domains that speak for them. Works without a browser (also on a Spark). Sinónimos: vuelve a estar disponible, avisos de reposición por correo, lista de deseos, ya puedes reservar, bajada de precio.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "status": {
+          "default": "all",
+          "description": "matched = every notice tied to a target (alerted, matched, ended, old).",
+          "enum": [
+            "all",
+            "matched",
+            "alerted",
+            "unmatched",
+            "ended",
+            "old",
+            "ignored"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "kind": {
+          "default": "",
+          "enum": [
+            "",
+            "available",
+            "preorder",
+            "price_drop",
+            "sold_out"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "target_id": {
+          "default": "",
+          "maxLength": 64,
+          "title": "Target Id",
+          "type": "string"
+        },
+        "limit": {
+          "default": 60,
+          "maximum": 300,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "include_rules": {
+          "default": true,
+          "description": "Also return the phrase rules and the watched shops with their sender domains.",
+          "title": "Include Rules",
+          "type": "boolean"
+        }
+      },
+      "title": "StockNoticesArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "stock_notices_scan",
+    "description": "Read the shops' stock mail now (read-only) and turn fresh matches into alerts. Leer avisos de stock del correo ahora.\nRestock / on sale -> RESTOCK or SALE_OPEN, reservations -> PREORDER_OPEN, price drop -> PRICE_DROP, sold out -> ends the live alerts with the usual follow-up. Mails older than mail.notices.max_age_hours are recorded without an alert.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": true
+    },
+    "inputSchema": {
+      "properties": {
+        "days": {
+          "anyOf": [
+            {
+              "maximum": 30,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How far back to read (default: setting mail.notices.history_days).",
+          "title": "Days"
+        }
+      },
+      "title": "StockNoticesScanArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "stock_notice_set",
+    "description": "Correct a stock notice: assign it to a target (raises its alert when the mail is fresh) or ignore it. Asignar o ignorar un aviso.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "notice_id": {
+          "minimum": 1,
+          "title": "Notice Id",
+          "type": "integer"
+        },
+        "action": {
+          "enum": [
+            "assign",
+            "ignore"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "target_id": {
+          "default": "",
+          "description": "assign: the target the notice is about.",
+          "maxLength": 64,
+          "title": "Target Id",
+          "type": "string"
+        },
+        "item_key": {
+          "default": "",
+          "description": "assign, open-window list targets: the row (its link) the notice is about.",
+          "maxLength": 600,
+          "title": "Item Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "notice_id",
+        "action"
+      ],
+      "title": "StockNoticeSetArgs",
       "type": "object"
     },
     "module": "products"
@@ -2706,7 +2849,7 @@
   },
   {
     "name": "phileas_overview",
-    "description": "Parcels on their way with estimated arrival, today, needs attention. Mis envíos y cuándo llegan.\nActive shipments sorted by estimated day, what arrives today, problems (incidence, failed attempt, pickup waiting, late), deliveries of the last week, notifications since the last visit. Sinónimos: paquetes, pedidos, seguimiento, qué me llega, cuándo llega, envíos pendientes, tracking.",
+    "description": "Parcels on their way with estimated arrival, today, needs attention. Mis envíos y cuándo llegan.\nActive shipments sorted by estimated day, what arrives today, problems (incidence, failed attempt, pickup waiting, late), action_required first (customs to pay, documents to send, address to fix, failed delivery, pickup before its deadline), deliveries of the last week, notifications since the last visit. Sinónimos: acción requerida, aduanas, pagar aranceles, paquetes, pedidos, seguimiento, qué me llega, cuándo llega, envíos pendientes, tracking.",
     "annotations": {
       "readOnlyHint": true,
       "destructiveHint": false,

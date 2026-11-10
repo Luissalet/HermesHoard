@@ -58,7 +58,9 @@ p { margin: 0; }
 .btn-link:hover { text-decoration: underline; }
 .field { width: 100%; min-width: 0; padding: 5px 9px; border-radius: 6px; border: 1px solid var(--line); background: var(--field); color: var(--ink); font: inherit; font-size: 12.5px; }
 .field::placeholder { color: #6d5f80; }
-select.field { appearance: auto; }
+select.field { appearance: auto; max-width: 100%; }
+/* a select with a long option never pushes a phone page sideways */
+label.block { max-width: 100%; min-width: 0; }
 textarea.field { resize: vertical; font-family: "Cascadia Mono", Consolas, ui-monospace, monospace; font-size: 12px; }
 .label { display: block; font-size: 11.5px; font-weight: 600; margin-bottom: 3px; color: var(--muted); }
 .help { font-size: 12px; color: var(--muted); }

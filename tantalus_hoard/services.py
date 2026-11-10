@@ -22,7 +22,8 @@ from .info import InfoSentry
 from .llm import LLM
 from .mail.deals import DEFAULTS as MAIL_DEFAULTS, NUMERIC as MAIL_NUMERIC, MailDeals
 from .mail.repo import MailRepo
-from .mail.source import SOURCE_MODES, MailSource
+from .mail.notices import DEFAULTS as NOTICE_DEFAULTS, NUMERIC as NOTICE_NUMERIC, StockNotices, parse_pairs
+from .mail.source import SOURCE_MODES, MailSource, NoticeSource
 from .model import BUYABLE, MODE_AVAILABILITY, MODE_INFORMATION, MODE_SECONDHAND, MODES
 from .modelprobe import ModelProbe
 from .budget import BudgetNote
@@ -53,6 +54,8 @@ UI_SETTINGS = {
     **{f"notify.{c}.min_severity": ("low", "medium", "high") for c in CHANNELS},
     "mail.deals.enabled": ("1", "0"),
     **{key: None for key in MAIL_DEFAULTS if key != "mail.deals.enabled"},
+    "mail.notices.enabled": ("1", "0"),
+    **{key: None for key in NOTICE_DEFAULTS if key != "mail.notices.enabled"},
 }
 
 
@@ -98,9 +101,14 @@ class Services:
                               MailSource(self.notifier, self.db.get_setting, settings_set=self.db.set_setting, clock=clock_fn),
                               self.db.get_setting, self.db.set_setting, clock=clock_fn)
         self.radar = Radar(self.db, self.store, self.engine, self.fetcher, self.db.get_setting, self.db.set_setting, clock=clock_fn)
+        # the shops' own stock mail (back in stock, reservations open, price drop) -> alerts of the watched targets
+        self.notices = StockNotices(self.store, self.engine, self.db,
+                                    NoticeSource(self.notifier, self.db.get_setting, settings_set=self.db.set_setting, clock=clock_fn),
+                                    self.db.get_setting, self.db.set_setting, clock=clock_fn)
         self.scheduler = Scheduler(self.engine, self.store, clock=clock_fn, enabled=config.scheduler,
                                    paused=lambda: self.db.get_setting("scheduler.paused", "0") == "1",
-                                   extra={"mail_deals": (self.mail.due, self.mail.run_job), "radar": (self.radar.due, self.radar.run_job)})
+                                   extra={"mail_deals": (self.mail.due, self.mail.run_job), "radar": (self.radar.due, self.radar.run_job),
+                                          "mail_notices": (self.notices.due, self.notices.run_job)})
         should_install = install_presets if install_presets is not None else (config.scheduler and not config.offline)
         if should_install and self.db.get_setting("presets.installed") is None and not self.store.watchers():
             self.install_presets()
@@ -217,6 +225,8 @@ class Services:
                 default = "low"
             if key in MAIL_DEFAULTS:
                 default = MAIL_DEFAULTS[key]
+            if key in NOTICE_DEFAULTS:
+                default = NOTICE_DEFAULTS[key]
             values[key] = self.db.get_setting(key, default)
         return values
 
@@ -228,8 +238,8 @@ class Services:
             value = str(value).strip() if not isinstance(value, bool) else ("1" if value else "0")
             if allowed and value not in allowed:
                 raise TantalusError("invalid", f"{key} must be one of {', '.join(allowed)}.")
-            if key in MAIL_NUMERIC:
-                low, high = MAIL_NUMERIC[key]
+            if key in MAIL_NUMERIC or key in NOTICE_NUMERIC:
+                low, high = MAIL_NUMERIC.get(key) or NOTICE_NUMERIC[key]
                 if not value.isdigit() or not low <= int(value) <= high:
                     raise TantalusError("invalid", f"{key} must be a whole number between {low} and {high}.")
             if key == "mail.deals.stores":
@@ -237,6 +247,11 @@ class Services:
                 bad = [s for s in value.replace(";", ",").split(",") if s.strip() and s.strip().lower() not in STORE_BY_ID]
                 if bad:
                     raise TantalusError("invalid", f"Unknown store id(s): {', '.join(bad)}.", f"Known: {', '.join(STORE_BY_ID)}.")
+            if key == "mail.notices.domains":
+                pairs = parse_pairs(value)
+                if value.strip() and not pairs:
+                    raise TantalusError("invalid", "mail.notices.domains takes sender=shop pairs.", "Example: news-shop.com=shop.es")
+                value = "\n".join(f"{a}={b}" for a, b in pairs.items())
             if key == "mail.deals.domains":
                 from .mail.stores import clean_domains
                 value = ", ".join(clean_domains(value))
@@ -340,6 +355,7 @@ class Services:
                 "notify_via": self.notifier.via_status() if hasattr(self.notifier, "via_status") else {},
                 "mail": {k: v for k, v in self.mail.status().items() if k in ("enabled", "first_scan_done", "last_run_ts", "next_run_ts", "last_error", "counts", "source")},
                 "radar": self.radar.status(),
+                "mail_notices": {k: v for k, v in self.notices.status().items() if k in ("enabled", "last_run_ts", "next_run_ts", "last_error", "counts")},
                 "llm": {"available": ok, "reason": reason, "calls": self.llm.calls, "failures": self.llm.failures, "skipped_budget": self.llm.skipped,
                         "budget": f"{self.llm.max_calls} per {int(self.llm.window_s // 60)} min"},
                 "search_engines": self.websearch.available_engines() if hasattr(self.websearch, "available_engines") else [],

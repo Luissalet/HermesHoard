@@ -125,3 +125,12 @@ class MailSource:
         return {"ok": bool(answer.get("ok")), "error": str(answer.get("error") or ""), "accounts": answer.get("accounts") or [],
                 "messages": [_normalise(m) for m in answer.get("messages") or [] if isinstance(m, dict)], "via": answer.get("source") or "",
                 "more": bool(answer.get("more"))}
+
+
+class NoticeSource(MailSource):
+    """The mailbox as the stock-notice scan reads it: always through Faustus's own helper (the same account the e-mail alerts
+    use), so the deal scan keeps the family hub's interest and watermark to itself and the notices work wherever Faustus's folder
+    is reachable (on a Spark too)."""
+
+    def source_setting(self) -> str:
+        return "faustus"

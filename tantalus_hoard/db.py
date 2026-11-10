@@ -344,6 +344,41 @@ CREATE TABLE radar_pages (
   error TEXT NOT NULL DEFAULT ''
 );
     """,
+    # 5: stock notices the shops mail ("back in stock", wishlist, price drop, reservations open), matched to watched targets
+    """
+CREATE TABLE mail_notices (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  message_id TEXT NOT NULL,
+  item_key TEXT NOT NULL DEFAULT '',
+  sender_domain TEXT NOT NULL DEFAULT '',
+  shop TEXT NOT NULL DEFAULT '',
+  kind TEXT NOT NULL DEFAULT '',
+  phrase TEXT NOT NULL DEFAULT '',
+  personal INTEGER NOT NULL DEFAULT 0,
+  title TEXT NOT NULL DEFAULT '',
+  subject TEXT NOT NULL DEFAULT '',
+  price REAL,
+  old_price REAL,
+  currency TEXT NOT NULL DEFAULT '',
+  url TEXT NOT NULL DEFAULT '',
+  mail_ts REAL NOT NULL,
+  first_seen_ts REAL NOT NULL,
+  status TEXT NOT NULL DEFAULT 'unmatched',
+  target_id TEXT NOT NULL DEFAULT '',
+  watcher_id TEXT NOT NULL DEFAULT '',
+  match_how TEXT NOT NULL DEFAULT '',
+  match_score INTEGER NOT NULL DEFAULT 0,
+  alert_type TEXT NOT NULL DEFAULT '',
+  event_id TEXT NOT NULL DEFAULT '',
+  note TEXT NOT NULL DEFAULT '',
+  UNIQUE(message_id, item_key)
+);
+CREATE INDEX mail_notices_recent ON mail_notices(mail_ts);
+CREATE TABLE mail_notice_seen (
+  message_id TEXT PRIMARY KEY,
+  seen_ts REAL NOT NULL
+);
+    """,
 ]
 
 
