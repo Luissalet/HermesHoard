@@ -143,7 +143,7 @@ test('every save-then-close modal asks the draft before closing', async () => {
   const { readFile } = await import('node:fs/promises');
   const read = (p) => readFile(new URL(p, import.meta.url), 'utf8');
   const viaje = await read('./src/pages/Viaje.jsx');
-  const rename = viaje.slice(viaje.indexOf('function RenameModal'), viaje.indexOf('function MergeModal'));
+  const rename = viaje.slice(viaje.indexOf('function RenameModal'), viaje.indexOf('function MoveModal'));
   const expense = viaje.slice(viaje.indexOf('function ExpenseModal'), viaje.indexOf('const toggle = (id)'));
   const segment = await read('./src/components/travel.jsx');
   const detalle = await read('./src/pages/Detalle.jsx');
