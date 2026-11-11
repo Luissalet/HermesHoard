@@ -155,5 +155,6 @@
       "tantalus_hoard",
       "phileas_hoard"
     ]
-  }
+  },
+  "skills": {"slugs": ["hoard-daily-digest", "hoard-what-happened", "web-to-clean-markdown", "unattended-brief"], "limit": 4}
 }

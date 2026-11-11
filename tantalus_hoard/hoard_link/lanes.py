@@ -172,9 +172,9 @@ class LaneScheduler:
         for lane, workers in self.lanes.items():
             for _ in range(workers):
                 self._queues[lane].put(None)                     # wake the workers; None is ignored while running
-        deadline = time.monotonic() + timeout if timeout is not None else None
+        deadline = time.monotonic() + timeout
         for t in self._threads:
-            t.join(max(0.0, deadline - time.monotonic()) if deadline is not None else None)
+            t.join(max(0.0, deadline - time.monotonic()))
         self._save_state()
 
     # ------------------------------------------------------------ submitting
@@ -519,9 +519,9 @@ class JobQueue:
         for lane, workers in self.lanes.items():
             for _ in range(workers):
                 self._queues[lane].put(None)
-        deadline = time.monotonic() + timeout if timeout is not None else None
+        deadline = time.monotonic() + timeout
         for t in self._threads:
-            t.join(max(0.0, deadline - time.monotonic()) if deadline is not None else None)
+            t.join(max(0.0, deadline - time.monotonic()))
         self._threads = []
 
     def requeue_interrupted(self) -> int:
