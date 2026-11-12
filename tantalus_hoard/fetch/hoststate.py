@@ -7,8 +7,9 @@ cached robots.txt, one row per host.
 
 from __future__ import annotations
 
+import time
 from collections.abc import MutableMapping
-from typing import Any, Iterator
+from typing import Any, Callable, Iterator
 from urllib.parse import urlsplit
 
 DEFAULT_MIN_INTERVAL_S = 20.0
@@ -21,8 +22,10 @@ _EMPTY: dict[str, Any] = {"last_fetch_ts": 0.0, "min_interval_s": None, "blocked
 class SqlHostState:
     """``HostStateStore`` over ``host_state`` (a host without a row reads as the defaults)."""
 
-    def __init__(self, db: Any):
+    def __init__(self, db: Any, *, short_hold: Callable[[str], float] | None = None, clock: Callable[[], float] = time.time):
         self.db = db
+        self.short_hold = short_hold      # host -> seconds a 429 of that shop really lasts (0 = the fetcher's own hold)
+        self.clock = clock
 
     def get(self, host: str) -> dict[str, Any]:
         row = self.db.one("SELECT * FROM host_state WHERE host = ?", (host,))
@@ -30,6 +33,10 @@ class SqlHostState:
 
     def update(self, host: str, **cols: Any) -> None:
         values: dict[str, Any] = {}
+        if str(cols.get("block_reason") or "") in ("http_429", "http_403") and cols.get("blocked_until_ts") and self.short_hold is not None:
+            hold = float(self.short_hold(host) or 0.0)
+            if hold > 0:                              # a limiter that clears in seconds must not cost half an hour of checks
+                cols = {**cols, "blocked_until_ts": min(float(cols["blocked_until_ts"]), self.clock() + hold)}
         for name, value in cols.items():
             if name not in _WRITABLE:
                 continue
