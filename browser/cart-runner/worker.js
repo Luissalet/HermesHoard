@@ -75,7 +75,10 @@ async function sync() {
 function runOf(runs, job) {
   const run = runs[job.id];
   // Hermes re-armed the job (or it is new): start watching again
-  if (!run || (job.armed_at || 0) > (run.armed_at || 0)) return { phase: "watch", armed_at: job.armed_at || 0, tabId: null, seen: 0, checks: 0 };
+  // (in the tab it already has, sent back to the job's page)
+  if (!run || (job.armed_at || 0) > (run.armed_at || 0)) {
+    return { phase: "watch", armed_at: job.armed_at || 0, tabId: run?.tabId ?? null, seen: 0, checks: 0, back: run?.tabId != null };
+  }
   return run;
 }
 
@@ -97,7 +100,8 @@ async function tend() {
       run.tabId = created.id;
       run.seen = Date.now();
       try { await chrome.tabs.update(created.id, { autoDiscardable: false }); } catch { /* older browsers */ }
-    } else if (run.phase === "watch" && Date.now() - (run.seen || 0) > WATCHDOG_S * 1000 && Date.now() >= (run.hold_until || 0)) {
+    } else if (run.back || (run.phase === "watch" && Date.now() - (run.seen || 0) > WATCHDOG_S * 1000 && Date.now() >= (run.hold_until || 0))) {
+      delete run.back;
       run.seen = Date.now();
       try { await chrome.tabs.update(tab.id, { url: job.url }); } catch { run.tabId = null; }
     }
@@ -163,7 +167,8 @@ async function onMessage(message, sender) {
     if (!job) return { job: null };
     const run = runs[job.id];
     const { profile = {} } = await store.get("profile");
-    return { job, phase: run.phase, hold_until: run.hold_until || 0, attempts: run.attempts || 0, profile };
+    return { job, phase: run.phase, hold_until: run.hold_until || 0, attempts: run.attempts || 0, profile, probe: !!cfg.probe,
+             taken: run.taken || [] };
   }
   if (message.type === "seen" || message.type === "phase" || message.type === "stage") {
     const { jobs, runs } = await state();
@@ -185,6 +190,7 @@ async function onMessage(message, sender) {
     if (message.type === "phase") {
       run.phase = message.phase;
       if (message.attempts != null) run.attempts = message.attempts;
+      if (message.taken) run.taken = message.taken;
       await store.set({ runs });
       await badge();
       return { ok: true };
@@ -192,11 +198,18 @@ async function onMessage(message, sender) {
     // a stage worth telling the user
     run.stage = message.stage;
     run.stage_at = Date.now();
+    if (message.items) run.items = message.items;
     await store.set({ runs });
-    announce(job, message.stage, tabId);
-    hermes("report", { job_id: job.id, stage: message.stage, detail: message.detail || "" }).catch(() => {});
+    announce({ ...job, name: (run.items || "").split("\n").join(" + ") || job.name }, message.stage, tabId);
+    hermes("report", { job_id: job.id, stage: message.stage, detail: message.detail || "", items: message.items || "" }).catch(() => {});
     await badge();
     return { ok: true };
+  }
+  if (message.type === "probe") {
+    // development aid: a page outline goes to a local listener named in config.json ("probe"), nowhere else
+    const cfg = await config();
+    if (cfg.probe) fetch(cfg.probe, { method: "POST", body: JSON.stringify(message.payload) }).catch(() => {});
+    return { ok: !!cfg.probe };
   }
   if (message.type === "popup-sync") { await sync(); return { ok: true }; }
   if (message.type === "popup-rearm") {
