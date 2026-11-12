@@ -105,10 +105,14 @@ class Services:
         self.notices = StockNotices(self.store, self.engine, self.db,
                                     NoticeSource(self.notifier, self.db.get_setting, settings_set=self.db.set_setting, clock=clock_fn),
                                     self.db.get_setting, self.db.set_setting, clock=clock_fn)
+        # the user's browser adds a watched product to the basket (browser/cart-runner); this side keeps the jobs and alerts
+        from .cart import CartRunner
+        self.cart = CartRunner(self.store, self.engine.dispatch, self.db.get_setting, self.db.set_setting, clock=clock_fn)
         self.scheduler = Scheduler(self.engine, self.store, clock=clock_fn, enabled=config.scheduler,
                                    paused=lambda: self.db.get_setting("scheduler.paused", "0") == "1",
                                    extra={"mail_deals": (self.mail.due, self.mail.run_job), "radar": (self.radar.due, self.radar.run_job),
-                                          "mail_notices": (self.notices.due, self.notices.run_job)})
+                                          "mail_notices": (self.notices.due, self.notices.run_job),
+                                          "cart_watch": (self.cart.due, self.cart.run_job)})
         should_install = install_presets if install_presets is not None else (config.scheduler and not config.offline)
         if should_install and self.db.get_setting("presets.installed") is None and not self.store.watchers():
             self.install_presets()

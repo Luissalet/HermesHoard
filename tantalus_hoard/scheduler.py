@@ -73,8 +73,9 @@ class Scheduler:
     def start(self) -> None:
         self.lanes.start()
 
-    def stop(self, timeout: float = 5.0) -> None:
-        self.lanes.stop(timeout)
+    def stop(self, timeout: Optional[float] = 5.0) -> None:
+        # None = wait for the running job (the lanes need a number: a day is "until it ends")
+        self.lanes.stop(86400.0 if timeout is None else timeout)
 
     def status(self) -> dict[str, Any]:
         raw = self.lanes.status()

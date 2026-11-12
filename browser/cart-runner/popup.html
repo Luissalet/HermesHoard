@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<style>
+  :root { color-scheme: light dark; --ink: #1c1b1a; --soft: #6b6862; --line: #d9d5cc; --bg: #faf8f4; --ok: #1f7a4d; --hot: #c0392b; }
+  @media (prefers-color-scheme: dark) { :root { --ink: #ece8df; --soft: #a39f96; --line: #3a3833; --bg: #1d1c1a; } }
+  body { margin: 0; width: 340px; font: 13px/1.4 system-ui, sans-serif; color: var(--ink); background: var(--bg); }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  header b { font-size: 14px; }
+  main { padding: 8px 12px 12px; }
+  .link { font-size: 12px; color: var(--soft); margin-bottom: 8px; }
+  .link.bad { color: var(--hot); }
+  .job { border: 1px solid var(--line); border-radius: 8px; padding: 8px; margin-bottom: 8px; }
+  .job .name { font-weight: 600; overflow-wrap: anywhere; }
+  .job .meta { color: var(--soft); font-size: 12px; margin-top: 2px; }
+  .job .hot { color: var(--hot); font-weight: 600; }
+  .row { display: flex; gap: 6px; margin-top: 6px; }
+  button { font: inherit; padding: 4px 9px; border-radius: 6px; border: 1px solid var(--line); background: transparent; color: inherit; cursor: pointer; }
+  button:hover { border-color: var(--soft); }
+  details { margin-top: 6px; border-top: 1px solid var(--line); padding-top: 8px; }
+  summary { cursor: pointer; color: var(--soft); }
+  label { display: block; font-size: 12px; color: var(--soft); margin-top: 8px; }
+  input, select { box-sizing: border-box; width: 100%; font: inherit; padding: 5px 7px; margin-top: 2px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: inherit; }
+  .empty { color: var(--soft); padding: 6px 0 2px; }
+  .note { font-size: 11px; color: var(--soft); margin-top: 4px; }
+</style>
+</head>
+<body>
+<header><b>Cesta automática</b><button id="pause"></button></header>
+<main>
+  <div class="link" id="link"></div>
+  <div id="jobs"></div>
+  <div class="row"><button id="sync">Actualizar</button><button id="test">Probar sonido</button></div>
+  <details>
+    <summary>Conexión y datos del pago</summary>
+    <label>Dirección de Hermes<input id="hermes" placeholder="https://…:5221/products"></label>
+    <label>Clave<input id="key" type="password"></label>
+    <label>Documento del comprador (si la tienda lo pide en el pago)
+      <select id="doc_type"><option>DNI</option><option>NIE</option><option>Pasaporte</option></select></label>
+    <input id="doc_number" placeholder="Número" autocomplete="off">
+    <div class="note">El documento se guarda solo en este navegador y solo se escribe en la página de pago de la tienda.</div>
+    <div class="row"><button id="save">Guardar</button></div>
+  </details>
+</main>
+<script src="popup.js"></script>
+</body>
+</html>
