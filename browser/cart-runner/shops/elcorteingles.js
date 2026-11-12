@@ -42,20 +42,25 @@
       setTimeout(() => location.reload(), 300_000);
       return;
     }
-    const button = await until(() => document.querySelector("#add_to_cart_main_button"), 10_000);
     let product = {};
     for (const node of document.querySelectorAll('script[type="application/ld+json"]')) {
       try { const data = JSON.parse(node.textContent); if (data && data["@type"] === "Product") product = data; } catch { /* not JSON */ }
     }
     const offer = Array.isArray(product.offers) ? product.offers[0] : product.offers || {};
-    const label = (button?.innerText || "").trim();
-    const dead = !button || button.getAttribute("aria-disabled") === "true" || button.disabled
-      || button.classList.contains("pds-button--is-disabled") || /agotado|no disponible|pr[oó]ximamente/i.test(label);
+    // The page arrives with the button switched off and the shop's own script turns it on once it has asked for the
+    // stock: "off" only counts after giving it time (longer when the page itself says there is stock).
+    const find = () => document.querySelector("#add_to_cart_main_button");
+    const live = (el) => !!el && el.getAttribute("aria-disabled") !== "true" && !el.disabled
+      && !el.classList.contains("pds-button--is-disabled") && !/agotado|no disponible|pr[oó]ximamente/i.test(el.innerText || "");
+    const promised = /InStock|PreOrder|LimitedAvailability|OnlineOnly/i.test(String(offer.availability || ""));
+    await until(() => live(find()), promised ? 12_000 : 6000, 120);
+    const button = find();
+    const dead = !live(button);
     const signedIn = !!document.querySelector(".user-logged-name");
     if (dead) {
       await send({ type: "seen", job_id: job.id, name: product.name || "", price: typeof offer.price === "number" ? offer.price : null,
                    state: (button ? "OUT_OF_STOCK" : "UNKNOWN") + (signedIn ? "" : " · sin sesión") });
-      reloadIn(job.interval_s || 15);
+      reloadIn(Math.max(3, (job.interval_s || 15) - (promised ? 12 : 6)));   // the wait above is part of the interval
       return;
     }
     // it can be bought: one click, then make sure the shop took it

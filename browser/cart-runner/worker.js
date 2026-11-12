@@ -48,7 +48,16 @@ async function state() {
   return { jobs, runs, link };
 }
 
+// Loaded unpacked, the files on disk can be newer than the running copy: a higher version there restarts the extension.
+async function selfUpdate() {
+  try {
+    const disk = await (await fetch(chrome.runtime.getURL("manifest.json"), { cache: "no-store" })).json();
+    if (disk.version && disk.version !== chrome.runtime.getManifest().version) chrome.runtime.reload();
+  } catch { /* packed builds have nothing newer on disk */ }
+}
+
 async function sync() {
+  await selfUpdate();
   const cfg = await config();
   let link;
   try {
@@ -93,10 +102,10 @@ async function tend() {
       try { await chrome.tabs.update(tab.id, { url: job.url }); } catch { run.tabId = null; }
     }
   }
-  // tabs of jobs that were removed or paused in Hermes are closed (only tabs this extension opened)
+  // tabs of jobs removed in Hermes, or paused while still watching, are closed (only tabs this extension opened)
   for (const [id, run] of Object.entries(runs)) {
     const job = jobs.find((j) => j.id === id);
-    if ((!job || !job.enabled) && run.tabId != null && run.phase === "watch") {
+    if ((!job || (!job.enabled && run.phase === "watch")) && run.tabId != null) {
       try { await chrome.tabs.remove(run.tabId); } catch { /* already closed */ }
       if (next[id]) next[id].tabId = null;
     }
