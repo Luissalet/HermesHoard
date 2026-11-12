@@ -2,23 +2,53 @@
   "manifest_version": 3,
   "name": "Hermes — cesta automática",
   "description": "Añade a la cesta los productos que Hermes vigila en cuanto se pueden comprar y avanza hasta la página de pago. No paga.",
-  "version": "1.0.3",
+  "version": "1.2.0",
   "minimum_chrome_version": "116",
-  "permissions": ["storage", "alarms", "notifications", "tabs", "offscreen"],
+  "permissions": [
+    "storage",
+    "alarms",
+    "notifications",
+    "tabs",
+    "offscreen"
+  ],
   "host_permissions": [
     "https://www.elcorteingles.es/*",
     "https://cuenta.elcorteingles.es/*",
+    "https://www.carrefour.es/*",
     "https://*.ts.net/*",
     "http://127.0.0.1/*",
     "http://localhost/*"
   ],
-  "background": {"service_worker": "worker.js", "type": "module"},
-  "action": {"default_title": "Hermes — cesta automática", "default_popup": "popup.html"},
-  "icons": {"48": "icon-48.png", "128": "icon-128.png"},
+  "background": {
+    "service_worker": "worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Hermes — cesta automática",
+    "default_popup": "popup.html"
+  },
+  "icons": {
+    "48": "icon-48.png",
+    "128": "icon-128.png"
+  },
   "content_scripts": [
     {
-      "matches": ["https://www.elcorteingles.es/*", "https://cuenta.elcorteingles.es/*"],
-      "js": ["shops/elcorteingles.js"],
+      "matches": [
+        "https://www.elcorteingles.es/*",
+        "https://cuenta.elcorteingles.es/*"
+      ],
+      "js": [
+        "shops/elcorteingles.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.carrefour.es/*"
+      ],
+      "js": [
+        "shops/carrefour.js"
+      ],
       "run_at": "document_idle"
     }
   ]

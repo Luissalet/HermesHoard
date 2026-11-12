@@ -58,6 +58,10 @@ def test_lists_take_named_products_up_to_a_total():
     sent = cart.for_extension()["jobs"][0]
     assert sent["kind"] == "list" and sent["match"] == ["premium ditto", "lata sylveon"] and sent["max_total"] == 92.98
     assert sent["third_party"] is False and cart.update(job["id"], third_party=True)["third_party"] is True
+    told = cart.report(job["id"], "added", items="Caja Premium Dito\nLata Sylveon")
+    assert told["alerted"] and _events.rows[-1]["title"] == "En la cesta: Caja Premium Dito + Lata Sylveon"
+    cart.report(job["id"], "pay", detail="total 92,98 €")
+    assert _events.rows[-1]["title"] == "Paga ya: Caja Premium Dito + Lata Sylveon" and "92,98" in _events.rows[-1]["summary"]
     assert cart.update(job["id"], match=["lata greninja"], max_total=0)["max_total"] is None
     assert cart.jobs()[0]["match"] == ["lata greninja"]
     assert cart.update(job["id"], match=[])["match"] == ["lata greninja"]      # a list never ends up with nothing to take

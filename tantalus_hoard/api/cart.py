@@ -34,6 +34,7 @@ class Report(BaseModel):
     job_id: str = Field(..., max_length=40)
     stage: str = Field(..., max_length=20)
     detail: str = Field("", max_length=300)
+    items: str = Field("", max_length=600)
 
 
 @router.get("/jobs")
@@ -48,4 +49,4 @@ def beat(request: Request, body: Beat) -> dict[str, Any]:
 
 @router.post("/report")
 def report(request: Request, body: Report) -> dict[str, Any]:
-    return _runner(request).report(body.job_id, body.stage, body.detail)
+    return _runner(request).report(body.job_id, body.stage, body.detail, body.items)

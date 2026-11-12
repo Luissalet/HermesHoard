@@ -183,6 +183,7 @@ class CartRunner:
             job["third_party"] = bool(third_party)
         if rearm:
             job.update(armed_at=self.clock(), stage="", stage_at=None, detail="", enabled=True)
+            job.pop("items", None)
         self._save(jobs)
         return self._view(job, self.clock())
 
@@ -204,13 +205,21 @@ class CartRunner:
         self._save(jobs)
         return {"ok": True}
 
-    def report(self, job_id: str, stage: str, detail: str = "") -> dict[str, Any]:
+    def report(self, job_id: str, stage: str, detail: str = "", items: str = "") -> dict[str, Any]:
+        """``items``: the products this stage is about, as the shop names them. A list job watches several, so the alert
+        is headed by what went into the basket, not by the job's own name."""
         if stage not in ALERT_STAGES:
             raise TantalusError("invalid", f"Unknown stage {stage}.", f"Known: {', '.join(sorted(ALERT_STAGES))}.")
         jobs = self._load()
         job = self._job(jobs, job_id)
         now = self.clock()
         repeated = job.get("stage") == stage and job.get("stage_at") and now - job["stage_at"] < REPEAT_S
+        items = " + ".join(part.strip() for part in str(items).split("\n") if part.strip())[:240]
+        if items:
+            job["items"] = items
+        elif stage in ("lost", "blocked", "signed_out"):
+            job.pop("items", None)
+        subject = job.get("items") or job.get("name") or job["ref"]
         job.update(stage=stage, stage_at=now, detail=str(detail)[:300], beat_at=now)
         self._save(jobs)
         if repeated:
@@ -219,7 +228,7 @@ class CartRunner:
         event = self.store.add_event({
             "type": CART_READY, "severity": severity, "status": "confirmed", "new_state": stage, "price": job.get("price"),
             "currency": "EUR" if job.get("price") is not None else "", "confidence": 100, "url": job["url"],
-            "dedupe_key": f"cart:{job['id']}:{stage}:{int(now // REPEAT_S)}", "title": f"{head}: {job.get('name') or job['ref']}",
+            "dedupe_key": f"cart:{job['id']}:{stage}:{int(now // REPEAT_S)}", "title": f"{head}: {subject}",
             "summary": summary + (f" ({detail.strip()[:200]})" if detail.strip() else ""),
             "data": {"source": "cart_runner", "job_id": job["id"], "stage": stage, "shop": job.get("shop", "")}})
         results = self.dispatch(event)
