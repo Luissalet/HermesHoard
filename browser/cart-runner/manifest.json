@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Hermes — cesta automática",
   "description": "Añade a la cesta los productos que Hermes vigila en cuanto se pueden comprar y avanza hasta la página de pago. No paga.",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "minimum_chrome_version": "116",
   "permissions": ["storage", "alarms", "notifications", "tabs", "offscreen"],
   "host_permissions": [
