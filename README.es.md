@@ -1,108 +1,107 @@
+<img src="app-icon.png" width="96" alt="Icono de Hermes">
+
 # Hermes's Hoard
 
-Los correos de notificación de Productos, Envíos, Viajes, tiendas, resúmenes nocturnos y avisos del Hub/Faustus llevan el prefijo `[Hermes]` en el asunto y las cabeceras `X-Hermes: 1` y `X-Hermes-Kind`. En cuentas Gmail se añade además la etiqueta **Hermes** por IMAP después del envío SMTP, creándola si falta. Se encuentran con `label:hermes` o `subject:[Hermes]`. Si falla el etiquetado, el envío correcto sigue siendo correcto. Se conservan destinatarios, cuerpos y reglas de notificación. Se aplica a correos nuevos; no se reetiqueta el histórico.
+Vigilancia de productos, avisos de compra, seguimiento de envíos y planificación de viajes en un único proceso local.
 
-**Productos → objetivo → Cómo descargar → Mi ventana abierta (Brave/Chrome/Edge)** vigila una página que ya tienes abierta en un navegador Chromium de este PC, para tiendas que responden a los navegadores automáticos con una verificación. En cada comprobación Hermes busca la ventana cuya pestaña activa muestra la dirección del objetivo, pulsa el botón Recargar de esa misma ventana mediante Windows UI Automation, la desliza hasta el final y vuelta arriba para que carguen las listas perezosas y lee el texto; la ventana no pasa al frente ni recibe teclas ni clics. Cada fila de producto de una lista (nombre, precio y texto del botón, como «Añadir», «Agotado temporalmente» o «Próximamente») se sigue por separado: sus propios avisos de reposición, apertura de venta, reserva y precio, y su propio «se acabó», así que dos productos que vuelven uno detrás de otro dan dos avisos. Estas comprobaciones tienen su propio carril en el planificador y mantienen su intervalo (5 minutos o más) aunque otros objetivos tengan cola. Si la ventana está cerrada, muestra otra página o pide una verificación humana, Hermes envía un único aviso de prioridad alta (también por correo) y sigue intentándolo al mismo ritmo; nunca responde a la verificación. En la API/MCP el modo es `open_window` en `target_add` / `target_update`. Necesita Windows y el paquete `uiautomation` (incluido en `requirements.txt`).
+[English](README.md) · [Inventario completo de herramientas](provenance/CAPABILITIES.md) · [Procedencia del código](provenance/sources.json)
 
-**Productos → Cesta** mete en tu cesta un producto vigilado en cuanto se puede comprar. Pega la página del producto y carga la extensión de `browser/cart-runner` (Brave / Chrome / Edge → extensiones → Cargar descomprimida) en el navegador donde tienes la sesión de la tienda: mantiene la página abierta en una pestaña fijada, la recarga cada pocos segundos, añade una unidad cuando el botón de compra se activa y recorre el pedido (cesta, entrega a domicilio, resumen) hasta la página con el botón de pagar, donde se detiene; nunca paga. Cada paso lanza un aviso de prioridad alta por todos los canales, con sonido y aviso de escritorio en el navegador: en la cesta, paga ya, la tienda pide la contraseña, hay que elegir entrega, se agotó por el camino. Si el navegador deja de dar señales durante cinco minutos, Hermes lo avisa. La extensión solo actúa en la pestaña que ella abre y habla con Hermes con su propia clave (`config.json` junto a la extensión o su ventana), así que Hermes puede estar en otra máquina. El documento de identidad del comprador, cuando la tienda lo pide en la página de pago, se puede guardar en la extensión (se queda solo en ese navegador). Un trabajo también puede ser una lista tuya en la tienda (Favoritos de Carrefour): dices qué productos coger, uno por línea (todas las palabras de la línea deben estar en el nombre), y un máximo para la cesta; una recarga lee la lista entera, entra en la cesta una unidad de cada producto buscado que se pueda comprar sin pasar del máximo, una segunda unidad se vuelve a quitar, los vendedores del marketplace quedan fuera salvo que lo pidas y el aviso lleva en el asunto lo que ha entrado. Tiendas admitidas: El Corte Inglés (fichas de producto) y Carrefour (tus listas; cesta, entrega y página de pago). `config.json` puede nombrar un receptor local (`probe`) que recibe un esquema de las páginas que visita la pestaña, para mapear una tienda nueva. Herramientas: `cart_jobs`, `cart_job_add`, `cart_job_update`, `cart_job_remove`.
+## Qué es
 
-Cada lectura de ventana abierta se comprueba dos veces más. **Comprobación del modelo:** el modelo configurado (por defecto la ruta de Prometheus) lee el mismo texto y devuelve cada fila con su estado y las palabras que lo prueban; las filas en las que coincide quedan corroboradas, una fila comprable que solo ve el modelo queda pendiente y se vuelve a leer al minuto (un aviso necesita dos lecturas seguidas), y si discrepa se mantiene la lectura por reglas. **Mirada de Faustus:** si Faustus está en marcha, Hermes le pide (en segundo plano, una mirada por objetivo a la vez) que lea la misma pestaña con su extensión de sesión de navegador, la deslice y abra fichas de producto en pestañas de fondo cuando una fila no esté clara; su veredicto se guarda y se combina en la siguiente comprobación, y si difiere de Hermes esa comprobación se adelanta. Faustus nunca pulsa un botón de compra ni responde a una verificación. Ajustes: `faustus_eye.enabled` (`1`/`0`) y `faustus_eye.url` (por defecto `http://127.0.0.1:7000`).
+Hermes's Hoard sigue lo que quieres comprar, lo que has comprado y adónde vas. Vigila tiendas en busca de reposiciones, bajadas de precio y reservas, lee tu correo para encontrar avisos de envío y de reservas, sigue los paquetes hasta tu puerta y guarda los viajes con sus reservas y gastos compartidos. Funciona en tu propio ordenador, guarda sus datos en archivos locales y te avisa por los canales que elijas.
 
-Hermes también puede correr en una DGX Spark (Linux) con el PC apagado: el Hoard Hub lo lleva allí y lo trae de vuelta (**Ejecutar en**). Fuera de Windows los objetivos de ventana abierta quedan en pausa en silencio: sin lectura, sin fallo y sin aviso de «necesita tu ayuda», solo la nota «En pausa…» en el objetivo, y se vuelven a leer en menos de 15 minutos al regresar al PC. Todo lo demás (comprobaciones, radar, ofertas del correo y avisos por correo) sigue funcionando allí; el correo sale por la carpeta de Faustus a la que el Hub lo apunta. Mientras Hermes está en la Spark, `python -m hermes_hoard` en el PC se niega a arrancar (`data/placement-elsewhere.json`), así que ningún aviso llega dos veces. Las tiendas que solo responden a una ventana normal del navegador (fichas de Carrefour y tiendas tras un muro antibots como Hipergol, HeroFreaks, Collectorage y Alfriki) quedan en pausa igual en la Spark; su stock sigue llegando por el radar de stocktcg cuando la tienda aparece allí. Los toasts se omiten allí (no hay escritorio de Windows) y no cuentan como fallo.
+Incorpora el vigilante de productos y el seguimiento de envíos, con todas sus herramientas, interfaces e historiales nativos, como dos módulos independientes.
 
-**Fuentes del radar.** El radar de stock lee dos agregadores: stocktcg (feeds, páginas de cadenas, lanzamientos y productos) y lamafiadelsobre.com, cuya página de cada cadena se lee cada cinco minutos (primero lo que hay en stock, y alguna página más mientras todo lo listado sea stock). El segundo añade Fnac, Hipercor y DRIM como cadenas cuyo stock siempre avisa y confirma las cadenas compartidas a su propio ritmo. Una ficha de tienda que cuentan los dos avisa una sola vez. Las ofertas que llegan tras una redirección de afiliado se enlazan a la ficha de la tienda, así la ficha de una cadena se lee directamente y se sigue como objetivo. Las tiendas cuya plataforma responde con un límite de peticiones que se levanta en segundos (dos tiendas Shopify por ahora, `rate_limit_hold_s` en su perfil) se reintentan a los dos minutos en vez de a la media hora.
+## Módulos independientes
 
-Las tiendas conocidas (`tantalus_hoard/extract/sites.py`) se leen con su propio nivel: una reposición leída en la ficha de la propia tienda puntúa 85 (página propia + estado estructurado + precio coherente) y avisa. Una página que añades de una tienda desconocida cuenta también como página propia, salvo que el descubrimiento conozca el dominio como marketplace, comunidad o agregador. Las tiendas falsas vistas en anuncios (`SCAM_HOSTS`: managermodf.shop, xeagdyat.shop) nunca son candidatas y no se pueden añadir como objetivo.
+Ambos módulos están **apagados en el primer arranque**. Abrir Hermes o descubrir su catálogo MCP no inicia ningún planificador, navegador, lectura de correo ni modelo. Activa solo el módulo que quieras; la elección se conserva. Desactivar un módulo detiene su planificador y espera a que acabe su trabajo actual antes de cerrar la base de datos. El panel sigue disponible durante el apagado.
 
-Una comprobación que falla porque la red de este PC no responde (nombre sin resolver, errores de conexión, `net::ERR_*`) se repite más o menos a su ritmo normal; sólo los rechazos de la propia tienda (robots, verificaciones, bloqueos) alargan la espera hasta seis horas.
+| Módulo | Qué cubre |
+| --- | --- |
+| Productos y ofertas | Stock, precios, reservas, lanzamientos, descubrimiento, búsqueda y puntuación de segunda mano, vigilancia de webs y noticias, ofertas del correo, radar de agregadores, vías de descarga con navegador, avisos, programaciones e historial |
+| Envíos y viajes | Lectura e importación del correo, números de seguimiento, transportistas, seguimiento y estimaciones de entrega, panel de entregas, incidencias, avisos, viajes y tramos, recordatorios de facturación y salida, correo de viajes, presupuestos y ayudas de moneda y hora |
 
-Ritmo: el radar de agregadores pasa cada 3 minutos (cada 2 si un set vigilado sale hoy o mañana; `radar.interval_min` / `radar.release_interval_min` lo cambian, mínimo 1 minuto) y relee cada ficha de producto seguida cada 10 minutos (5 en un lanzamiento reciente); el correo se revisa en busca de ofertas cada 15 minutos (`mail.deals.interval_min`). Ambos tienen su propio carril en el planificador, así que una búsqueda larga de descubrimiento o noticias nunca los retrasa.
+Las interfaces nativas están en `/products/` y `/shipments/`. Comparten el tema Hoard, el icono de Hermes y el copiloto de Faustus.
 
-Los avisos de compra caducan cuando acaba la oferta. Un aviso de reposición, reserva o precio sale de **Productos → Novedades** en cuanto la página de la tienda o el radar de agregadores lo ven agotado, o cuando ninguna página lo confirma durante horas. El historial lo conserva marcado **Agotado** o **Sin confirmar**, con la hora. Si el aviso ya se había enviado, sale un breve «se acabó» por los mismos canales. Sale una sola vez por aviso, dentro de los dos días siguientes y solo cuando la oferta acaba de terminar. Limpiar avisos antiguos no envía nada. La opción del vigilante **Avisar también cuando se agota algo que ya avisó** (`policies.notify_ended_alerts`, activada por defecto) lo desactiva. Una oferta que solo había caducado y vuelve a aparecer el mismo día recupera su aviso sin generar otro. Vale igual en todos los niveles de lectura: una revalidación que lee la página agotada termina el aviso con su «se acabó» (ya no espera a la siguiente comprobación, que lo terminaba en silencio); una fila de una ventana abierta termina con su propio «se acabó», y una fila que falta en dos lecturas seguidas (la quitaste de la lista, o la tienda oculta lo que no vende) termina en silencio como **Sin confirmar**; una fila que solo entendió el modelo termina como cualquier otra. Cuando el producto vuelve, sale un aviso nuevo.
+## Qué hace
 
-**Productos → Correo → Avisos de stock** lee del buzón de Faustus (solo lectura) los correos de las propias tiendas: «vuelve a estar disponible», «ya puedes reservar», «ha bajado de precio», «se ha agotado» (y sus equivalentes en inglés). Basta la frase en el asunto; en el cuerpo solo cuenta si el correo es personal (tu lista de deseos, tu alerta). El remitente tiene que ser la tienda de un producto vigilado (su dominio o uno desde el que se sabe que escribe, como `mail-game.net` para GAME; se añaden más en los ajustes de la pestaña como `remitente=tienda`). El correo se casa con el producto por su enlace, por la referencia del enlace del objetivo o por todas las palabras significativas de su nombre, también con una fila de una lista de ventana abierta (un favorito de Carrefour, por ejemplo). Un correo reciente casado genera el mismo aviso que una comprobación de la página: `RESTOCK` (`SALE_OPEN` si el producto estaba en «Próximamente»), `PREORDER_OPEN` o `PRICE_DROP`, marcado como aviso de la tienda por correo; un correo de «agotado» termina los avisos vivos con el «se acabó» habitual. La página de ese producto se comprueba al momento para confirmarlo o terminarlo; un aviso del correo que ninguna página confirma termina en silencio a las 12 horas, y un correo de más de 12 horas se guarda sin avisar. No necesita navegador: así siguen avisando las ventanas abiertas y las tiendas que solo se leen en una ventana mientras Hermes corre en una Spark. La pestaña lista cada aviso con cómo se casó y qué generó, muestra las reglas de frases y las tiendas vigiladas con sus remitentes, asigna a mano un aviso sin casar (**Asignar**) o lo ignora, y lee el correo al momento. Herramientas: `stock_notices`, `stock_notices_scan`, `stock_notice_set`; ajustes `mail.notices.enabled|interval_min|history_days|max_age_hours|live_hours|domains`. No se pulsa, abre, responde ni compra nada; los enlaces del correo solo se leen como texto.
+**Productos: vigilancia de tiendas**
+- Vigilantes sobre páginas de producto y búsquedas de tiendas para reposición, cambios y umbrales de precio, reservas y lanzamientos, y productos nuevos; una puntuación de confianza, la revalidación y una política antirrevendedores deciden qué merece un aviso.
+- Una escalera de formas de leer una página: petición simple, datos estructurados (JSON-LD), navegador sin ventana y **Mi ventana abierta** (Brave, Chrome o Edge en este ordenador, leído con Windows UI Automation sin traerlo al frente). Cada fila de producto de una lista se sigue por separado, y una página que exige comprobación humana genera un aviso de alta prioridad en lugar de responder a la comprobación.
+- Las lecturas de ventanas abiertas se contrastan con un modelo y, si Faustus está en marcha, con Faustus leyendo la misma pestaña; Faustus nunca pulsa un botón de compra.
+- Un radar de agregadores para stock de cartas y comercio por cadena, leído cada pocos minutos, con calendarios de lanzamientos y stock de tiendas por cadena.
+- Avisos de stock leídos del correo de las tiendas en el buzón conectado (solo lectura) y asociados a tus productos vigilados.
+- El aviso de una oferta termina con la oferta: cuando una tienda vuelve a agotar, el aviso sale de Novedades, el Historial lo conserva como agotado y se envía como mucho un breve seguimiento de «agotado».
+- **Cesta**: una extensión del navegador (`browser/cart-runner`) mantiene abierta una página de producto, añade una unidad cuando el botón de compra se activa y recorre el pago hasta el botón de pagar, donde se detiene; nunca paga. Tiendas admitidas: El Corte Inglés (páginas de producto) y Carrefour (tus listas).
+- Búsqueda de segunda mano (Wallapop, Facebook Marketplace y otros) con puntuación de anuncios, estados de guardado y desaparecido, y un radar de libros gratuitos.
+- Centinela de información: diferencias de página, vigilancia de canales y búsquedas web que encuentran direcciones nuevas.
+- Ofertas del correo: coincidencia con tu lista de deseos, ofertas de tiendas de juegos y de libros, e informe de ruido del buzón.
+- Vigilantes de ideas de regalo pedidos por la app de personas, cotejo de compras y presupuesto mostrado en los avisos.
+- Marcar un vigilante como comprado (con una referencia local opcional) para dejar de comprobarlo.
 
-Las invitaciones de Amazon que reaparecen tras caducar o discrepar las vistas del agregador no generan otra alerta de reserva. El panel muestra una reserva actual por URL de Amazon y el historial conserva todos los avisos. El radar prefiere fotos de la tienda, con caché diaria y hasta seis consultas por ciclo. `radar_run(watcher_id, refresh_urls)` actualiza las fotos de productos conocidos; `retailer_details` corrige imagen HTTPS y formato verificados expresamente, conservándolos frente al agregador. Estas operaciones dirigidas no comprueban stock ni envían avisos.
+**Envíos**
+- Paquetes a partir del correo de envío, de números de seguimiento detectados en el texto o añadidos a mano; entre los transportistas están UPS, Correos, DHL y pedidos de Amazon, con 17track como fuente.
+- **Consultar un número** hace una consulta puntual al transportista sin guardar un envío.
+- **Acción necesaria** lista, por encima de todo, los paquetes que no avanzarán hasta que actúes: aduanas por pagar, documentos de aduanas, una dirección por corregir, una entrega fallida y paquetes esperando en un punto de recogida. No se paga ni se responde nada por ti.
+- Estimaciones de entrega que tienen en cuenta la aduana, explicación de cada estimación, historial y estadísticas de entregas, e incidencias.
+- Vista previa del calendario de entregas y descarga ICS de las fechas estimadas y de los plazos de recogida (una instantánea, no una suscripción en vivo).
+- Fusionar dos registros del mismo paquete; las compras entregadas pueden crear plazos de garantía en la app de papeleo.
 
-**Productos → Novedades / Historial / avisos de un producto** permiten **Marcar visto** un aviso individual. Sólo cambia su marca local `seen`: conserva estado, precio, historial, otros avisos pendientes y la última visita global. El aviso sigue disponible en Historial al quitar **Sólo no vistos**. Se conservan **Marcar todo visto**, Descartar y Reenviar. Usa `events_mark_seen(event_ids:[ID])` nativo API/MCP115 sin comprobar fuentes ni enviar notificaciones; los errores conservan filtros y permiten reintentar.
+**Viajes**
+- Viajes con tramos (vuelos, trenes, hoteles, transporte) importados del correo de reservas o añadidos a mano, con notas de puerta, vagón, asiento y clase.
+- Recordatorios de facturación y salida, comprobación de caducidad de documentos, exportación al calendario y presupuesto con ayudas de moneda.
+- Gastos con personas, pagadores y repartos, renombrar a una persona, fusionar dos viajes o separar reservas seleccionadas en un viaje nuevo. Los gastos pueden pasarse al libro de cuentas.
 
-En **Viajes → Fusionar con otro viaje**, IDs, fechas, destino, cantidades nativas
-de reservas/gastos y monedas distinguen ambos viajes, incluso con títulos iguales.
-La misma confirmación existente reúne reservas y gastos, remapea personas,
-pagadores y repartos según el motor, concatena notas guardadas y elimina el otro
-viaje. No añade conversión de divisas ni deshacer. El recibo del viaje conservado
-permanece hasta Cerrar, aunque falle la recarga; las notas de la ficha pendientes
-siguen separadas y sin guardar. La página retira de sus opciones el ID cuya unión
-se confirmó. Motor y `trip_update(merge_from, confirm)` API/MCP115 siguen iguales.
+**Avisos**
+- Aviso de Windows, ntfy, Telegram y correo, o el servicio de avisos del hub de la familia. Todo el correo saliente de Hermes lleva el prefijo `[Hermes]` en el asunto y cabeceras `X-Hermes`, y las cuentas de Gmail reciben además la etiqueta **Hermes** (búsqueda `label:hermes`).
+- Los resúmenes nocturnos y los avisos del Hub y de Faustus usan los mismos canales.
 
-En **Viajes → Editar tramo** se pueden anotar Puerta de vuelo, Coche de tren y
-Clase de transporte. Coche y Asiento tienen campos distintos. El editor carga los
-valores guardados; vaciar un campo borra su valor nativo. Guardar envía sólo campos
-editados por `segment_add/update` API/MCP existentes, conservando el comportamiento
-actual de error, reintento y borrador posterior. Son datos locales: no consultan
-información de embarque en directo ni cambian la reserva del transportista.
-Los demás campos, exportación de calendario y acciones de viaje siguen disponibles.
+## Cómo se ejecuta
 
-En **Productos → Segunda mano**, **Marcar como retirado** establece el estado local `gone` del anuncio. Sale de los activos y sigue accesible en el filtro **Retirados** del vigilante; **Guardar** lo devuelve a Guardados. Usa `listing_set` existente por API/MCP sin consultar ni cambiar el anuncio en la plataforma ni pausar el vigilante. Sólo cambia el estado: conserva identidad, precios cero/desconocidos, fechas guardadas, contenido e historial de precios. No se infiere una fecha de retirada.
-
-En **Viajes → Plan**, selecciona algunas reservas y pulsa **Separar** para revisar cuáles se trasladan y dar nombre opcional al nuevo viaje. Vacío conserva el nombre automático nativo. El resultado muestra los IDs, fechas y cantidades devueltos del original y del nuevo, con **Abrir viaje creado** explícito; no navega automáticamente. Las reservas conservan su identidad y sus correos asociados. Los participantes y gastos registrados, incluidos los de reservas trasladadas, permanecen en el viaje original. Cancelar no escribe; un error conserva nombre y selección. Usa `trip_update(split_segments, split_title)` existente por API/MCP, sin consultar proveedores o correo.
-
-En **Viajes → Gastos → Participantes**, **Cambiar nombre** modifica la persona seleccionada mediante el mapa `rename` de `trip_people`, ya disponible por API/MCP y dirigido al ID visible de la persona. Antes de guardar se muestran el viaje y la persona. Los homónimos siguen siendo personas distintas; se conservan el ID, la marca «soy yo», la posición, los gastos, quién pagó y los repartos. Cancelar o fallar conserva el borrador, y una edición posterior durante el guardado sigue pendiente tras refrescar. Sólo guardar escribe el nombre local nativo; no cambia ningún perfil de una cuenta externa.
-
-La ficha de cada vigilante de disponibilidad ofrece **Marcar comprado**, con referencia local de compra opcional. El registro manual detiene las comprobaciones programadas, conserva productos e historial y muestra fecha/referencia registradas sin verificar una compra externa. El interruptor **Activado** existente permite volver a vigilar y retira la marca de compra. La UI usa `watcher_mark_bought` y `watcher_update` de API/MCP; abrir o cancelar no modifica el vigilante, y cancelar o fallar el guardado conserva el borrador de la referencia.
-
-<img src="app-icon.png" width="96" alt="Hermes icon">
-
-Productos, ofertas, seguimiento de envíos y viajes en un único proceso. Absorbe **Tantalus y Phileas**, conservando sus funciones, herramientas e historiales.
-
-La ficha de un envío ofrece **Unir registro duplicado** para dos registros locales del mismo paquete. La ficha abierta conserva su identidad; elige el otro registro y revisa ambas identidades y los siete campos que pueden rellenarse si están vacíos. Los valores existentes tienen prioridad. `shipment_merge` nativo API/MCP traslada correos asociados, eventos no duplicados y notificaciones registradas, elimina el registro seleccionado y recalcula en silencio la estimación local de entrega. No concatena notas, nombres ni los demás campos; la confirmación habitual explica la eliminación y que no hay deshacer. Abrir/cancelar sólo lee, y los errores de búsqueda o guardado conservan la selección y las ediciones sin guardar. No se consulta transportista/correo ni se modifica un pedido externo.
-
-En **Envíos → Consultar número** puedes consultar puntualmente un seguimiento sin añadirlo a la biblioteca ni programar comprobaciones. Muestra la respuesta nativa del transportista: estado, fuente, estimación y hasta 40 eventos; diferencia envío no encontrado, falta de fuente y error. Consulta sólo al pulsar **Consultar**, mediante `track_number` existente en API/MCP. Usa las fuentes configuradas, que pueden realizar peticiones externas y consumir su cuota; no lee correo ni guarda el envío. Cambiar número o transportista retira el resultado anterior, y cerrar o fallar conserva el borrador.
-
-[English](README.md) · [Inventario de herramientas](provenance/CAPABILITIES.md) · [Procedencia del código](provenance/sources.json)
-
-## Funciones independientes
-
-**Los dos módulos están desactivados en la primera apertura.** Abrir Hermes o consultar el catálogo MCP no inicia navegadores, búsquedas, lectura de correo, comprobaciones ni modelos. Activa lo que quieras usar; la elección se recuerda entre sesiones. «Desactivar todas» detiene los módulos sin borrar su historial.
-
-- **Productos y ofertas:** stock, precios, preventas, lanzamientos, descubrimiento, segunda mano y puntuación de resultados, vigilantes de webs/noticias, ofertas por correo, radar, navegadores, avisos, programación e historial.
-- **Envíos y viajes:** importación y lectura de correos, identificación de paquetes, transportistas, seguimiento y llegada estimada, panel de entregas, incidencias, avisos, viajes y trayectos, recordatorios de facturación/salida, correo de viajes, presupuestos, monedas y husos horarios.
-
-Las interfaces completas están en `/products/` y `/shipments/`, con el tema común de los Hoards, el icono de Hermes y Faustus. Los ajustes propios de cada función siguen dentro de su módulo.
-
-## Arranque y datos
-
-Python 3.11 o posterior. Ejecuta `Start.cmd` o sigue los comandos de [README.md](README.md#run). Abre `http://127.0.0.1:5221`; no se abre una ventana automáticamente. También puede iniciarse expresamente desde Hoard Hub.
-
-Con ambos módulos apagados:
+Python 3.11+. Los avisos de Windows y las integraciones con el navegador de escritorio requieren Windows.
 
 ```powershell
-.venv\Scripts\python.exe scripts\adopt_data.py --parent "C:\ruta\a\las Hoards"
+python -m venv .venv
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+.venv\Scripts\python.exe -m hermes_hoard --no-browser
 ```
 
-Solo se escribe `data/modules.json`. Las bases de datos, marcas de correo leído, cachés, perfiles de navegador, evidencias, ajustes y tokens siguen **en las carpetas originales**. Los secretos `.env` se leen desde allí al activar el módulo. No se copian, mueven ni borran esos datos; conserva sus carpetas. Sin adopción se usan carpetas nuevas.
+Abre `http://127.0.0.1:5221`. `Start.cmd` crea el entorno si no existe; no se abre ninguna ventana automáticamente. El Hoard Hub descubre `faustus-plugin.json` y lanza Hermes de forma explícita. La vía de lectura con navegador necesita el navegador de Playwright: `python -m playwright install chromium`.
 
-Desactivar espera a que termine el trabajo en curso antes de mostrar el módulo apagado, manteniendo disponible el panel.
+| Variable | Para qué sirve |
+| --- | --- |
+| `HERMES_DATA_DIR`, `HERMES_PORT` / `--port` | Carpeta de datos central y puerto. |
+| `HERMES_URL`, `HERMES_TOKEN_FILE` | Ajustes del puente por stdio. |
 
-## Herramientas y compatibilidad
+Sin datos previos, los datos nuevos van a `data/products` y `data/shipments`. Para reutilizar los datos del vigilante y del seguimiento originales, con ambos módulos apagados ejecuta `scripts\adopt_data.py --parent "C:\ruta\a\Hoards"`: solo se escribe el mapa `data/modules.json` y las bases de datos originales, las marcas de correo, las cachés, los perfiles de navegador y los ajustes se quedan donde están. Los datos de un módulo también pueden reubicarse en `data/native/<módulo>/data`, moviendo árboles completos (SQLite WAL/SHM, medios, modelos, sesiones de navegador).
 
-**118 herramientas MCP:** 116 funciones nativas y dos controles de módulos. Siete nombres coincidían entre Tantalus y Phileas; en el catálogo conjunto llevan el prefijo `products_` o `shipments_`. Cada API nativa conserva los nombres originales. El [inventario completo](provenance/CAPABILITIES.md) muestra las correspondencias.
+Hermes también puede ejecutarse en una DGX Spark con el PC apagado; el Hoard Hub lo mueve allí y de vuelta (**Ejecutar en**). Fuera de Windows los objetivos de ventana abierta se pausan en silencio y todo lo demás sigue funcionando; mientras corre en la Spark, la copia del PC se niega a arrancar, de modo que un aviso nunca se envía dos veces.
 
-**Envíos → Acción requerida** pone arriba del todo los paquetes que no siguen hasta que hagas algo: aduanas por pagar (el texto del transportista habla de aranceles, IVA o un pago pendiente), documentación de aduanas, una dirección que corregir, una entrega fallida que reprogramar y los paquetes esperando en un punto de recogida (urgente dos días antes del plazo). Cada tarjeta lleva la misma etiqueta, el paquete entra en **Necesita atención**, y un pago de aduanas, una petición de documentos o un problema de dirección nuevos se avisan una vez aunque el transportista solo cambie el texto. `phileas_overview` devuelve primero `action_required`. La llegada estimada también sabe de aduanas: un paquete retenido se espera entre 2 y 5 días laborables después de entrar, o entre 1 y 4 después de pagar o enviar la documentación, en lugar de una fecha del transportista que ya pasó. No se paga ni se responde nada por ti.
+## Conexión con Faustus y la familia Hoard
 
-En **Envíos**, «Calendario de entregas» permite revisar un periodo y descargar un ICS con entregas estimadas y fechas límite de recogida registradas. Las entregas llevan estado provisional y los plazos de recogida, confirmado; todos son eventos de día completo que no bloquean la agenda. Se cuentan envíos sin fecha y fechas fuera del periodo, excluyendo finalizados, archivados e históricos. Es una instantánea descargada, sin actualización automática. La herramienta `shipments_ics` ofrece fechas, ICS completo y enlace de descarga por API/MCP; `GET /shipments/api/shipments/ics?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD` descarga el archivo. Por defecto abarca desde hoy hasta dentro de 90 días. El listado existente admite hasta 2.000 envíos activos y avisa al alcanzar esa cifra. No se consulta correo, transportistas ni modelos, ni se modifican envíos.
+- **MCP**: `GET /api/agent/tools` lista las herramientas y `POST /api/agent/call` usa el token central de `data/mcp-token`. `mcp_server.py` es el puente por stdio; el descubrimiento funciona con el servidor parado y nunca lo lanza. El catálogo combinado tiene 118 herramientas: las funciones nativas de ambos módulos más `hermes_modules` y `hermes_set_module`. Las llamadas a un módulo apagado responden `module_disabled` sin arrancarlo. Todas las herramientas están en [`provenance/CAPABILITIES.md`](provenance/CAPABILITIES.md).
+- **Grupos de herramientas**: vigilantes y objetivos (`watcher_*`, `target_*`, `cart_*`), eventos y anuncios (`events_*`, `listing_*`), radar y ofertas del correo, envíos (`shipment_*`, `track_number`, `shipments_ics`, `phileas_overview`) y viajes (`trip_*`, `segment_*`). Los nombres que existían en ambos catálogos originales (`settings_set`, `secret_set`, `scheduler_status`, `notify_status`, `notify_test`, `telegram_find_chat_id`, `runs_list`) llevan el prefijo `products_` o `shipments_`.
+- **Módulos**: `GET /api/modules`, `PUT /api/modules/{id}` con `{"enabled": true|false}` y `POST /api/modules/stop-all`.
+- **Hub**: avisos, pasarela de correo (el correo de envíos y reservas se lee una vez para toda la familia), agenda familiar y entradas de compatibilidad para las identidades retiradas, de modo que los tokens, intereses de correo y llamadas entre apps existentes siguen funcionando.
+- **Copiloto**: ambas interfaces llevan el panel flotante de Faustus. Las peticiones al modelo de texto usan el servicio de modelo global configurado en la familia; los modelos nunca se cargan con los módulos apagados.
+- **Skills**: `hoard-daily-digest`, `hoard-what-happened`, `web-to-clean-markdown` y `unattended-brief` se ofrecen a los agentes que se conectan.
 
-El puente `mcp_server.py` descubre las herramientas sin arrancar Hermes. Las llamadas a módulos apagados devuelven `module_disabled`. Las identidades antiguas pueden permanecer en el Hub como entradas de compatibilidad **sin lanzador**, apuntando a Hermes; conservan correo, tokens, referencias y llamadas internas sin ejecutar servidores antiguos.
+## Estructura del proyecto
 
-Los modelos de texto usan Sparks, según la configuración global de la familia. Ningún modelo se carga con sus módulos apagados. La configuración, compilación y pruebas se detallan en [README.md](README.md).
+| Ruta | Contenido |
+| --- | --- |
+| `hermes_hoard/` | Servidor combinado, ciclo de vida de los módulos, catálogo de herramientas y envoltorio web |
+| `tantalus_hoard/`, `phileas_hoard/` | Motores nativos de productos y envíos |
+| `ui/` | Los dos proyectos de interfaz nativa (`npm ci && npm run build` en cada uno; los recursos compilados están incluidos) |
+| `browser/cart-runner/` | Extensión de la cesta |
+| `compatibility/` | Manifiestos que conservan las identidades retiradas |
+| `provenance/` | Inventario de herramientas y procedencia del código (las fuentes Cinzel y Source Sans 3 incluidas llevan sus licencias SIL Open Font) |
+| `scripts/` | Adopción de datos, generador del catálogo, servidor de pruebas sin red, verificación MCP |
+| `tests/`, `legacy_tests/` | Suites de pruebas |
 
+```powershell
+python -m pytest tests -q        # necesita pytest y pytest-asyncio
+scripts\qa_server.py             # datos sintéticos, sin red
+```
 
-## Datos propios y compatibilidad
-
-Los datos nativos pueden trasladarse a `data/native/<módulo>/data`, con configuración privada junto a cada módulo. La ficción de Writer utiliza su perfil de escritorio `writers-hoard/fiction/data`. Traslada árboles completos, incluidos WAL/SHM de SQLite, medios, modelos descargados y sesiones del navegador; actualiza las rutas absolutas guardadas antes de activar el módulo. Los manifiestos de `compatibility/<id>/faustus-plugin.json` conservan identidades, nombres de herramientas y tokens sin necesitar el repositorio retirado. Añade el directorio `compatibility` de cada producto a las raíces del Hub antes de la raíz general. El catálogo y los puentes compatibles nunca arrancan aplicaciones. Todos los módulos permanecen apagados durante el traslado.
-
-Las instrucciones anteriores de adopción in-place describen una importación opcional. Una vez comprobados el traslado y las rutas, ya no es necesario conservar las carpetas de los productos antiguos.
-
-## Skills para los agentes que se conectan
-
-Esta app lleva procedimientos de la biblioteca de skills del espacio de trabajo de la familia para los agentes que se conectan: `hoard-daily-digest`, `hoard-what-happened`, `web-to-clean-markdown`, `unattended-brief`. Aparecen en lo que el agente lee al conectarse, se leen con `skills_list` y `skill_read`, se buscan y asignan con `skills_library` y `skills_assign`, y se ofrecen como prompts. Se eligen en la página de skills (`/api/agent/skills/page`) o en la pestaña Skills del hub; el bloque `skills` de `faustus-plugin.json` guarda lo que la app pide por defecto.
+Licencia: MIT (véase `LICENSE`).
