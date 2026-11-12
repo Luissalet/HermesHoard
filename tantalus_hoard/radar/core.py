@@ -36,13 +36,14 @@ from ..model import (BUYABLE, IN_STOCK, MODE_AVAILABILITY, OUT_OF_STOCK, PREORDE
                      UNKNOWN, Offer)
 from ..store import host_of
 from .. import rules
+from . import mafia as mf
 from . import stocktcg as st
 
 log = logging.getLogger("tantalus.radar")
 
 DEFAULTS: dict[str, Any] = {
     "enabled": False,
-    "sources": [st.SOURCE_NET, st.SOURCE_ES],
+    "sources": [st.SOURCE_NET, st.SOURCE_ES, mf.SOURCE],
     "chains": list(st.CHAIN_SLUGS),          # shop slugs whose stock always alerts
     "languages": ["ES", "EN"],               # edition languages that may alert ("" = unknown is accepted for chains)
     "alert_other_shops": True,               # small shops alert too, at a sane price
@@ -217,6 +218,29 @@ class Radar:
                 html = self._html(f"{st.ES}/lanzamientos", cache)
                 if html is not None:
                     releases += st.parse_es_releases(html)
+
+        if mf.SOURCE in sources:
+            # the second aggregator, for the chains: its page of each (stock first), a few pages while all of it is stock
+            for slug in [*chains, *(c for c in mf.EXTRA_CHAINS if c not in chains)]:
+                theirs = mf.CHAINS.get(slug)
+                first = mf.store_url(theirs) if theirs else ""
+                if not theirs or not self._page_due(first, mf.REFRESH_MIN, now, cache):
+                    continue
+                rows: list[st.RadarOffer] = []
+                complete = False
+                for page in range(1, mf.MAX_PAGES + 1):
+                    html = self._html(mf.store_url(theirs, page), cache)
+                    if html is None:
+                        break
+                    found, all_buyable = mf.parse_store_page(html, slug, now=now)
+                    rows += found
+                    if not (found and all_buyable):
+                        complete = True
+                        break
+                # one view per shop whatever page a row was on: rows move between pages as stock comes and goes
+                offers += self._tag(first, rows, cache)
+                if complete:
+                    complete_lists[f"url:{first}"] = {r.key for r in rows if r.state in BUYABLE}
 
         # ------------------------------------------------------------------ releases
         matched_releases = [r for r in releases if self._release_matches(r, watcher)]
@@ -451,7 +475,7 @@ class Radar:
         return d
 
     def _upsert(self, watcher: dict[str, Any], o: st.RadarOffer, cfg: dict[str, Any], *, baseline: bool, now: float) -> int:
-        chain = o.store_slug in set(cfg["chains"])
+        chain = o.store_slug in set(cfg["chains"]) or o.store_slug in mf.EXTRA_CHAINS
         row = self._row(watcher["id"], o.key)
         said = o.state if o.state in (IN_STOCK, PREORDER, OUT_OF_STOCK) else UNKNOWN
         extra = {**(row["extra"] if row else {}), **{k: v for k, v in (o.extra or {}).items() if k not in ("quiet", "_page")}}
@@ -513,7 +537,8 @@ class Radar:
         buyable and that is missing from it now has that view turned to sold out; its state follows its views."""
         n = 0
         for scope, keys in complete.items():
-            page = f"{st.NET}/p/{scope[2:]}" if scope.startswith("p:") else f"{st.NET}/tiendas/{scope}"
+            page = (scope[4:] if scope.startswith("url:") else f"{st.NET}/p/{scope[2:]}" if scope.startswith("p:")
+                    else f"{st.NET}/tiendas/{scope}")
             rows = self.db.query("SELECT id, okey, state, extra FROM radar_offers WHERE watcher_id = ? AND state IN ('IN_STOCK','PREORDER')",
                                  (watcher["id"],))
             for row in rows:
@@ -617,6 +642,13 @@ class Radar:
             elif direct == OUT_OF_STOCK:
                 status = "logged"
                 reasons.append("la web de la tienda lo da agotado")
+        if status == "confirmed" and o.url:
+            # two aggregators follow the same shops: the one that says it second does not alert again
+            twin = next((a for a in self.store.live_alerts(watcher_id=watcher["id"])
+                         if a.get("url") == o.url and (a.get("data") or {}).get("source") not in (None, "", o.source)), None)
+            if twin is not None:
+                status = "logged"
+                reasons.append(f"ya avisado según {(twin.get('data') or {}).get('source')}")
         key = rules.dedupe_key(f"radar:{watcher['id']}:{o.key}", kind, o.state, o.price)
         cooldown = float(policies.get("cooldown_minutes") or 20) * 60
         if self.store.recent_event(key, now - max(cooldown, 3600)):

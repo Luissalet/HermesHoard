@@ -434,3 +434,31 @@ def test_unwrapped_offers_keep_their_identity():
     assert offer.url == "https://www.elcorteingles.es/juguetes/A1234567-x/" and offer.key == "el-corte-ingles|" + wrapped
     plain = RadarOffer(source="stocktcg.net", store="Shop", store_slug="shop", title="x", **_link("https://shop.example/p/1"))
     assert plain.key == "shop|https://shop.example/p/1"
+
+
+MAFIA_PAGE = """<html><body><h1>Carrefour</h1><ul>
+<li><article><a aria-hidden="true" href="/es/producto/coleccion-premium-ditto-cm895574"><img alt=""></a>
+ <div><h3><a href="/es/producto/coleccion-premium-ditto-cm895574">Pokémon Caja 30Th Aniversario Colección Premium Dito, +6 Años</a></h3>
+ <p>Caja de colección, Celebraciones 30 Aniversario</p>
+ <span class="inline-flex h-7">En stock</span><span class="inline-flex h-7">ES</span><span class="inline-flex h-7">Buena oferta</span>
+ <p><span><a href="/es/tiendas/carrefour">Carrefour</a>, visto hace 8 min</span></p></div>
+ <div><p class="font-display text-h3">57,99 €</p><a href="https://www.carrefour.es/pokemon-caja-premium-dito/VC4A-1/p">Ir a la tienda</a></div></article></li>
+<li><article><div><h3>Pokémon 30Th Aniversario Mini Latas, +6 Años (Unboxing)</h3><p>Lata, Celebraciones 30 Aniversario</p>
+ <span class="inline-flex h-7">Agotado</span><p><span>Carrefour, visto hace 2 h</span></p></div>
+ <div><p class="font-display text-h3">16,99 €</p><a href="https://www.carrefour.es/mini-latas/VC4A-2/p">Ir a la tienda</a></div></article></li>
+</ul></body></html>"""
+
+
+def test_second_aggregator_shop_page():
+    from tantalus_hoard.radar import mafia as mf
+    offers, all_buyable = mf.parse_store_page(MAFIA_PAGE, "carrefour", now=10_000.0)
+    assert [o.state for o in offers] == ["IN_STOCK", "OUT_OF_STOCK"] and not all_buyable
+    ditto, tin = offers
+    assert ditto.source == "lamafiadelsobre.com" and ditto.store == "Carrefour" and ditto.store_slug == "carrefour"
+    assert ditto.title.startswith("Pokémon Caja 30Th Aniversario Colección Premium Dito") and ditto.price == 57.99 and ditto.lang == "ES"
+    assert ditto.fmt == "Caja de colección" and ditto.set_name == "Celebraciones 30 Aniversario"
+    assert ditto.url == "https://www.carrefour.es/pokemon-caja-premium-dito/VC4A-1/p" and ditto.seen_ts == 10_000.0 - 480
+    assert tin.title.startswith("Pokémon 30Th Aniversario Mini Latas") and tin.lang == "" and tin.seen_ts == 10_000.0 - 7200
+    assert mf.store_url("fnac") == "https://lamafiadelsobre.com/es/tiendas/fnac" and mf.store_url("fnac", 2).endswith("?pagina=2")
+    only_stock, more = mf.parse_store_page(MAFIA_PAGE.split("<li><article><div>")[0] + "</ul></body></html>", "carrefour")
+    assert len(only_stock) == 1 and more

@@ -3014,7 +3014,8 @@
               "items": {
                 "enum": [
                   "stocktcg.net",
-                  "stocktcg.es"
+                  "stocktcg.es",
+                  "lamafiadelsobre.com"
                 ],
                 "type": "string"
               },
@@ -3041,7 +3042,7 @@
             }
           ],
           "default": null,
-          "description": "Shop slugs that always alert (game, carrefour, el-corte-ingles, alcampo, amazon, toys-r-us, toy-planet...).",
+          "description": "Shop slugs that always alert (game, carrefour, el-corte-ingles, alcampo, amazon, toys-r-us, toy-planet, fnac, hipercor, drim...).",
           "title": "Chains"
         },
         "languages": {
