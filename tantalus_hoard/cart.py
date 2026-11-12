@@ -49,15 +49,14 @@ def shop_of(url: str) -> str:
 
 def product_ref(url: str) -> str:
     """What a job watches at the shop, read from its URL: a product number (El Corte Inglés ``/juguetes/A202035453-nombre/``
-    -> ``A202035453``; Carrefour ``/nombre/VC4A-12345678/p`` -> ``VC4A-12345678``) or one of the user's own lists
-    (Carrefour ``/mis-listas-y-productos/mis-listas/104450805`` -> ``list-104450805``). Empty when it is neither."""
+    -> ``A202035453``) or one of the user's own lists (Carrefour ``/mis-listas-y-productos/mis-listas/104450805`` ->
+    ``list-104450805``; that shop is driven from a list, where one reload reads every product). Empty when it is neither."""
     path = urlsplit(url).path
     if shop_of(url) == "carrefour.es":
         m = re.search(r"/mis-listas-y-productos/mis-listas/(\d+)", path)
         if m:
             return "list-" + m.group(1)
-        m = re.search(r"/((?:VC4A|R|F)-[\w-]+)/p/?$", path)
-        return m.group(1) if m else ""
+        return ""
     m = re.search(r"/(A\d{6,})(?:-|/|$)", path)
     return m.group(1) if m else ""
 
@@ -122,19 +121,21 @@ class CartRunner:
         return {"jobs": [{"id": j["id"], "url": j["url"], "ref": j.get("ref", ""), "shop": j.get("shop", ""), "name": j.get("name", ""),
                           "enabled": bool(j.get("enabled")), "interval_s": j.get("interval_s", DEFAULT_INTERVAL_S),
                           "delivery": j.get("delivery", "home"), "armed_at": j.get("armed_at", 0), "kind": j.get("kind", "product"),
-                          "match": j.get("match") or [], "max_total": j.get("max_total")} for j in self._load()],
+                          "match": j.get("match") or [], "max_total": j.get("max_total"),
+                          "third_party": bool(j.get("third_party"))} for j in self._load()],
                 "now": self.clock()}
 
     # ------------------------------------------------------------------ edits
     def add(self, url: str, *, name: str = "", interval_s: Optional[int] = None, delivery: str = "home", match: Any = None,
-            max_total: Optional[float] = None) -> dict[str, Any]:
+            max_total: Optional[float] = None, third_party: bool = False) -> dict[str, Any]:
         url = url.strip()
         shop = shop_of(url)
         if not shop:
             raise TantalusError("invalid", "This shop has no cart runner yet.", f"Supported: {', '.join(SHOPS.values())}.")
         ref = product_ref(url)
         if not ref:
-            raise TantalusError("invalid", "This is not a product page.", "Paste the page of the product itself, or one of your lists.")
+            raise TantalusError("invalid", "This is not a page the cart runner can drive.",
+                                "El Corte Inglés: the product's own page. Carrefour: one of your lists (Favoritos).")
         kind = "list" if ref.startswith("list-") else "product"
         match = clean_match(match)
         if kind == "list" and not match:
@@ -149,12 +150,13 @@ class CartRunner:
                 existing["match"] = match
             if max_total is not None:
                 existing["max_total"] = float(max_total) if max_total > 0 else None
+            existing["third_party"] = bool(third_party)
             self._save(jobs)
             return self._view(existing, now)
         job = {"id": "c_" + secrets.token_hex(5), "url": url, "ref": ref, "shop": shop, "name": name.strip() or ref, "enabled": True,
                "interval_s": max(MIN_INTERVAL_S, min(MAX_INTERVAL_S, int(interval_s or DEFAULT_INTERVAL_S))),
                "delivery": delivery if delivery in ("home", "any") else "home", "created_at": now, "armed_at": now, "kind": kind,
-               "match": match, "max_total": float(max_total) if max_total and max_total > 0 else None,
+               "match": match, "max_total": float(max_total) if max_total and max_total > 0 else None, "third_party": bool(third_party),
                "beat_at": None, "state": "", "checks": 0, "stage": "", "stage_at": None, "detail": ""}
         jobs.append(job)
         self._save(jobs)
@@ -162,7 +164,7 @@ class CartRunner:
 
     def update(self, job_id: str, *, enabled: Optional[bool] = None, interval_s: Optional[int] = None, rearm: bool = False,
                name: Optional[str] = None, delivery: Optional[str] = None, match: Any = None,
-               max_total: Optional[float] = None) -> dict[str, Any]:
+               max_total: Optional[float] = None, third_party: Optional[bool] = None) -> dict[str, Any]:
         jobs = self._load()
         job = self._job(jobs, job_id)
         if enabled is not None:
@@ -177,6 +179,8 @@ class CartRunner:
             job["match"] = clean_match(match)
         if max_total is not None:
             job["max_total"] = float(max_total) if max_total > 0 else None
+        if third_party is not None:
+            job["third_party"] = bool(third_party)
         if rearm:
             job.update(armed_at=self.clock(), stage="", stage_at=None, detail="", enabled=True)
         self._save(jobs)

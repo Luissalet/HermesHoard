@@ -2745,7 +2745,7 @@
     "inputSchema": {
       "properties": {
         "url": {
-          "description": "A product page (El Corte Inglés, Carrefour) or one of your own lists at the shop (Carrefour favourites).",
+          "description": "A product page (El Corte Inglés) or one of your own lists at the shop (Carrefour favourites).",
           "maxLength": 2000,
           "minLength": 12,
           "title": "Url",
@@ -2812,6 +2812,12 @@
           "default": null,
           "description": "For a list: do not put more than this amount in the basket in total. 0 = no limit.",
           "title": "Max Total"
+        },
+        "third_party": {
+          "default": false,
+          "description": "For a list: also take products sold by a marketplace seller (off: only the shop's own).",
+          "title": "Third Party",
+          "type": "boolean"
         }
       },
       "required": [
@@ -2921,6 +2927,18 @@
           ],
           "default": null,
           "title": "Max Total"
+        },
+        "third_party": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Third Party"
         },
         "rearm": {
           "default": false,
