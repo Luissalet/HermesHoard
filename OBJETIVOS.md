@@ -5,6 +5,11 @@
 - Avisos de stock del correo: leer también por la pasarela de correo del Hub cuando esté lista, con un interés propio que no pise el de las ofertas (hoy van por el lector de Faustus).
 - Mostrar en Novedades una etiqueta «por correo» en los avisos con `data.source = mail_notice`, con el asunto del correo al pasar el ratón.
 
+## Productos — radar
+- Segundo agregador: leer también sus páginas de producto (`/es/producto/…`) para las tiendas pequeñas, validando por el enlace de la tienda (asigna ofertas a un producto equivocado: una caja ex a 44,90 € figuraba como Colección Premium Ditto).
+- Hipercor comparte catálogo con El Corte Inglés (mismas referencias A…): cesta automática también en hipercor.es.
+- Precio de referencia de cadena equivocado en algunas ofertas (18,99 € para la Ditto en dos avisos del 11 y 12-11): revisar `reference_price` cuando el `product_key` agrupa productos distintos.
+
 ## Cesta automática
 - Más tiendas además de El Corte Inglés y Carrefour (un fichero por tienda en `browser/cart-runner/shops/`): GAME primero.
 - Carrefour: saber desde la lista si un producto ya está en la cesta (hoy lo corrige la cesta dejando una unidad) y fichas de producto sueltas además de listas.
