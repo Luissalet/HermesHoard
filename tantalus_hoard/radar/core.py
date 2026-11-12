@@ -382,6 +382,8 @@ class Radar:
                                  ",".join("?" for _ in urls) + ")", [watcher_id, *urls])
             rows = [{**dict(r), "extra": json.loads(r["extra"] or "{}")} for r in rows]
             offers = [st.RadarOffer(**{k: v for k, v in r.items() if k in st.RadarOffer.__dataclass_fields__}) for r in rows]
+            for o, r in zip(offers, rows):                     # the stored identity (its link may have been an affiliate redirect)
+                o.key_hint = str(r.get("okey") or "").partition("|")[2]
             self._retailer_images(watcher, offers, self.clock(), force=True, corrections=corrections)
             return {"products": [{"url": o.url, "image": o.image, "fmt": o.fmt,
                                    "retailer_verified": bool(o.extra.get("retailer_details", {}).get("image"))} for o in offers]}

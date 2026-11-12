@@ -416,3 +416,21 @@ def test_a_restock_right_after_the_sell_out_alerts_again(radar_svc):
     assert listed(IN_STOCK, now + 1800) == 1                      # back 10 minutes later: alert again, not swallowed
     assert [s[0]["type"] for s in svc.notifier.sent] == ["RESTOCK"]
     assert len([e for e in svc.store.events(current_offers_only=True) if e["type"] == "RESTOCK"]) == 1
+
+
+def test_affiliate_redirects_become_the_shop_page():
+    from tantalus_hoard.radar.stocktcg import _strip_affiliate
+    wrapped = ("https://www.awin1.com/cread.php?awinmid=13075&awinaffid=2927937&clickref=x&ued="
+               "https%3A%2F%2Fwww.elcorteingles.es%2Fjuguetes%2FA203815789-caja-de-entrenador-elite%2F")
+    assert _strip_affiliate(wrapped) == "https://www.elcorteingles.es/juguetes/A203815789-caja-de-entrenador-elite/"
+    assert _strip_affiliate("https://www.amazon.es/x/dp/B0ABCDEFGH?tag=aff-21") == "https://www.amazon.es/dp/B0ABCDEFGH"
+    assert _strip_affiliate("https://shop.example/p/1") == "https://shop.example/p/1"
+
+
+def test_unwrapped_offers_keep_their_identity():
+    from tantalus_hoard.radar.stocktcg import RadarOffer, _link
+    wrapped = "https://www.awin1.com/cread.php?awinmid=1&ued=https%3A%2F%2Fwww.elcorteingles.es%2Fjuguetes%2FA1234567-x%2F"
+    offer = RadarOffer(source="stocktcg.net", store="El Corte Inglés", store_slug="el-corte-ingles", title="x", **_link(wrapped))
+    assert offer.url == "https://www.elcorteingles.es/juguetes/A1234567-x/" and offer.key == "el-corte-ingles|" + wrapped
+    plain = RadarOffer(source="stocktcg.net", store="Shop", store_slug="shop", title="x", **_link("https://shop.example/p/1"))
+    assert plain.key == "shop|https://shop.example/p/1"

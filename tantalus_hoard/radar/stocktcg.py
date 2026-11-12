@@ -21,7 +21,7 @@ import unicodedata
 from dataclasses import asdict, dataclass, field
 from datetime import date
 from typing import Any, Optional
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import parse_qs, urljoin, urlsplit
 
 from bs4 import BeautifulSoup, Tag
 
@@ -63,10 +63,11 @@ class RadarOffer:
     kind: str = ""                    # restock | new | deal | listing | soldout | invite | variant
     release: str = ""                 # release slug when the offer comes from a release page
     extra: dict[str, Any] = field(default_factory=dict)
+    key_hint: str = ""                # the link as the aggregator gave it, when ``url`` is the page behind an affiliate redirect
 
     @property
     def key(self) -> str:
-        return f"{self.store_slug}|{self.url or self.title}"
+        return f"{self.store_slug}|{self.key_hint or self.url or self.title}"
 
     def match_text(self) -> str:
         return " ".join(filter(None, (self.title, self.set_name, self.fmt, self.product_key.replace("-", " "),
@@ -174,7 +175,7 @@ def parse_pulse(data: Any) -> list[RadarOffer]:
         price = row.get("price")
         out.append(RadarOffer(
             source=SOURCE_NET, store=str(row["store"]), store_slug=str(row.get("slug") or slugify(row["store"])),
-            title=str(row.get("title") or ""), url=str(row.get("url") or ""), state=state,
+            title=str(row.get("title") or ""), **_link(str(row.get("url") or "")), state=state,
             price=float(price) if isinstance(price, (int, float)) else None, currency=str(row.get("currency") or "EUR"),
             set_name=str(row.get("setName") or ""), fmt=str(row.get("fmtName") or ""),
             product_key=_slug_from_href(str(row.get("ppage") or ""), "/p/"), image=str(row.get("img") or ""),
@@ -250,7 +251,7 @@ def parse_product_page(html: str, url: str = "") -> tuple[dict[str, Any], list[R
             eta = _text(tr.select_one(".pp-eta"))
             offers.append(RadarOffer(
                 source=SOURCE_NET, store=_text(store_a), store_slug=_slug_from_href(store_a.get("href") or "", "/tiendas/") or slugify(_text(store_a)),
-                title=title, url=(buy.get("href") if buy is not None else "") or "", state=PREORDER if preorder else IN_STOCK,
+                title=title, **_link((buy.get("href") if buy is not None else "") or ""), state=PREORDER if preorder else IN_STOCK,
                 price=price, currency=currency, lang=lang, set_name=head["set_name"], fmt=head["fmt"], product_key=product_key,
                 image=image, kind="variant" if variant else "listing", extra={"eta": eta} if eta else {}))
     amz = soup.select_one(".pp-amz")
@@ -260,15 +261,28 @@ def parse_product_page(html: str, url: str = "") -> tuple[dict[str, Any], list[R
         spans = amz.find_all("span", recursive=False)
         title = _text(spans[1]) if len(spans) > 1 else head["name"]
         offers.append(RadarOffer(source=SOURCE_NET, store="Amazon", store_slug="amazon", title=title,
-                                 url=_strip_affiliate((link.get("href") if link is not None else "") or ""), state=PREORDER,
+                                 **_link((link.get("href") if link is not None else "") or ""), state=PREORDER,
                                  price=price, currency=currency, set_name=head["set_name"], fmt=head["fmt"], product_key=product_key,
                                  image=image, kind="invite", extra={"invite": True}))
     return head, offers
 
 
+def _link(raw: str) -> dict[str, str]:
+    """``url`` (the plain shop page) and ``key_hint`` for an offer. An offer's identity was its link as the aggregator gives
+    it: one that came through an affiliate redirect keeps that identity, so unwrapping it does not make old offers new."""
+    url = _strip_affiliate(raw)
+    host = urlsplit(raw).hostname or ""
+    return {"url": url, "key_hint": raw if host.endswith("awin1.com") and url != raw else ""}
+
+
 def _strip_affiliate(url: str) -> str:
-    """Amazon links on the aggregators carry an affiliate tag; the alert links to the plain product page."""
+    """The aggregators' links carry affiliate tags or go through an affiliate redirect (``awin1.com/cread.php?...&ued=<shop
+    page>``); the alert links to the plain product page, which is also what lets a chain's page be read directly."""
     parts = urlsplit(url)
+    if parts.hostname and parts.hostname.endswith("awin1.com"):
+        target = (parse_qs(parts.query).get("ued") or parse_qs(parts.query).get("p") or [""])[0]
+        if target.startswith("http"):
+            return _strip_affiliate(target)
     if parts.hostname and "amazon." in parts.hostname:
         m = re.search(r"/dp/([A-Z0-9]{10})", parts.path)
         if m:
@@ -307,7 +321,7 @@ def parse_store_page(html: str, store_slug: str = "") -> tuple[dict[str, Any], l
             thumb = tr.select_one("img.st-thumb")
             offers.append(RadarOffer(
                 source=SOURCE_NET, store=name, store_slug=store_slug or slugify(name), title=_text(link),
-                url=_strip_affiliate((buy.get("href") if buy is not None else "") or ""), state=state, price=price, currency=currency,
+                **_link((buy.get("href") if buy is not None else "") or ""), state=state, price=price, currency=currency,
                 lang=_text(tr.select_one(".st-lang")), set_name=set_name.strip(), fmt=fmt.strip(),
                 product_key=_slug_from_href(link.get("href") or "", "/p/"), image=(thumb.get("src") if thumb is not None else "") or "",
                 kind="soldout" if soldout else "listing", extra={"seen": seen} if seen else {}))
@@ -345,7 +359,7 @@ def parse_releases(html: str, *, today: Optional[date] = None) -> list[Release]:
             price, currency = parse_price(_own_text(chip, ("pre-badge",)).replace(store, "", 1))
             pre = chip.select_one(".pre-badge") is not None
             rel.offers.append(RadarOffer(source=SOURCE_NET, store=store, store_slug=chip.get("data-store") or slugify(store),
-                                         title=title, url=_strip_affiliate(chip.get("href") or ""), state=PREORDER if pre else IN_STOCK,
+                                         title=title, **_link(chip.get("href") or ""), state=PREORDER if pre else IN_STOCK,
                                          price=price, currency=currency, release=slug, kind="listing"))
         out.append(rel)
     return out
@@ -399,7 +413,7 @@ def parse_release_page(html: str, url: str = "", *, today: Optional[date] = None
                 source=SOURCE_NET, store=store,
                 store_slug=((buy.get("data-store") if buy is not None else "") or slugify(store)),
                 title=_text(store_node.find("small")) if store_node is not None else name,
-                url=_strip_affiliate(((buy.get("href") if buy is not None else "") or "")), state=state, price=price, currency=currency,
+                **_link(((buy.get("href") if buy is not None else "") or "")), state=state, price=price, currency=currency,
                 lang=lang, set_name=set_name, fmt=fmt, product_key=product_key, image=(img.get("src") if img is not None else "") or "",
                 release=rel.slug, kind="listing"))
     return rel
@@ -438,7 +452,7 @@ def parse_es_feed(html: str) -> list[RadarOffer]:
                 ts = None
         img = card.select_one(".card-thumb img")
         out.append(RadarOffer(
-            source=SOURCE_ES, store=store, store_slug=slugify(store), title=name, url=_strip_affiliate(href), state=state, price=price,
+            source=SOURCE_ES, store=store, store_slug=slugify(store), title=name, **_link(href), state=state, price=price,
             currency=currency, image=(img.get("src") if img is not None else "") or "", seen_ts=ts, kind=tag.lower() or "restock",
             set_name="30 Aniversario" if card.get("data-aniv30") == "1" else "",
             extra={"game": card.get("data-game") or "", "deal": card.get("data-chollo") == "1"}))
