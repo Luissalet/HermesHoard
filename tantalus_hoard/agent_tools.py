@@ -992,13 +992,14 @@ def run_radar_setup(svc: Services, a: RadarSetupArgs) -> dict[str, Any]:
 # ================================================================================ cart runner
 class CartJobAddArgs(BaseModel):
     url: str = Field(..., min_length=12, max_length=2000,
-                     description="A product page (El Corte Inglés, Carrefour) or one of your own lists at the shop (Carrefour favourites).")
+                     description="A product page (El Corte Inglés) or one of your own lists at the shop (Carrefour favourites).")
     name: str = Field("", max_length=160)
     interval_s: Optional[int] = Field(None, ge=8, le=600, description="Seconds between reloads of the page in the browser. Default per shop.")
     delivery: Literal["home", "any"] = Field("home", description="home: only delivery to the address; any: also store pickup.")
     match: Optional[list[str]] = Field(None, max_length=20, description="For a list: the products to take, one entry each; every word of "
                                        "an entry must be in the product's name (\"premium ditto\", \"lata sylveon\"). One unit of each.")
     max_total: Optional[float] = Field(None, ge=0, description="For a list: do not put more than this amount in the basket in total. 0 = no limit.")
+    third_party: bool = Field(False, description="For a list: also take products sold by a marketplace seller (off: only the shop's own).")
 
 
 class CartJobUpdateArgs(BaseModel):
@@ -1009,6 +1010,7 @@ class CartJobUpdateArgs(BaseModel):
     delivery: Optional[Literal["home", "any"]] = None
     match: Optional[list[str]] = Field(None, max_length=20)
     max_total: Optional[float] = Field(None, ge=0)
+    third_party: Optional[bool] = None
     rearm: bool = Field(False, description="Start watching again after a basket / pay stage.")
 
 
@@ -1027,12 +1029,13 @@ def _cart_shops() -> dict[str, str]:
 
 
 def run_cart_job_add(svc: Services, a: CartJobAddArgs) -> dict[str, Any]:
-    return {"job": svc.cart.add(a.url, name=a.name, interval_s=a.interval_s, delivery=a.delivery, match=a.match, max_total=a.max_total)}
+    return {"job": svc.cart.add(a.url, name=a.name, interval_s=a.interval_s, delivery=a.delivery, match=a.match, max_total=a.max_total,
+                                third_party=a.third_party)}
 
 
 def run_cart_job_update(svc: Services, a: CartJobUpdateArgs) -> dict[str, Any]:
     return {"job": svc.cart.update(a.id, enabled=a.enabled, interval_s=a.interval_s, rearm=a.rearm, name=a.name, delivery=a.delivery,
-                                   match=a.match, max_total=a.max_total)}
+                                   match=a.match, max_total=a.max_total, third_party=a.third_party)}
 
 
 def run_cart_job_remove(svc: Services, a: CartJobIdArgs) -> dict[str, Any]:
