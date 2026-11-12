@@ -99,3 +99,20 @@ def test_toast_off_windows_is_skipped_not_failed():
     event = {"id": "e1", "type": "RESTOCK", "severity": "high", "title": "x", "summary": "y", "url": ""}
     (toast,) = n.send(event, ["toast"])
     assert toast["skipped"] is True and toast["error"] == "not windows"
+
+
+def test_a_short_rate_limit_does_not_cost_half_an_hour(tmp_path):
+    from tantalus_hoard.db import Database
+    from tantalus_hoard.extract.sites import profile_for_host, rate_limit_hold_s
+    from tantalus_hoard.fetch.hoststate import SqlHostState
+
+    assert profile_for_host("https://www.collectowny.com/products/x").name == "Collectowny"
+    assert profile_for_host("cartadia.com").name == "Cartadia" and rate_limit_hold_s("cartadia.com") == 120.0
+    assert rate_limit_hold_s("game.es") == 0.0
+    state = SqlHostState(Database(tmp_path / "t.db"), short_hold=rate_limit_hold_s, clock=lambda: 1000.0)
+    state.update("collectowny.com", blocked_until_ts=1000.0 + 1800, block_reason="http_429")
+    assert state.get("collectowny.com")["blocked_until_ts"] == 1120.0
+    state.update("game.es", blocked_until_ts=1000.0 + 1800, block_reason="http_429")
+    assert state.get("game.es")["blocked_until_ts"] == 2800.0
+    state.update("cartadia.com", blocked_until_ts=1000.0 + 1800, block_reason="cloudflare")
+    assert state.get("cartadia.com")["blocked_until_ts"] == 2800.0

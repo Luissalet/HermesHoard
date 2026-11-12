@@ -37,6 +37,7 @@ class SiteProfile:
     min_interval_s: float = 20.0                # politeness interval hint for the fetcher
     window_ok: bool = False                     # a normal visible browser window is served where headless is refused
     window_paths: tuple[str, ...] = ()          # ... only for these path patterns (regex); empty = any path
+    rate_limit_hold_s: float = 0.0              # its HTTP 429 clears in seconds: wait this long, not the default half hour
     notes: str = ""
 
 
@@ -172,6 +173,19 @@ _PROFILES: tuple[SiteProfile, ...] = (
         notes="2026-11-09: small Shopify TCG shop (Roda de Berà, Tarragona). Shopify refuses the Spark's clients (http 429/403, "
               "headless blocked) while the PC reads it; its page can say 'Agotado' next to 'quedan N'.",
     ),
+    SiteProfile(
+        "collectowny.com", "Collectowny", first_party_sellers=("collectowny",), product_url=r"^/products/", min_interval_s=90.0,
+        rate_limit_hold_s=120.0,
+        notes="verified 2026-11-12: small Shopify TCG shop (a sole trader in Sant Feliu de Llobregat, Barcelona; no public reviews "
+              "found). Prices at launch level. Pages answer 200 with JSON-LD, but the platform's limiter answers 429 "
+              "('local_rate_limited') to the first request of a burst and 200 seconds later, from the PC and from the Spark alike.",
+    ),
+    SiteProfile(
+        "cartadia.com", "Cartadia", first_party_sellers=("cartadia",), product_url=r"^/products/", min_interval_s=90.0,
+        rate_limit_hold_s=120.0,
+        notes="verified 2026-11-12: Shopify TCG shop in Valencia, Trustpilot 4.7 over 44 reviews. Same short 429 as other shops on "
+              "that platform.",
+    ),
 )
 
 SITE_PROFILES: dict[str, SiteProfile] = {p.host: p for p in _PROFILES}
@@ -274,6 +288,12 @@ def _key(value: str) -> str:
 
 _CORPORATE_WORDS = frozenset({"espana", "spain", "es", "sl", "slu", "sa", "eu", "sarl", "com", "inc", "ltd",
                               "europe", "iberia", "online", "tienda", "store", "oficial", "official"})
+
+
+def rate_limit_hold_s(host_or_url: str) -> float:
+    """Seconds to leave a shop alone after an HTTP 429 when its limiter is known to clear quickly; 0 = the default hold."""
+    profile = profile_for_host(host_or_url)
+    return float(profile.rate_limit_hold_s) if profile else 0.0
 
 
 def window_ok(host_or_url: str) -> bool:

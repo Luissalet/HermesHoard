@@ -85,7 +85,8 @@ class Fetcher(_CommonsFetcher):
             rung, self._own_rung = BrowserRung(config.browser_profile_dir, locale="es-ES"), True
         else:
             rung = browser
-        super().__init__(user_agent=DEFAULT_USER_AGENT, state=SqlHostState(db), transport=transport, clock=clock, sleep=sleep,
+        from ..extract.sites import rate_limit_hold_s
+        super().__init__(user_agent=DEFAULT_USER_AGENT, state=SqlHostState(db, short_hold=rate_limit_hold_s, clock=clock), transport=transport, clock=clock, sleep=sleep,
                          resolver=resolver, browser=rung, offline=bool(config.offline), min_interval_s=DEFAULT_MIN_INTERVAL_S,
                          timeout_s=config.http_timeout_s, accept_language=ACCEPT_LANGUAGE, robots_agent=ROBOTS_AGENT,
                          robots_store=SqlRobotsStore(db))
