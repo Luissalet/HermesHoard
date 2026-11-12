@@ -22,7 +22,9 @@ from .errors import TantalusError
 from .model import CART_READY, NEEDS_HUMAN
 
 # shop host -> what the extension knows how to drive
-SHOPS = {"elcorteingles.es": "El Corte Inglés"}
+SHOPS = {"elcorteingles.es": "El Corte Inglés", "carrefour.es": "Carrefour"}
+# seconds between reloads when the job does not say: shops behind a browser check get a calmer pace
+SHOP_INTERVAL_S = {"carrefour.es": 90}
 # stage -> (severity, title prefix, summary)
 STAGES: dict[str, tuple[str, str, str]] = {
     "added": ("high", "En la cesta", "Añadido a tu cesta. El navegador está pasando al pago."),
@@ -46,9 +48,30 @@ def shop_of(url: str) -> str:
 
 
 def product_ref(url: str) -> str:
-    """The shop's product number in a product URL (El Corte Inglés: ``/juguetes/A202035453-nombre/`` -> ``A202035453``)."""
-    m = re.search(r"/(A\d{6,})(?:-|/|$)", urlsplit(url).path)
+    """What a job watches at the shop, read from its URL: a product number (El Corte Inglés ``/juguetes/A202035453-nombre/``
+    -> ``A202035453``; Carrefour ``/nombre/VC4A-12345678/p`` -> ``VC4A-12345678``) or one of the user's own lists
+    (Carrefour ``/mis-listas-y-productos/mis-listas/104450805`` -> ``list-104450805``). Empty when it is neither."""
+    path = urlsplit(url).path
+    if shop_of(url) == "carrefour.es":
+        m = re.search(r"/mis-listas-y-productos/mis-listas/(\d+)", path)
+        if m:
+            return "list-" + m.group(1)
+        m = re.search(r"/((?:VC4A|R|F)-[\w-]+)/p/?$", path)
+        return m.group(1) if m else ""
+    m = re.search(r"/(A\d{6,})(?:-|/|$)", path)
     return m.group(1) if m else ""
+
+
+def clean_match(match: Any) -> list[str]:
+    """The products to take from a list, one entry each: the words of an entry must all be in the product's name."""
+    if isinstance(match, str):
+        match = re.split(r"[\n;]+", match)
+    out = []
+    for entry in match or []:
+        words = " ".join(str(entry).lower().split())
+        if words and words not in out:
+            out.append(words[:120])
+    return out[:20]
 
 
 class CartRunner:
@@ -98,35 +121,48 @@ class CartRunner:
         """What the extension needs, and nothing else."""
         return {"jobs": [{"id": j["id"], "url": j["url"], "ref": j.get("ref", ""), "shop": j.get("shop", ""), "name": j.get("name", ""),
                           "enabled": bool(j.get("enabled")), "interval_s": j.get("interval_s", DEFAULT_INTERVAL_S),
-                          "delivery": j.get("delivery", "home"), "armed_at": j.get("armed_at", 0)} for j in self._load()],
+                          "delivery": j.get("delivery", "home"), "armed_at": j.get("armed_at", 0), "kind": j.get("kind", "product"),
+                          "match": j.get("match") or [], "max_total": j.get("max_total")} for j in self._load()],
                 "now": self.clock()}
 
     # ------------------------------------------------------------------ edits
-    def add(self, url: str, *, name: str = "", interval_s: int = DEFAULT_INTERVAL_S, delivery: str = "home") -> dict[str, Any]:
+    def add(self, url: str, *, name: str = "", interval_s: Optional[int] = None, delivery: str = "home", match: Any = None,
+            max_total: Optional[float] = None) -> dict[str, Any]:
         url = url.strip()
         shop = shop_of(url)
         if not shop:
             raise TantalusError("invalid", "This shop has no cart runner yet.", f"Supported: {', '.join(SHOPS.values())}.")
         ref = product_ref(url)
         if not ref:
-            raise TantalusError("invalid", "This is not a product page.", "Paste the page of the product itself.")
+            raise TantalusError("invalid", "This is not a product page.", "Paste the page of the product itself, or one of your lists.")
+        kind = "list" if ref.startswith("list-") else "product"
+        match = clean_match(match)
+        if kind == "list" and not match:
+            raise TantalusError("invalid", "A list needs the products to take from it.", "One per entry, e.g. \"premium ditto\".")
+        interval_s = interval_s or SHOP_INTERVAL_S.get(shop, DEFAULT_INTERVAL_S)
         jobs = self._load()
         existing = next((j for j in jobs if j.get("shop") == shop and j.get("ref") == ref), None)
         now = self.clock()
         if existing is not None:
             existing.update(enabled=True, armed_at=now, stage="", stage_at=None)
+            if match:
+                existing["match"] = match
+            if max_total is not None:
+                existing["max_total"] = float(max_total) if max_total > 0 else None
             self._save(jobs)
             return self._view(existing, now)
         job = {"id": "c_" + secrets.token_hex(5), "url": url, "ref": ref, "shop": shop, "name": name.strip() or ref, "enabled": True,
                "interval_s": max(MIN_INTERVAL_S, min(MAX_INTERVAL_S, int(interval_s or DEFAULT_INTERVAL_S))),
-               "delivery": delivery if delivery in ("home", "any") else "home", "created_at": now, "armed_at": now,
+               "delivery": delivery if delivery in ("home", "any") else "home", "created_at": now, "armed_at": now, "kind": kind,
+               "match": match, "max_total": float(max_total) if max_total and max_total > 0 else None,
                "beat_at": None, "state": "", "checks": 0, "stage": "", "stage_at": None, "detail": ""}
         jobs.append(job)
         self._save(jobs)
         return self._view(job, now)
 
     def update(self, job_id: str, *, enabled: Optional[bool] = None, interval_s: Optional[int] = None, rearm: bool = False,
-               name: Optional[str] = None, delivery: Optional[str] = None) -> dict[str, Any]:
+               name: Optional[str] = None, delivery: Optional[str] = None, match: Any = None,
+               max_total: Optional[float] = None) -> dict[str, Any]:
         jobs = self._load()
         job = self._job(jobs, job_id)
         if enabled is not None:
@@ -137,6 +173,10 @@ class CartRunner:
             job["name"] = name.strip()
         if delivery in ("home", "any"):
             job["delivery"] = delivery
+        if match is not None and (clean_match(match) or job.get("kind") != "list"):
+            job["match"] = clean_match(match)
+        if max_total is not None:
+            job["max_total"] = float(max_total) if max_total > 0 else None
         if rearm:
             job.update(armed_at=self.clock(), stage="", stage_at=None, detail="", enabled=True)
         self._save(jobs)

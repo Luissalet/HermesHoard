@@ -991,10 +991,14 @@ def run_radar_setup(svc: Services, a: RadarSetupArgs) -> dict[str, Any]:
 
 # ================================================================================ cart runner
 class CartJobAddArgs(BaseModel):
-    url: str = Field(..., min_length=12, max_length=2000, description="The product page at the shop (El Corte Inglés).")
+    url: str = Field(..., min_length=12, max_length=2000,
+                     description="A product page (El Corte Inglés, Carrefour) or one of your own lists at the shop (Carrefour favourites).")
     name: str = Field("", max_length=160)
-    interval_s: int = Field(15, ge=8, le=600, description="Seconds between reloads of the page in the browser.")
+    interval_s: Optional[int] = Field(None, ge=8, le=600, description="Seconds between reloads of the page in the browser. Default per shop.")
     delivery: Literal["home", "any"] = Field("home", description="home: only delivery to the address; any: also store pickup.")
+    match: Optional[list[str]] = Field(None, max_length=20, description="For a list: the products to take, one entry each; every word of "
+                                       "an entry must be in the product's name (\"premium ditto\", \"lata sylveon\"). One unit of each.")
+    max_total: Optional[float] = Field(None, ge=0, description="For a list: do not put more than this amount in the basket in total. 0 = no limit.")
 
 
 class CartJobUpdateArgs(BaseModel):
@@ -1003,6 +1007,8 @@ class CartJobUpdateArgs(BaseModel):
     interval_s: Optional[int] = Field(None, ge=8, le=600)
     name: Optional[str] = Field(None, max_length=160)
     delivery: Optional[Literal["home", "any"]] = None
+    match: Optional[list[str]] = Field(None, max_length=20)
+    max_total: Optional[float] = Field(None, ge=0)
     rearm: bool = Field(False, description="Start watching again after a basket / pay stage.")
 
 
@@ -1021,11 +1027,12 @@ def _cart_shops() -> dict[str, str]:
 
 
 def run_cart_job_add(svc: Services, a: CartJobAddArgs) -> dict[str, Any]:
-    return {"job": svc.cart.add(a.url, name=a.name, interval_s=a.interval_s, delivery=a.delivery)}
+    return {"job": svc.cart.add(a.url, name=a.name, interval_s=a.interval_s, delivery=a.delivery, match=a.match, max_total=a.max_total)}
 
 
 def run_cart_job_update(svc: Services, a: CartJobUpdateArgs) -> dict[str, Any]:
-    return {"job": svc.cart.update(a.id, enabled=a.enabled, interval_s=a.interval_s, rearm=a.rearm, name=a.name, delivery=a.delivery)}
+    return {"job": svc.cart.update(a.id, enabled=a.enabled, interval_s=a.interval_s, rearm=a.rearm, name=a.name, delivery=a.delivery,
+                                   match=a.match, max_total=a.max_total)}
 
 
 def run_cart_job_remove(svc: Services, a: CartJobIdArgs) -> dict[str, Any]:
@@ -1212,7 +1219,7 @@ TOOLS: list[Tool] = [
          "pay, password, delivery, lost). Also the extension's key. Sinónimos: cesta automática, añadir al carrito solo, compra asistida.",
          Empty, _ann(True), run_cart_jobs),
     Tool("cart_job_add",
-         "Add a product page for the browser to put in the basket when it restocks. Añadir a la cesta al reponer.\n"
+         "Add a product page, or a list of yours at the shop, for the browser to put in the basket on restock. Añadir a la cesta al reponer.\n"
          "The browser extension keeps the page open, adds one unit when the buy button comes alive and walks the checkout up to the page "
          "with the pay button; each stage raises an alert on every channel. It never pays. Adding a page that is already there re-arms it.",
          CartJobAddArgs, _ann(False, idempotent=False), run_cart_job_add),

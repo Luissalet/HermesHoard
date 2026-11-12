@@ -2735,7 +2735,7 @@
   },
   {
     "name": "cart_job_add",
-    "description": "Add a product page for the browser to put in the basket when it restocks. Añadir a la cesta al reponer.\nThe browser extension keeps the page open, adds one unit when the buy button comes alive and walks the checkout up to the page with the pay button; each stage raises an alert on every channel. It never pays. Adding a page that is already there re-arms it.",
+    "description": "Add a product page, or a list of yours at the shop, for the browser to put in the basket on restock. Añadir a la cesta al reponer.\nThe browser extension keeps the page open, adds one unit when the buy button comes alive and walks the checkout up to the page with the pay button; each stage raises an alert on every channel. It never pays. Adding a page that is already there re-arms it.",
     "annotations": {
       "readOnlyHint": false,
       "destructiveHint": false,
@@ -2745,7 +2745,7 @@
     "inputSchema": {
       "properties": {
         "url": {
-          "description": "The product page at the shop (El Corte Inglés).",
+          "description": "A product page (El Corte Inglés, Carrefour) or one of your own lists at the shop (Carrefour favourites).",
           "maxLength": 2000,
           "minLength": 12,
           "title": "Url",
@@ -2758,12 +2758,19 @@
           "type": "string"
         },
         "interval_s": {
-          "default": 15,
-          "description": "Seconds between reloads of the page in the browser.",
-          "maximum": 600,
-          "minimum": 8,
-          "title": "Interval S",
-          "type": "integer"
+          "anyOf": [
+            {
+              "maximum": 600,
+              "minimum": 8,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Seconds between reloads of the page in the browser. Default per shop.",
+          "title": "Interval S"
         },
         "delivery": {
           "default": "home",
@@ -2774,6 +2781,37 @@
           ],
           "title": "Delivery",
           "type": "string"
+        },
+        "match": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 20,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "For a list: the products to take, one entry each; every word of an entry must be in the product's name (\"premium ditto\", \"lata sylveon\"). One unit of each.",
+          "title": "Match"
+        },
+        "max_total": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "For a list: do not put more than this amount in the basket in total. 0 = no limit.",
+          "title": "Max Total"
         }
       },
       "required": [
@@ -2854,6 +2892,35 @@
           ],
           "default": null,
           "title": "Delivery"
+        },
+        "match": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 20,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Match"
+        },
+        "max_total": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Total"
         },
         "rearm": {
           "default": false,

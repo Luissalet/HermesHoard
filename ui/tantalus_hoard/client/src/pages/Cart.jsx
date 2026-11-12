@@ -46,12 +46,15 @@ function JobRow({ job, onChanged }) {
         {(job.state || "").includes("sin sesión") && <Chip className="chip-amber">{t("cart_signed_out")}</Chip>}
         <span className="help">{t("cart_last", { when: age(job.beat_age_s, t), n: job.checks || 0 })}</span>
       </div>
+      {job.kind === "list" && (
+        <div className="help">{t("cart_takes")}: {(job.match || []).join(" · ")}{job.max_total != null && <> · {t("cart_up_to")} <Price value={job.max_total} currency="EUR" /></>}</div>
+      )}
       {job.stage && job.detail && <div className="help">{job.detail}</div>}
       <div className="flex flex-wrap items-center gap-2">
         <label className="help inline-flex items-center gap-1.5">{t("cart_every")}
           <select className="field" style={{ width: "auto" }} value={job.interval_s} disabled={busy.interval}
             onChange={(e) => update("interval", { interval_s: Number(e.target.value) })}>
-            {[10, 15, 20, 30, 60, 120].map((s) => <option key={s} value={s}>{s} s</option>)}
+            {[...new Set([10, 15, 20, 30, 60, 90, 120, job.interval_s])].sort((a, b) => a - b).map((s) => <option key={s} value={s}>{s} s</option>)}
           </select>
         </label>
         <label className="help inline-flex items-center gap-1.5">{t("cart_delivery")}
@@ -76,7 +79,10 @@ export default function Cart() {
   const { data, error, loading, reload } = useLoad(() => api.call("cart_jobs"), []);
   const [busy, run] = useBusy();
   const [url, setUrl] = useState("");
+  const [match, setMatch] = useState("");
+  const [maxTotal, setMaxTotal] = useState("");
   const [shown, setShown] = useState(false);
+  const isList = /\/mis-listas/.test(url);
   useEffect(() => {
     const timer = setInterval(() => { if (!document.hidden) reload(); }, 15000);
     return () => clearInterval(timer);
@@ -84,8 +90,15 @@ export default function Cart() {
   const add = (e) => {
     e.preventDefault();
     run("add", async () => {
-      await api.call("cart_job_add", { url: url.trim() });
+      const args = { url: url.trim() };
+      if (isList) {
+        args.match = match.split("\n").map((line) => line.trim()).filter(Boolean);
+        if (maxTotal.trim()) args.max_total = Number(maxTotal.replace(",", "."));
+      }
+      await api.call("cart_job_add", args);
       setUrl("");
+      setMatch("");
+      setMaxTotal("");
       notify(t("cart_added"));
       await reload();
     });
@@ -104,7 +117,17 @@ export default function Cart() {
         <Field label={t("cart_url")} hint={t("cart_url_hint", { shops: (data?.shops || []).join(", ") })} className="min-w-0 flex-1">
           <input className="field" type="url" required value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://www.elcorteingles.es/…" />
         </Field>
-        <Busy type="submit" className="btn btn-primary" busy={busy.add} disabled={!url.trim()}>{t("cart_add")}</Busy>
+        <Busy type="submit" className="btn btn-primary" busy={busy.add} disabled={!url.trim() || (isList && !match.trim())}>{t("cart_add")}</Busy>
+        {isList && (
+          <div className="grid w-full gap-2 md:grid-cols-[minmax(0,1fr)_180px]">
+            <Field label={t("cart_match")} hint={t("cart_match_hint")}>
+              <textarea className="field" rows={3} value={match} onChange={(e) => setMatch(e.target.value)} placeholder={"premium ditto\nlata sylveon"} />
+            </Field>
+            <Field label={t("cart_max_total")} hint={t("cart_max_total_hint")}>
+              <input className="field" inputMode="decimal" value={maxTotal} onChange={(e) => setMaxTotal(e.target.value)} placeholder="92,98" />
+            </Field>
+          </div>
+        )}
       </form>
       <ErrorBox error={error} />
       <Section title={t("cart_jobs")} count={jobs.length} id="cart-jobs">

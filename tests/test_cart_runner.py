@@ -43,6 +43,27 @@ def test_urls():
     assert product_ref("https://www.elcorteingles.es/juguetes/kidults/") == ""
 
 
+def test_lists_take_named_products_up_to_a_total():
+    clock = [1000.0]
+    cart, _events, _sent = runner(clock)
+    listing = "https://www.carrefour.es/mis-listas-y-productos/mis-listas/104450805"
+    assert shop_of(listing) == "carrefour.es" and product_ref(listing) == "list-104450805"
+    assert product_ref("https://www.carrefour.es/caja-premium/VC4A-12345678/p") == "VC4A-12345678"
+    assert product_ref("https://www.carrefour.es/supermercado/") == ""
+    with pytest.raises(TantalusError):
+        cart.add(listing)                                                     # a list without products to take
+    job = cart.add(listing, match=["Premium  Ditto", "lata sylveon", "premium ditto"], max_total=92.98)
+    assert job["kind"] == "list" and job["match"] == ["premium ditto", "lata sylveon"] and job["max_total"] == 92.98
+    assert job["interval_s"] == 90                                            # the shop's calmer default
+    sent = cart.for_extension()["jobs"][0]
+    assert sent["kind"] == "list" and sent["match"] == ["premium ditto", "lata sylveon"] and sent["max_total"] == 92.98
+    assert cart.update(job["id"], match=["lata greninja"], max_total=0)["max_total"] is None
+    assert cart.jobs()[0]["match"] == ["lata greninja"]
+    assert cart.update(job["id"], match=[])["match"] == ["lata greninja"]      # a list never ends up with nothing to take
+    product = cart.add("https://www.carrefour.es/caja-premium/VC4A-12345678/p")
+    assert product["kind"] == "product" and product["interval_s"] == 90
+
+
 def test_jobs_stages_and_repeats():
     clock = [1000.0]
     cart, events, sent = runner(clock)
