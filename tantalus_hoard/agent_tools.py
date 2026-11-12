@@ -921,9 +921,9 @@ class RadarOffersArgs(BaseModel):
 class RadarSetupArgs(BaseModel):
     watcher_id: str = Field(..., max_length=40)
     enabled: Optional[bool] = None
-    sources: Optional[list[Literal["stocktcg.net", "stocktcg.es"]]] = None
+    sources: Optional[list[Literal["stocktcg.net", "stocktcg.es", "lamafiadelsobre.com"]]] = None
     chains: Optional[list[str]] = Field(None, max_length=20, description="Shop slugs that always alert (game, carrefour, el-corte-ingles, "
-                                                                           "alcampo, amazon, toys-r-us, toy-planet...).")
+                                                                           "alcampo, amazon, toys-r-us, toy-planet, fnac, hipercor, drim...).")
     languages: Optional[list[str]] = Field(None, max_length=10, description="Edition languages that may alert, e.g. [ES, EN]. Empty = any.")
     alert_other_shops: Optional[bool] = Field(None, description="Small shops alert too, only at a sane price (cheapest chain price or MSRP × multiplier).")
     price_multiplier: Optional[float] = Field(None, ge=1, le=5)
