@@ -1068,7 +1068,7 @@
             }
           ],
           "default": null,
-          "description": "RESTOCK, LOCAL_RESTOCK, PREORDER_OPEN, PRICE_DROP, PRICE_THRESHOLD_CROSSED, NEW_SKU, RESTOCK_DATE_CONFIRMED, SOLD_OUT, NEW_LISTING, LISTING_PRICE_DROP, INFO_CHANGE, CANDIDATE_FOUND, NEEDS_HUMAN, MAIL_DEAL, RELEASE, SALE_OPEN",
+          "description": "RESTOCK, LOCAL_RESTOCK, PREORDER_OPEN, PRICE_DROP, PRICE_THRESHOLD_CROSSED, NEW_SKU, RESTOCK_DATE_CONFIRMED, SOLD_OUT, NEW_LISTING, LISTING_PRICE_DROP, INFO_CHANGE, CANDIDATE_FOUND, NEEDS_HUMAN, MAIL_DEAL, RELEASE, SALE_OPEN, CART_READY",
           "title": "Types"
         },
         "statuses": {
@@ -2712,6 +2712,185 @@
         }
       },
       "title": "WatcherAddArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "cart_jobs",
+    "description": "Products the browser adds to the basket the moment they can be bought, and whether it is watching. Cesta automática.\nPer job: shop, page, reload interval, last heartbeat of the browser extension, last state read and the stage reached (added, pay, password, delivery, lost). Also the extension's key. Sinónimos: cesta automática, añadir al carrito solo, compra asistida.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "description": "A tool without arguments.",
+      "properties": {},
+      "title": "Empty",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "cart_job_add",
+    "description": "Add a product page for the browser to put in the basket when it restocks. Añadir a la cesta al reponer.\nThe browser extension keeps the page open, adds one unit when the buy button comes alive and walks the checkout up to the page with the pay button; each stage raises an alert on every channel. It never pays. Adding a page that is already there re-arms it.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "url": {
+          "description": "The product page at the shop (El Corte Inglés).",
+          "maxLength": 2000,
+          "minLength": 12,
+          "title": "Url",
+          "type": "string"
+        },
+        "name": {
+          "default": "",
+          "maxLength": 160,
+          "title": "Name",
+          "type": "string"
+        },
+        "interval_s": {
+          "default": 15,
+          "description": "Seconds between reloads of the page in the browser.",
+          "maximum": 600,
+          "minimum": 8,
+          "title": "Interval S",
+          "type": "integer"
+        },
+        "delivery": {
+          "default": "home",
+          "description": "home: only delivery to the address; any: also store pickup.",
+          "enum": [
+            "home",
+            "any"
+          ],
+          "title": "Delivery",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "title": "CartJobAddArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "cart_job_update",
+    "description": "Pause, resume, re-arm or retime a cart job. Pausar o rearmar la cesta automática.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "title": "Id",
+          "type": "string"
+        },
+        "enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Enabled"
+        },
+        "interval_s": {
+          "anyOf": [
+            {
+              "maximum": 600,
+              "minimum": 8,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Interval S"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "delivery": {
+          "anyOf": [
+            {
+              "enum": [
+                "home",
+                "any"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Delivery"
+        },
+        "rearm": {
+          "default": false,
+          "description": "Start watching again after a basket / pay stage.",
+          "title": "Rearm",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "CartJobUpdateArgs",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "cart_job_remove",
+    "description": "Stop adding a product to the basket and forget the job. Quitar de la cesta automática.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "title": "Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "CartJobIdArgs",
       "type": "object"
     },
     "module": "products"

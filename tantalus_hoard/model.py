@@ -44,9 +44,11 @@ NEEDS_HUMAN = "NEEDS_HUMAN"          # a target is blocked behind CAPTCHA / logi
 MAIL_DEAL = "MAIL_DEAL"              # a sale mail from a game store / book retailer that matches a wishlist or a watch
 SALE_OPEN = "SALE_OPEN"              # a product that said "Próximamente" can now be bought or reserved
 RELEASE = "RELEASE"                  # radar: a matching release enters the calendar, is near, or comes out today (with where to buy)
+CART_READY = "CART_READY"            # cart runner: the browser put the product in the basket / reached the pay page
 
 EVENT_TYPES = (RESTOCK, LOCAL_RESTOCK, PREORDER_OPEN, PRICE_DROP, PRICE_THRESHOLD_CROSSED, NEW_SKU,
-               RESTOCK_DATE_CONFIRMED, SOLD_OUT, NEW_LISTING, LISTING_PRICE_DROP, INFO_CHANGE, CANDIDATE_FOUND, NEEDS_HUMAN, MAIL_DEAL, RELEASE, SALE_OPEN)
+               RESTOCK_DATE_CONFIRMED, SOLD_OUT, NEW_LISTING, LISTING_PRICE_DROP, INFO_CHANGE, CANDIDATE_FOUND, NEEDS_HUMAN, MAIL_DEAL, RELEASE, SALE_OPEN,
+               CART_READY)
 
 # Event statuses: pending (waiting revalidation) -> confirmed (alert-worthy) | logged (recorded, below threshold)
 # | dismissed (by the user or by a failed revalidation).

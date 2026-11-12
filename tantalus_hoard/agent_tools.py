@@ -989,6 +989,49 @@ def run_radar_setup(svc: Services, a: RadarSetupArgs) -> dict[str, Any]:
     return {"watcher": w["name"], "radar": radar_config(w), "note": "The next scheduler tick runs the radar." if radar.get("enabled") else ""}
 
 
+# ================================================================================ cart runner
+class CartJobAddArgs(BaseModel):
+    url: str = Field(..., min_length=12, max_length=2000, description="The product page at the shop (El Corte Inglés).")
+    name: str = Field("", max_length=160)
+    interval_s: int = Field(15, ge=8, le=600, description="Seconds between reloads of the page in the browser.")
+    delivery: Literal["home", "any"] = Field("home", description="home: only delivery to the address; any: also store pickup.")
+
+
+class CartJobUpdateArgs(BaseModel):
+    id: str = Field(..., max_length=40)
+    enabled: Optional[bool] = None
+    interval_s: Optional[int] = Field(None, ge=8, le=600)
+    name: Optional[str] = Field(None, max_length=160)
+    delivery: Optional[Literal["home", "any"]] = None
+    rearm: bool = Field(False, description="Start watching again after a basket / pay stage.")
+
+
+class CartJobIdArgs(BaseModel):
+    id: str = Field(..., max_length=40)
+
+
+def run_cart_jobs(svc: Services, _: Empty) -> dict[str, Any]:
+    return {"jobs": svc.cart.jobs(), "shops": list(_cart_shops().values()),
+            "extension": {"folder": "browser/cart-runner", "key": svc.cart.key()}}
+
+
+def _cart_shops() -> dict[str, str]:
+    from .cart import SHOPS
+    return SHOPS
+
+
+def run_cart_job_add(svc: Services, a: CartJobAddArgs) -> dict[str, Any]:
+    return {"job": svc.cart.add(a.url, name=a.name, interval_s=a.interval_s, delivery=a.delivery)}
+
+
+def run_cart_job_update(svc: Services, a: CartJobUpdateArgs) -> dict[str, Any]:
+    return {"job": svc.cart.update(a.id, enabled=a.enabled, interval_s=a.interval_s, rearm=a.rearm, name=a.name, delivery=a.delivery)}
+
+
+def run_cart_job_remove(svc: Services, a: CartJobIdArgs) -> dict[str, Any]:
+    return svc.cart.remove(a.id)
+
+
 # ================================================================================ catalogue
 TOOLS: list[Tool] = [
     Tool("fleet_status", "Watcher cadence and confirmed outcomes — flota, último éxito, bloqueo humano.\n"
@@ -1163,6 +1206,21 @@ TOOLS: list[Tool] = [
          "Creates an availability watcher with the name's words, an optional product page and price limit (budget), idempotent by source_ref. "
          "Sinónimos: vigila esto, avísame cuando baje de precio, regalo, lista de deseos.",
          WatcherAddArgs, _ann(False, idempotent=False), run_watcher_add),
+    Tool("cart_jobs",
+         "Products the browser adds to the basket the moment they can be bought, and whether it is watching. Cesta automática.\n"
+         "Per job: shop, page, reload interval, last heartbeat of the browser extension, last state read and the stage reached (added, "
+         "pay, password, delivery, lost). Also the extension's key. Sinónimos: cesta automática, añadir al carrito solo, compra asistida.",
+         Empty, _ann(True), run_cart_jobs),
+    Tool("cart_job_add",
+         "Add a product page for the browser to put in the basket when it restocks. Añadir a la cesta al reponer.\n"
+         "The browser extension keeps the page open, adds one unit when the buy button comes alive and walks the checkout up to the page "
+         "with the pay button; each stage raises an alert on every channel. It never pays. Adding a page that is already there re-arms it.",
+         CartJobAddArgs, _ann(False, idempotent=False), run_cart_job_add),
+    Tool("cart_job_update",
+         "Pause, resume, re-arm or retime a cart job. Pausar o rearmar la cesta automática.",
+         CartJobUpdateArgs, _ann(False), run_cart_job_update),
+    Tool("cart_job_remove", "Stop adding a product to the basket and forget the job. Quitar de la cesta automática.",
+         CartJobIdArgs, _ann(False), run_cart_job_remove),
     Tool("radar_setup",
          "Turn the aggregator radar on or off for a watcher and choose chains, languages, sources. Configurar radar.\n"
          "Sinónimos: activar radar, avisar de Carrefour, cadenas, idiomas de edición.",
