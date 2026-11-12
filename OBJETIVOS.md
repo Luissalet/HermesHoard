@@ -5,6 +5,12 @@
 - Avisos de stock del correo: leer también por la pasarela de correo del Hub cuando esté lista, con un interés propio que no pise el de las ofertas (hoy van por el lector de Faustus).
 - Mostrar en Novedades una etiqueta «por correo» en los avisos con `data.source = mail_notice`, con el asunto del correo al pasar el ratón.
 
+## Cesta automática
+- Más tiendas además de El Corte Inglés (un fichero por tienda en `browser/cart-runner/shops/`): GAME y Carrefour primero.
+- Enlazar la cesta con el vigilante: que un RESTOCK o SALE_OPEN de un objetivo con cesta acelere la recarga de la pestaña, y un botón «Añadir a la cesta al reponer» en la ficha del objetivo.
+- Avisar con antelación cuando la sesión de pago de la tienda vaya a caducar (hoy se avisa al topar con la contraseña).
+- Canal de aviso inmediato al móvil (ntfy o Telegram) configurado en la Spark: hoy solo salen correo y el bus del Hub.
+
 ## Envíos
 - Acción requerida: casar el aviso de aduanas con el correo del transportista que trae el enlace de pago y mostrar el importe cuando venga en el texto.
 - Estimación: medir la precisión propia (fecha estimada el primer día frente a la entrega real) por transportista y origen y enseñarla en el detalle.
