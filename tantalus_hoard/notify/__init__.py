@@ -17,6 +17,7 @@ put in an error string.
 from __future__ import annotations
 
 import logging
+import re
 import sys
 import time
 from pathlib import Path
@@ -35,6 +36,7 @@ SEVERITY_RANK = {"low": 0, "medium": 1, "high": 2}
 APP_ID = "Tantalus's Hoard"
 DEFAULT_ENABLED = {"toast": True, "hub": True, "ntfy": False, "telegram": False, "email": False}
 EMAIL_BACKENDS = ("auto", "faustus", "smtp")
+BUY_ALERT_TYPES = frozenset({"RESTOCK", "LOCAL_RESTOCK", "PREORDER_OPEN", "SALE_OPEN", "CART_READY"})   # alerts that ask for a purchase
 PUSH_CHANNELS = ("toast", "ntfy", "telegram", "email")   # the channels the hub's notification facet replaces ("hub" is the bus event)
 SEVERITY_PRIORITY = {"low": "low", "medium": "normal", "high": "high"}
 FAUSTUS_STATUS_TTL_S = 300.0     # a good status is reused for five minutes, a failure for thirty seconds
@@ -359,17 +361,45 @@ class Notifier:
         """Find the chat id after the user has written to the bot (getUpdates). Nothing is stored here."""
         return telegram_discover_chat_id(self._secret("TELEGRAM_TOKEN"), http=self.http)
 
+    def buy_also(self) -> list[str]:
+        """Extra people who get the mail of an alert that asks for a purchase (``notify.email.buy_also``)."""
+        return parse_addresses(self._setting("notify.email.buy_also"))
+
     def _send_email(self, event: dict[str, Any], title: str, body: str) -> str:
         subject, text, html_body = nc.email_parts(title, body, event.get("url"))
         kind = "products." + str(event.get("type") or "notification").lower()
+        # somebody else at home can buy it too: buying alerts go to them as well, in a mail of their own so the usual
+        # one never depends on a second address
+        also = self.buy_also() if str(event.get("type") or "") in BUY_ALERT_TYPES else []
         if self.email_backend() == "faustus":
             to = [a.strip() for a in self._secret("SMTP_TO").split(",") if a.strip()]
             answer = nc.send_via_helper(self.helper.run, subject, text, html=html_body, to=to, hermes_kind=kind)
             if not answer.get("ok"):
                 self._faustus_status = None      # re-check the account on the next status
+            if also:
+                extra = nc.send_via_helper(self.helper.run, subject, text, html=html_body, to=also, hermes_kind=kind)
+                if answer.get("ok") and not extra.get("ok"):
+                    log.warning("buy alert not mailed to the extra address(es): %s", extra.get("error"))
             return self._error(answer)
         e = self._email_settings()
-        return self._error(nc.send_smtp(e, e["to"], subject, text, html=html_body, smtp_factory=self.smtp_factory, hermes_kind=kind))
+        answer = nc.send_smtp(e, e["to"], subject, text, html=html_body, smtp_factory=self.smtp_factory, hermes_kind=kind)
+        if also:
+            extra = nc.send_smtp(e, also, subject, text, html=html_body, smtp_factory=self.smtp_factory, hermes_kind=kind)
+            if not self._error(answer) and self._error(extra):
+                log.warning("buy alert not mailed to the extra address(es): %s", self._error(extra))
+        return self._error(answer)
+
+
+_ADDRESS = re.compile(r"^[^@\s,;<>]+@[^@\s,;<>]+\.[^@\s,;<>]+$")
+
+
+def parse_addresses(value: Any) -> list[str]:
+    """Mail addresses out of a comma / semicolon / line separated text, in order, without repeats; anything else is dropped."""
+    out: list[str] = []
+    for part in re.split(r"[,;\s]+", str(value or "")):
+        if part and _ADDRESS.match(part) and part.lower() not in [a.lower() for a in out]:
+            out.append(part)
+    return out[:5]
 
 
 def telegram_discover_chat_id(token: str, *, http: Any = None) -> dict[str, Any]:

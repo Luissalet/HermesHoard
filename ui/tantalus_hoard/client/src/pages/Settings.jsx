@@ -220,6 +220,9 @@ function EmailBackend({ info, settings, setSetting, busy }) {
         <Chip className={info.backend === "faustus" ? "chip-accent" : ""}>{t("email_backend_now")}: {info.backend === "faustus" ? "Faustus" : "SMTP"}</Chip>
       </div>
       {info.backend === "faustus" && <p className="help">{t("email_faustus_hint")}</p>}
+      <TextSetting label={t("email_buy_also")} value={settings["notify.email.buy_also"]} placeholder="nombre@ejemplo.com"
+        onSave={(v) => setSetting("notify.email.buy_also", v)} busy={busy["notify.email.buy_also"]} className="max-w-[520px]" />
+      <p className="help">{t("email_buy_also_hint")}</p>
       {mode !== "smtp" && (
         <details open={info.backend === "faustus" && !info.configured}>
           <summary className="font-semibold">{t("email_faustus_options")}</summary>
