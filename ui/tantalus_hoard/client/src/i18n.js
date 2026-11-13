@@ -586,6 +586,8 @@ const D = {
   email_backend_smtp: ["SMTP propio", "Own SMTP"],
   email_backend_now: ["Ahora", "Now"],
   email_faustus_hint: ["Usa la cuenta de correo configurada en Faustus. La contraseña se queda en Faustus: Tantalus no la ve. Sin destinatarios, el aviso llega a esa misma cuenta.", "Uses the email account configured in Faustus. The password stays in Faustus: Tantalus never sees it. Without recipients, alerts go to that same account."],
+  email_buy_also: ["Avisar también de las compras a", "Also mail buying alerts to"],
+  email_buy_also_hint: ["Reposiciones, reservas, ventas abiertas y cesta automática llegan también a estas direcciones, enviadas desde la misma cuenta. El resto de avisos no.", "Restocks, pre-orders, sales opening and the automatic basket also reach these addresses, sent from the same account. Other alerts do not."],
   email_faustus_options: ["Faustus", "Faustus"],
   email_faustus_dir: ["Carpeta de Faustus", "Faustus folder"],
   email_faustus_dir_auto: ["Se busca junto a esta app o en TANTALUS_FAUSTUS_DIR", "Looked up next to this app or in TANTALUS_FAUSTUS_DIR"],

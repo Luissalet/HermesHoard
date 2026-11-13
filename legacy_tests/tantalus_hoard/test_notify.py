@@ -480,3 +480,21 @@ def no_real_imap_for_smtp_stubs(monkeypatch):
     def unavailable(*args, **kwargs):
         raise OSError("No network in notification tests")
     monkeypatch.setattr(imaplib, "IMAP4_SSL", unavailable)
+
+
+def test_buying_alerts_also_reach_the_extra_addresses():
+    from tantalus_hoard.notify import parse_addresses
+    assert parse_addresses("a@x.com; b@y.com,\nA@x.com, nope, <c@z>") == ["a@x.com", "b@y.com"]
+    FakeSMTP.instances = []
+    n = make(Cfg(**EMAIL_SECRETS), {"notify__email__enabled": "1", "notify__email__buy_also": "home@example.com"}, smtp_factory=FakeSMTP)
+    assert n.send(EVENT, ["email"])[0]["ok"]                                   # a price drop is not a call to buy now
+    assert [m["To"] for s in FakeSMTP.instances for m in s.sent] == ["me@gmail.com"]
+    FakeSMTP.instances = []
+    restock = {**EVENT, "id": "e2", "type": "RESTOCK", "title": "Caja Premium"}
+    assert n.send(restock, ["email"])[0]["ok"]
+    sent = [m for s in FakeSMTP.instances for m in s.sent]
+    assert [m["To"] for m in sent] == ["me@gmail.com", "home@example.com"] and sent[1]["From"] == "me@gmail.com"
+    assert sent[0]["Subject"] == sent[1]["Subject"]
+    FakeSMTP.instances = []
+    assert n.send({**restock, "id": "e3", "type": "CART_READY"}, ["email"])[0]["ok"]
+    assert len([m for s in FakeSMTP.instances for m in s.sent]) == 2

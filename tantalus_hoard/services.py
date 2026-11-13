@@ -50,6 +50,7 @@ UI_SETTINGS = {
     "notify.email.backend": EMAIL_BACKENDS,
     "notify.email.faustus_dir": None,
     "notify.email.faustus_owner": None,
+    "notify.email.buy_also": None,
     **{f"notify.{c}.enabled": ("1", "0") for c in CHANNELS},
     **{f"notify.{c}.min_severity": ("low", "medium", "high") for c in CHANNELS},
     "mail.deals.enabled": ("1", "0"),
@@ -256,6 +257,12 @@ class Services:
                 if value.strip() and not pairs:
                     raise TantalusError("invalid", "mail.notices.domains takes sender=shop pairs.", "Example: news-shop.com=shop.es")
                 value = "\n".join(f"{a}={b}" for a, b in pairs.items())
+            if key == "notify.email.buy_also":
+                from .notify import parse_addresses
+                found = parse_addresses(value)
+                if value.strip() and not found:
+                    raise TantalusError("invalid", "notify.email.buy_also takes mail addresses.", "Example: someone@example.com")
+                value = ", ".join(found)
             if key == "mail.deals.domains":
                 from .mail.stores import clean_domains
                 value = ", ".join(clean_domains(value))
