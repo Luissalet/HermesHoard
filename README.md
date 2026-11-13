@@ -33,6 +33,7 @@ The native interfaces are under `/products/` and `/shipments/`. They share the H
 - Stock notices read from shop mail in the connected mailbox (read-only), matched to your watched products.
 - An offer's alert ends with the offer: when a shop sells out again the alert leaves News, History keeps it as sold out, and a short "sold out" follow-up goes out at most once.
 - **Basket**: a browser extension (`browser/cart-runner`) keeps a product page open, adds one unit when the buy button comes alive and walks the checkout up to the pay button, where it stops; it never pays. Supported shops are El Corte Ingles (product pages) and Carrefour (your lists).
+- **Buying alerts for someone else**: restocks, pre-orders, sales opening and basket stages can also be mailed to extra addresses (Settings → e-mail → "Also mail buying alerts to", `notify.email.buy_also`), from the same account and in a mail of their own; other alerts stay with the owner.
 - Second-hand search (Wallapop, Facebook Marketplace and others) with listing scoring, saved and gone states, and a free-books radar.
 - Information sentry: page diffs, feed watches and web searches that find new URLs.
 - Mail deals: wishlist matching, game-store and book-retailer offers, and a noise report for the mailbox.
