@@ -33,6 +33,7 @@ Las interfaces nativas están en `/products/` y `/shipments/`. Comparten el tema
 - Avisos de stock leídos del correo de las tiendas en el buzón conectado (solo lectura) y asociados a tus productos vigilados.
 - El aviso de una oferta termina con la oferta: cuando una tienda vuelve a agotar, el aviso sale de Novedades, el Historial lo conserva como agotado y se envía como mucho un breve seguimiento de «agotado».
 - **Cesta**: una extensión del navegador (`browser/cart-runner`) mantiene abierta una página de producto, añade una unidad cuando el botón de compra se activa y recorre el pago hasta el botón de pagar, donde se detiene; nunca paga. Tiendas admitidas: El Corte Inglés (páginas de producto) y Carrefour (tus listas).
+- **Avisos de compra para otra persona**: reposiciones, reservas, ventas abiertas y pasos de la cesta pueden llegar también a otras direcciones (Ajustes → correo → «Avisar también de las compras a», `notify.email.buy_also`), desde la misma cuenta y en un correo propio; el resto de avisos siguen siendo solo del dueño.
 - Búsqueda de segunda mano (Wallapop, Facebook Marketplace y otros) con puntuación de anuncios, estados de guardado y desaparecido, y un radar de libros gratuitos.
 - Centinela de información: diferencias de página, vigilancia de canales y búsquedas web que encuentran direcciones nuevas.
 - Ofertas del correo: coincidencia con tu lista de deseos, ofertas de tiendas de juegos y de libros, e informe de ruido del buzón.
