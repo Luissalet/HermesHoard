@@ -928,6 +928,11 @@ class RadarSetupArgs(BaseModel):
     alert_other_shops: Optional[bool] = Field(None, description="Small shops alert too, only at a sane price (cheapest chain price or MSRP × multiplier).")
     price_multiplier: Optional[float] = Field(None, ge=1, le=5)
     release_days_before: Optional[int] = Field(None, ge=0, le=30)
+    chains_at_shelf_price: Optional[bool] = Field(None, description="A chain alerts only near the usual shelf price: a marketplace "
+                                                  "seller inside the chain's site at a resale price only logs.")
+    chain_price_slack: Optional[float] = Field(None, ge=1, le=3, description="How far over the shelf price a chain may be. Default 1.15.")
+    min_price: Optional[float] = Field(None, ge=0, description="Offers cheaper than this only log (0 clears it), e.g. loose boosters.")
+    track_chain_products: Optional[bool] = Field(None, description="Chain products become product pages checked directly too.")
 
 
 def _release_view(r: dict[str, Any]) -> dict[str, Any]:
@@ -977,7 +982,8 @@ def run_radar_setup(svc: Services, a: RadarSetupArgs) -> dict[str, Any]:
         raise TantalusError("invalid", "The radar works on availability watchers.", "Pick a watcher with mode availability.")
     cfg = dict(w.get("config") or {})
     radar = dict(cfg.get("radar") or {})
-    for field in ("enabled", "sources", "chains", "languages", "alert_other_shops", "price_multiplier", "release_days_before"):
+    for field in ("enabled", "sources", "chains", "languages", "alert_other_shops", "price_multiplier", "release_days_before",
+                  "chains_at_shelf_price", "chain_price_slack", "min_price", "track_chain_products"):
         value = getattr(a, field)
         if value is not None:
             radar[field] = [str(x).strip().lower() if field == "chains" else str(x).strip().upper() if field == "languages" else x

@@ -51,7 +51,18 @@ DEFAULTS: dict[str, Any] = {
     "max_products": 24,                      # product pages followed per watcher
     "release_days_before": 3,
     "track_chain_products": True,            # chain products on readable sites become direct targets
+    "chains_at_shelf_price": False,          # a chain alerts only near the shelf price (its marketplace sellers resell too)
+    "chain_price_slack": 1.15,               # ... up to this much over the usual shelf price of the format
+    "min_price": None,                       # offers cheaper than this only log (loose boosters on a watcher of every product)
 }
+# The usual shelf price in Spain of the formats whose price hardly varies between sets (the dearest of the big chains).
+# Collection boxes, decks and displays vary too much: for those only another chain's price for the same product counts.
+SHELF_PRICE = {"etb": 69.99, "elite trainer box": 69.99, "booster bundle": 34.99, "mini tin": 16.99, "tin": 29.99, "lata": 29.99,
+               "blister": 19.99, "sobre": 6.99, "sobre / pack": 6.99}
+
+
+def shelf_price(fmt: str) -> Optional[float]:
+    return SHELF_PRICE.get(fold(fmt or "").strip())
 # Sealed TCG stock sells out in minutes: a cycle reads only the shop pages that changed signals (about eight requests, one
 # every POLITE_INTERVAL_S), so a short cycle stays light for the aggregator. ``radar.interval_min`` /
 # ``radar.release_interval_min`` override these.
@@ -243,6 +254,9 @@ class Radar:
                     complete_lists[f"url:{first}"] = {r.key for r in rows if r.state in BUYABLE}
 
         # ------------------------------------------------------------------ releases
+        for r in releases:
+            if r.date and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", r.date):
+                r.date = ""   # the calendar only gives the month ("2027-01"): no day to count down to yet
         matched_releases = [r for r in releases if self._release_matches(r, watcher)]
         window_lo, window_hi = today - timedelta(days=10), today + timedelta(days=120)
         matched_releases = [r for r in matched_releases if not r.date or window_lo <= date.fromisoformat(r.date) <= window_hi]
@@ -618,6 +632,17 @@ class Radar:
         if not lang_ok:
             status = "logged"
             reasons.append(f"edición {o.lang or '?'}")
+        floor = cfg.get("min_price")
+        if floor and o.price is not None and 0 < o.price < float(floor) and (o.currency or "EUR") == "EUR":
+            status = "logged"
+            reasons.append(f"por debajo de {money(float(floor))}")
+        if chain and cfg.get("chains_at_shelf_price") and o.price and (o.currency or "EUR") == "EUR":
+            # a chain's own stock sells at the shelf price; far above it is a marketplace seller inside the chain's site
+            usual, slack = shelf_price(o.fmt), float(cfg.get("chain_price_slack") or 1.15)
+            cap = max(usual * slack if usual else 0.0, ref * (slack if usual else mult) if ref else 0.0)
+            if cap and o.price > cap:
+                status = "logged"
+                reasons.append(f"precio de reventa en la cadena ({money(o.price)} > {money(cap)})")
         if not chain:
             if not cfg.get("alert_other_shops", True):
                 status = "logged"
@@ -649,6 +674,16 @@ class Radar:
             if twin is not None:
                 status = "logged"
                 reasons.append(f"ya avisado según {(twin.get('data') or {}).get('source')}")
+        if status == "confirmed" and o.url:
+            # a watcher of one set and a watcher of every product see the same offer: one alert is enough
+            other = next((a for a in self.store.live_alerts() if a.get("url") == o.url and a.get("watcher_id") != watcher["id"]), None)
+            if other is not None:
+                status = "logged"
+                try:
+                    name = self.store.watcher(other["watcher_id"])["name"]
+                except Exception:  # noqa: BLE001 - the other watcher was deleted
+                    name = "otro vigilante"
+                reasons.append(f"ya avisado por «{name}»")
         key = rules.dedupe_key(f"radar:{watcher['id']}:{o.key}", kind, o.state, o.price)
         cooldown = float(policies.get("cooldown_minutes") or 20) * 60
         if self.store.recent_event(key, now - max(cooldown, 3600)):
