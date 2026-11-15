@@ -48,7 +48,7 @@ class WatcherCreateArgs(BaseModel):
         "min_drop_pct:5, price_threshold, msrp, scalper_multiplier}, discovery:{queries:[...], retailers:[...], terms:[...]}, channels:[...]}. "
         "secondhand: {pack: books_bulk|generic|collectibles_sealed, sources:[wallapop, facebook], queries:[...], settings:{origin_location, "
         "radius_km, price_ceiling, msrp, include_any, include_all, exclude}}. information: {sources:[{kind: page|feed|search, value, label}], "
-        "info:{must_terms, boost_terms, exclude_terms, official_domains, freshness_days}}."))
+        "info:{must_terms (any of), all_terms (each of), boost_terms, exclude_terms, official_domains, freshness_days}}."))
     interval_min: int = Field(30, ge=5, le=7 * 24 * 60, description="Check cadence. Hot restock 5-15, normal retail 15-30, stable 60, news 60-240.")
     discovery_interval_h: int = Field(24, ge=0, le=24 * 30)
     enabled: bool = True

@@ -93,6 +93,7 @@ def judge_rules(findings: list[InfoFinding], watcher: dict[str, Any]) -> list[In
     """Score every finding with explainable rules and set ``verdict`` / ``material`` / ``score`` / ``reason``."""
     info = _info_cfg(watcher)
     must, boost, exclude = _terms(info.get("must_terms")), _terms(info.get("boost_terms")), _terms(info.get("exclude_terms"))
+    every = _terms(info.get("all_terms"))      # each of these must be there ("costco" and "pokemon"); must_terms is any of
     official = [d.lower().lstrip(".") for d in _terms(info.get("official_domains"))]
     try:
         threshold = float(info.get("material_threshold", 40))
@@ -125,6 +126,10 @@ def judge_rules(findings: list[InfoFinding], watcher: dict[str, Any]) -> list[In
         hit_must = [t for t in must if _has(t, folded)]
         if must and not hit_must:
             f.verdict, f.material, f.score, f.reason = "irrelevant", False, min(10.0, score), "none of the must terms"
+            continue
+        missing = [t for t in every if not _has(t, folded)]
+        if missing:
+            f.verdict, f.material, f.score, f.reason = "irrelevant", False, min(10.0, score), "lacks: " + ", ".join(missing[:3])
             continue
         if must:
             score += 25

@@ -236,6 +236,14 @@ def test_two_independent_domains_confirm():
     assert all(f.verdict == "unknown" for f in same_domain)  # subdomains of one site are not independent
 
 
+def test_all_terms_must_each_be_there():
+    w = {"config": {"info": {"all_terms": ["costco", "pokemon"], "boost_terms": ["cartas"]}}}
+    both, one = judge_rules([fnd("https://a.es/1", "Costco España recibe cajas de cartas Pokémon por 49,99 €"),
+                             fnd("https://b.es/2", "Costco abre un almacén nuevo en España")], w)
+    assert both.verdict != "irrelevant"
+    assert one.verdict == "irrelevant" and not one.material and one.reason == "lacks: pokemon"
+
+
 def test_must_and_exclude_terms():
     off, ex = judge_rules([fnd("https://www.nvidia.com/x", "Nuevo portátil GeForce a 999 €"),
                            fnd("https://x.es/y", "Sorteo de un RTX Spark por 3.999 €")], WATCHER)
