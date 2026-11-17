@@ -94,9 +94,9 @@ class Services:
         self.engine = Engine(self.store, self.fetcher, llm=self.llm, notifier=self.notifier, websearch=self.websearch,
                              info_sentry=self.info, settings_get=self.db.get_setting, emit=self._emit, clock=clock_fn, budget=self.budget)
         # Faustus takes its own look at open-window targets (its browser extension and its model); off on a test transport
-        from .faustus_eye import DEFAULT_URL, FaustusEye
+        from .faustus_eye import FaustusEye, faustus_origin
         self.engine.faustus_eye = None if http_transport is not None else FaustusEye(
-            self.store, url=lambda: self.db.get_setting("faustus_eye.url", "") or DEFAULT_URL, clock=clock_fn,
+            self.store, url=lambda: self.db.get_setting("faustus_eye.url", "") or faustus_origin(), clock=clock_fn,
             enabled=lambda: self.db.get_setting("faustus_eye.enabled", "1") == "1" and not config.offline)
         self.mail = MailDeals(self.store, self.engine, MailRepo(self.db, clock_fn),
                               MailSource(self.notifier, self.db.get_setting, settings_set=self.db.set_setting, clock=clock_fn),

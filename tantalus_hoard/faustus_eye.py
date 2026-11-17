@@ -33,6 +33,14 @@ from .model import BUYABLE, UNKNOWN, Extraction, Offer
 log = logging.getLogger("tantalus.faustus_eye")
 
 DEFAULT_URL = "http://127.0.0.1:7000"
+
+
+def faustus_origin() -> str:
+    """Where Faustus answers now: this PC, or the Spark when the Hub's "Run on" moved it there (``hoard_link.where``)."""
+    from .hoard_link import where
+    return where.reachable(where.faustus_urls([DEFAULT_URL])) or DEFAULT_URL
+
+
 TURN_TIMEOUT_S = 420.0
 FRESH_S = 15 * 60               # a verdict older than this is not merged
 TURNS_PER_CONVERSATION = 6      # a new Faustus conversation after this many looks, so its context stays small
