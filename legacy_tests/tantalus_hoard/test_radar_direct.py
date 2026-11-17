@@ -65,7 +65,7 @@ def test_parsers():
         amz_card("B0H29TRBMW", "Pokémon: Lata Megaluz Lunar: Mega-Gengar ex", "24,99 €", "Disponible por invitación Ver opciones"),
         amz_card("B0FTBD97SZ", "Pokémon: Colección Houndstone ex", "25,00 €", "Añadir a la cesta"),
         amz_card("B0AAAAAAAA", "Pokémon: Caja patrocinada", "99,00 €", "Añadir a la cesta", sponsored=True),
-        amz_card("B0BBBBBBBB", "Pokémon: Algo agotado", "", "Actualmente no disponible")]) + "</html>"
+        amz_card("B0BBBBBBBB", "Pokémon: Lata agotada de JCC", "", "Actualmente no disponible")]) + "</html>"
     amz = dr.parse(AMZ, html, AMZ["url"])
     by = {x.extra["sku"]: x for x in amz.offers}
     assert set(by) == {"B0H29TRBMW", "B0FTBD97SZ", "B0BBBBBBBB"}
