@@ -122,11 +122,22 @@ def parse_eci(html: str, page_url: str, spec: dict[str, Any]) -> Listing:
     if not state:
         return Listing()
     products = _datalayer_products(state)
-    uris = {}
-    for holder in (state, *(b for b in (state.get("blocks") or []) if isinstance(b, dict))):
-        for p in holder.get("products") or []:
-            if isinstance(p, dict) and p.get("id") and p.get("_uri"):
-                uris[str(p["id"])] = str(p["_uri"])
+    uris: dict[str, str] = {}
+
+    def collect(node: Any, depth: int = 0) -> None:          # the product links sit at different depths per page type
+        if depth > 14:
+            return
+        if isinstance(node, dict):
+            if node.get("_uri") and node.get("id") and str(node["id"]) not in uris:
+                uris[str(node["id"])] = str(node["_uri"])
+            for value in node.values():
+                if isinstance(value, (dict, list)):
+                    collect(value, depth + 1)
+        elif isinstance(node, list):
+            for value in node:
+                collect(value, depth + 1)
+
+    collect(state)
     out = Listing(full=len(products) >= 12)
     for item in products:
         code, name = str(item.get("code_a") or "").strip(), str(item.get("name") or "").strip()

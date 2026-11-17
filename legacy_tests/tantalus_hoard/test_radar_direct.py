@@ -107,3 +107,24 @@ def test_direct_listing_restock_sold_out_and_invitation(radar_svc):
                      "Disponible por invitación") + "</html>")
     invite = [e for e in events(svc, "PREORDER_OPEN") if "Ultra Premium" in e["title"]]
     assert len(invite) == 1 and invite[0]["status"] == "confirmed" and "venta por invitación" in invite[0]["summary"]
+
+
+def test_every_watcher_gets_the_listing_and_a_new_watcher_starts_quiet(radar_svc):
+    svc = radar_svc
+    etb = ("A1", "Pokémon 30 Aniversario Caja de Entrenador Élite", 69.99, "ADD")
+    tin = ("A2", "Pokémon 30 Aniversario Mini Lata Mew", 16.99, "ADD")
+    setup(svc, eci_page(etb), "<html></html>")
+    svc.radar.run()
+    again(svc, eci_page(etb))
+    # a second watcher arrives later: the page is old for the radar, new for it
+    other = svc.store.create_watcher(name="Otro", mode="availability", interval_min=20, config={
+        "product": {"terms": ["pokemon"], "must": ["pokemon"]}, "radar_baseline_done": True,
+        "radar": {"enabled": True, "chains": ["el-corte-ingles"], "sources": ["direct"]}})
+    again(svc, eci_page(etb))
+    rows = svc.db.query("SELECT watcher_id FROM radar_offers WHERE url LIKE '%A1-%'")
+    assert {r["watcher_id"] for r in rows} == {svc.watcher["id"], other["id"]}       # both read it in one cycle
+    assert [e for e in events(svc, "RESTOCK") if e["watcher_id"] == other["id"]] == []   # what was there is no news
+    again(svc, eci_page(etb, tin))
+    mine = [e for e in events(svc, "RESTOCK") if "Mini Lata" in e["title"]]
+    assert {e["watcher_id"] for e in mine} == {svc.watcher["id"], other["id"]}
+    assert sum(1 for e in mine if e["status"] == "confirmed") == 1                     # one alert for the two watchers

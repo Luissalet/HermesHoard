@@ -237,7 +237,7 @@ class Radar:
             for slug in [*chains, *(c for c in mf.EXTRA_CHAINS if c not in chains)]:
                 theirs = mf.CHAINS.get(slug)
                 first = mf.store_url(theirs) if theirs else ""
-                if not theirs or not self._page_due(first, mf.REFRESH_MIN, now, cache):
+                if not theirs or not (first in cache or self._page_due(first, mf.REFRESH_MIN, now, cache)):
                     continue
                 rows: list[st.RadarOffer] = []
                 complete = False
@@ -259,7 +259,8 @@ class Radar:
             # the chains' own listings: every product a chain puts up, without waiting for an aggregator to add it
             for spec in dr.pages_for(cfg):
                 urls = dr.page_urls(spec)
-                if not self._page_due(urls[0], float(spec.get("refresh_min") or 5), now, cache):
+                # read once per cycle; every watcher gets the rows (a page already read this cycle comes from the cache)
+                if not (urls[0] in cache or self._page_due(urls[0], float(spec.get("refresh_min") or 5), now, cache)):
                     continue
                 rows, complete = [], False
                 for n, url in enumerate(urls):
@@ -318,6 +319,20 @@ class Radar:
             offers += self._tag(url, rows, cache)
             stats["products"] += 1
             complete_lists[f"p:{key}"] = {r.key for r in rows if r.state in BUYABLE}
+
+        # ------------------------------------------------------------------ a page this watcher never read before is its baseline
+        # (a page can be old for the radar and new for a watcher: one added later, or a source a watcher did not read yet)
+        known_pages: dict[str, bool] = {}
+        for o in offers:
+            page = (o.extra or {}).get("_page", "")
+            if not page or (o.extra or {}).get("quiet"):
+                continue
+            if page not in known_pages:
+                known_pages[page] = baseline or self.db.one(
+                    "SELECT 1 FROM radar_offers WHERE watcher_id = ? AND extra LIKE ? LIMIT 1",
+                    (watcher["id"], "%" + json.dumps(page)[1:-1] + "%")) is not None
+            if not known_pages[page]:
+                o.extra = {**o.extra, "quiet": True}
 
         # ------------------------------------------------------------------ offers -> rows -> events
         terms, must, exclude = self.engine._match_config(watcher)
