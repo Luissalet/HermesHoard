@@ -265,8 +265,9 @@ class Fetcher(_CommonsFetcher):
         profile.mkdir(parents=True, exist_ok=True)
         args = [exe, f"--user-data-dir={profile}", "--no-first-run", "--no-default-browser-check", "--new-window", url]
         args.insert(2, "--password-store=basic")       # the same cookie key the automated browser uses on Linux
-        if hasattr(os, "geteuid") and os.geteuid() == 0:
-            args.insert(2, "--no-sandbox")
+        # Ubuntu 23.10+ forbids the unprivileged user namespaces Chromium's sandbox needs (it aborts with "No usable
+        # sandbox"); the automated reads run without it too
+        args.insert(2, "--no-sandbox")
         with self._lane_or_raise(url, "a person signs in in a window", LANE_TTL_S, wait_s=LANE_HUMAN_WAIT_S):
             if not rung._gate.acquire(timeout=60):
                 raise TantalusError("busy", "the browser profile is busy", "Try again in a minute.")

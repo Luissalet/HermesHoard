@@ -228,5 +228,5 @@ def test_plain_window_opens_the_profile_without_automation(svc, monkeypatch, tmp
     args = seen["args"]
     assert out["plain"] and out["closed_by_user"] and args[0].endswith("/chrome")
     assert f"--user-data-dir={Rung.profile_dir}" in args and "--password-store=basic" in args and args[-1] == "https://x.com/i/flow/login"
-    assert not any("automation" in a or "remote-debugging" in a for a in args)
+    assert not any("automation" in a or "remote-debugging" in a for a in args) and "--no-sandbox" in args
     assert Rung._worker.calls == 1 and not Rung._gate.locked()
