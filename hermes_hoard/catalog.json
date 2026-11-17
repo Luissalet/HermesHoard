@@ -3066,7 +3066,8 @@
                 "enum": [
                   "stocktcg.net",
                   "stocktcg.es",
-                  "lamafiadelsobre.com"
+                  "lamafiadelsobre.com",
+                  "direct"
                 ],
                 "type": "string"
               },
@@ -3077,7 +3078,26 @@
             }
           ],
           "default": null,
+          "description": "direct = the chains' own listings read directly (El Corte Inglés brand page, Amazon sold by Amazon).",
           "title": "Sources"
+        },
+        "direct_pages": {
+          "anyOf": [
+            {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "maxItems": 12,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Chain listings read directly: [{store, slug, url, next ('{url}{n}/' or '{url}&page={n}'), pages, refresh_min, parser: eci|amazon}]. Empty list = the Pokémon defaults.",
+          "title": "Direct Pages"
         },
         "chains": {
           "anyOf": [

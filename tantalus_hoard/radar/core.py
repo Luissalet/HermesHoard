@@ -36,6 +36,7 @@ from ..model import (BUYABLE, IN_STOCK, MODE_AVAILABILITY, OUT_OF_STOCK, PREORDE
                      UNKNOWN, Offer)
 from ..store import host_of
 from .. import rules
+from . import direct as dr
 from . import mafia as mf
 from . import stocktcg as st
 
@@ -43,7 +44,8 @@ log = logging.getLogger("tantalus.radar")
 
 DEFAULTS: dict[str, Any] = {
     "enabled": False,
-    "sources": [st.SOURCE_NET, st.SOURCE_ES, mf.SOURCE],
+    "sources": [st.SOURCE_NET, st.SOURCE_ES, mf.SOURCE, dr.SOURCE],
+    "direct_pages": None,                    # the chains' own listings read directly (None = radar/direct.DEFAULT_PAGES)
     "chains": list(st.CHAIN_SLUGS),          # shop slugs whose stock always alerts
     "languages": ["ES", "EN"],               # edition languages that may alert ("" = unknown is accepted for chains)
     "alert_other_shops": True,               # small shops alert too, at a sane price
@@ -253,6 +255,29 @@ class Radar:
                 if complete:
                     complete_lists[f"url:{first}"] = {r.key for r in rows if r.state in BUYABLE}
 
+        if dr.SOURCE in sources:
+            # the chains' own listings: every product a chain puts up, without waiting for an aggregator to add it
+            for spec in dr.pages_for(cfg):
+                urls = dr.page_urls(spec)
+                if not self._page_due(urls[0], float(spec.get("refresh_min") or 5), now, cache):
+                    continue
+                rows, complete = [], False
+                for n, url in enumerate(urls):
+                    html = self._html(url, cache, tier="auto", min_interval_s=float(spec.get("min_interval_s") or 8))
+                    if html is None:
+                        break
+                    listing = dr.parse(spec, html, url)
+                    if not listing.offers and n == 0:
+                        cache.setdefault("_errors", {})[url] = "no products read on the page"
+                        break
+                    rows += listing.offers
+                    if not listing.full:
+                        complete = True                # the last page of the listing was reached
+                        break
+                offers += self._tag(urls[0], rows, cache)
+                if complete and rows:
+                    complete_lists[f"url:{urls[0]}"] = {r.key for r in rows if r.state in BUYABLE}
+
         # ------------------------------------------------------------------ releases
         for r in releases:
             if r.date and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", r.date):
@@ -356,11 +381,11 @@ class Radar:
             r.extra = {**(r.extra or {}), "_page": url, **({"quiet": True} if new else {})}
         return rows
 
-    def _html(self, url: str, cache: dict[str, Any]) -> Optional[str]:
+    def _html(self, url: str, cache: dict[str, Any], *, tier: str = "http", min_interval_s: float = POLITE_INTERVAL_S) -> Optional[str]:
         if url in cache:
             return cache[url]
         self._first_time(url, cache)
-        fr = self.fetcher.get(url, tier="http", min_interval_s=POLITE_INTERVAL_S)
+        fr = self.fetcher.get(url, tier=tier, min_interval_s=min_interval_s)
         cache["_fetched"] = cache.get("_fetched", 0) + 1
         ok = bool(fr.ok and fr.text and not fr.blocked)
         cache[url] = fr.text if ok else None
@@ -660,7 +685,10 @@ class Radar:
                 status = "logged"
                 reasons.append(f"precio de reventa ({money(o.price)} > {money(ref)} × {mult:g})")
         direct = None
-        if chain and status == "confirmed" and o.url and host_of(o.url) in READABLE_CHAIN_HOSTS:
+        first_hand = bool((o.extra or {}).get("first_hand"))
+        if first_hand and chain and status == "confirmed":
+            confidence = 95                            # the chain's own listing says it: nothing to check against
+        if chain and status == "confirmed" and o.url and host_of(o.url) in READABLE_CHAIN_HOSTS and not first_hand:
             direct = self._direct_check(o.url, watcher)
             if direct in BUYABLE:
                 confidence = 95
@@ -695,7 +723,7 @@ class Radar:
         summary = f"{o.store}: {verb} — {o.title}" + (f" ({what})" if what else "") + (f" · {money(o.price, o.currency)}" if o.price else "")
         if ref and not chain and o.price:
             summary += f" · en cadena {money(ref)}"
-        summary += f" · según {o.source}"
+        summary += f" · según {'su propia web' if first_hand else o.source}"
         if direct in BUYABLE:
             summary += " · comprobado en la web de la tienda"
         if reasons:
@@ -705,7 +733,7 @@ class Radar:
             "new_state": o.state, "price": o.price, "currency": o.currency or "EUR", "confidence": confidence, "dedupe_key": key,
             "url": o.url or (f"{st.NET}/p/{o.product_key}" if o.product_key else st.NET), "title": f"{o.store} · {o.title}"[:200],
             "summary": summary[:600], "detected_at": now,
-            "data": {"retailer": o.store, "store_slug": o.store_slug, "chain": chain, "source": o.source, "aggregator": True,
+            "data": {"retailer": o.store, "store_slug": o.store_slug, "chain": chain, "source": o.source, "aggregator": not first_hand,
                      "product_key": o.product_key, "lang": o.lang, "fmt": o.fmt, "reference_price": ref, "direct_check": direct,
                      "not_alerted_because": reasons, "image": o.image,
                      "aggregator_url": f"{st.NET}/p/{o.product_key}" if o.product_key else ""}})

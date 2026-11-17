@@ -936,7 +936,11 @@ class RadarOffersArgs(BaseModel):
 class RadarSetupArgs(BaseModel):
     watcher_id: str = Field(..., max_length=40)
     enabled: Optional[bool] = None
-    sources: Optional[list[Literal["stocktcg.net", "stocktcg.es", "lamafiadelsobre.com"]]] = None
+    sources: Optional[list[Literal["stocktcg.net", "stocktcg.es", "lamafiadelsobre.com", "direct"]]] = Field(
+        None, description="direct = the chains' own listings read directly (El Corte Inglés brand page, Amazon sold by Amazon).")
+    direct_pages: Optional[list[dict[str, Any]]] = Field(None, max_length=12, description=(
+        "Chain listings read directly: [{store, slug, url, next ('{url}{n}/' or '{url}&page={n}'), pages, refresh_min, parser: eci|amazon}]. "
+        "Empty list = the Pokémon defaults."))
     chains: Optional[list[str]] = Field(None, max_length=20, description="Shop slugs that always alert (game, carrefour, el-corte-ingles, "
                                                                            "alcampo, amazon, toys-r-us, toy-planet, fnac, hipercor, drim...).")
     languages: Optional[list[str]] = Field(None, max_length=10, description="Edition languages that may alert, e.g. [ES, EN]. Empty = any.")
@@ -998,9 +1002,12 @@ def run_radar_setup(svc: Services, a: RadarSetupArgs) -> dict[str, Any]:
     cfg = dict(w.get("config") or {})
     radar = dict(cfg.get("radar") or {})
     for field in ("enabled", "sources", "chains", "languages", "alert_other_shops", "price_multiplier", "release_days_before",
-                  "chains_at_shelf_price", "chain_price_slack", "min_price", "track_chain_products"):
+                  "chains_at_shelf_price", "chain_price_slack", "min_price", "track_chain_products", "direct_pages"):
         value = getattr(a, field)
         if value is not None:
+            if field == "direct_pages":
+                radar[field] = value or None
+                continue
             radar[field] = [str(x).strip().lower() if field == "chains" else str(x).strip().upper() if field == "languages" else x
                             for x in value] if isinstance(value, list) else value
     cfg["radar"] = radar
