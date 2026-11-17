@@ -120,7 +120,7 @@
         },
         "config": {
           "additionalProperties": true,
-          "description": "availability: {product:{terms:[...], must:[...], exclude:[...]}, region, stores:[...], policies:{seller: retail_only|retail_plus_marketplace|any_below, alert_on:[RESTOCK,...], require_confidence:75, revalidate_seconds:60, cooldown_minutes:20, min_drop_pct:5, price_threshold, msrp, scalper_multiplier}, discovery:{queries:[...], retailers:[...], terms:[...]}, channels:[...]}. secondhand: {pack: books_bulk|generic|collectibles_sealed, sources:[wallapop, facebook], queries:[...], settings:{origin_location, radius_km, price_ceiling, msrp, include_any, include_all, exclude}}. information: {sources:[{kind: page|feed|search, value, label}], info:{must_terms, boost_terms, exclude_terms, official_domains, freshness_days}}.",
+          "description": "availability: {product:{terms:[...], must:[...], exclude:[...]}, region, stores:[...], policies:{seller: retail_only|retail_plus_marketplace|any_below, alert_on:[RESTOCK,...], require_confidence:75, revalidate_seconds:60, cooldown_minutes:20, min_drop_pct:5, price_threshold, msrp, scalper_multiplier}, discovery:{queries:[...], retailers:[...], terms:[...]}, channels:[...]}. secondhand: {pack: books_bulk|generic|collectibles_sealed, sources:[wallapop, facebook], queries:[...], settings:{origin_location, radius_km, price_ceiling, msrp, include_any, include_all, exclude}}. information: {sources:[{kind: page|feed|search|x, value, label}] (x: @account or https://x.com/i/lists/<id>, read every x.interval_s seconds with the saved X session), info:{must_terms (any of), all_terms (each of), boost_terms, exclude_terms, official_domains, freshness_days, x_tipsters (posts with a shop link or stock words alert without the term filters), x_max_age_min}}.",
           "title": "Config",
           "type": "object"
         },
@@ -2981,6 +2981,57 @@
     "module": "products"
   },
   {
+    "name": "x_status",
+    "description": "X accounts and lists Hermes reads for stock tips, and whether the X session works. Estado de X.\nPer source: watcher, @account or list, last read, last error; the session state (ok / login / unknown), cadence (x.interval_s) and the last run's counts. Sinónimos: chivatazos de stock, cuentas de X, Twitter, avisos de gente.",
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false
+    },
+    "inputSchema": {
+      "description": "A tool without arguments.",
+      "properties": {},
+      "title": "Empty",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "x_login",
+    "description": "Open a window of Hermes's browser on X's login page so the person logs in once (on a Spark: on its remote desktop). Conectar X.\nReturns when the window is closed and reads the X sources once to confirm the session. The password is typed by the person in the window and never stored by Hermes. Sinónimos: iniciar sesión en X, conectar Twitter.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": true
+    },
+    "inputSchema": {
+      "description": "A tool without arguments.",
+      "properties": {},
+      "title": "Empty",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
+    "name": "x_read",
+    "description": "Read every X account and list of the information watchers now and alert on fresh stock tips. Leer X ahora.\nTips (a shop link plus stock words, a price or a shop name) from tipster sources alert at once; the first read of a source is a quiet baseline. Sinónimos: mirar Twitter ahora, chivatazos, stock en X.",
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": true
+    },
+    "inputSchema": {
+      "description": "A tool without arguments.",
+      "properties": {},
+      "title": "Empty",
+      "type": "object"
+    },
+    "module": "products"
+  },
+  {
     "name": "radar_setup",
     "description": "Turn the aggregator radar on or off for a watcher and choose chains, languages, sources. Configurar radar.\nSinónimos: activar radar, avisar de Carrefour, cadenas, idiomas de edición.",
     "annotations": {
@@ -3102,6 +3153,61 @@
           ],
           "default": null,
           "title": "Release Days Before"
+        },
+        "chains_at_shelf_price": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A chain alerts only near the usual shelf price: a marketplace seller inside the chain's site at a resale price only logs.",
+          "title": "Chains At Shelf Price"
+        },
+        "chain_price_slack": {
+          "anyOf": [
+            {
+              "maximum": 3,
+              "minimum": 1,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How far over the shelf price a chain may be. Default 1.15.",
+          "title": "Chain Price Slack"
+        },
+        "min_price": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Offers cheaper than this only log (0 clears it), e.g. loose boosters.",
+          "title": "Min Price"
+        },
+        "track_chain_products": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Chain products become product pages checked directly too.",
+          "title": "Track Chain Products"
         }
       },
       "required": [

@@ -59,7 +59,7 @@ export function emptyForm(mode = "availability") {
     disc_queries: "", disc_retailers: "", targets: "",
     radar_enabled: false, radar_chains: "game, carrefour, el-corte-ingles, alcampo, amazon, toys-r-us, toy-planet", radar_languages: "ES, EN", radar_other_shops: true,
     pack: "generic", sh_sources: ["wallapop"], sh_queries: "", sh: {},
-    info_sources: [{ kind: "page", value: "", label: "" }], must_terms: "", boost_terms: "", exclude_terms: "", official_domains: "", freshness_days: "",
+    info_sources: [{ kind: "page", value: "", label: "" }], must_terms: "", boost_terms: "", exclude_terms: "", official_domains: "", freshness_days: "", x_tipsters: false,
   };
 }
 
@@ -103,7 +103,7 @@ export function formFromWatcher(w, packs) {
     const i = c.info || {};
     Object.assign(f, {
       must_terms: joinList(i.must_terms), boost_terms: joinList(i.boost_terms), exclude_terms: joinList(i.exclude_terms),
-      official_domains: joinList(i.official_domains), freshness_days: str(i.freshness_days),
+      official_domains: joinList(i.official_domains), freshness_days: str(i.freshness_days), x_tipsters: !!i.x_tipsters,
     });
   }
   return f;
@@ -175,6 +175,7 @@ export function buildConfig(form, base, packs) {
     put(info, "exclude_terms", splitList(form.exclude_terms));
     put(info, "official_domains", splitList(form.official_domains));
     put(info, "freshness_days", parseNum(form.freshness_days));
+    if (form.x_tipsters) info.x_tipsters = true; else delete info.x_tipsters;
     put(cfg, "info", info);
   }
   return cfg;
@@ -451,9 +452,9 @@ export default function WatcherForm({ watcher, draft, onSaved, onCancel }) {
               {form.info_sources.map((s, i) => (
                 <div key={i} className="grid gap-2 md:grid-cols-[120px_minmax(0,2fr)_minmax(0,1fr)_auto]">
                   <select className="field" aria-label={t("kind")} value={s.kind} onChange={(e) => setInfoSource(i, { kind: e.target.value })}>
-                    {["page", "feed", "search"].map((k) => <option key={k} value={k}>{t(`kind_${k}`)}</option>)}
+                    {["page", "feed", "search", "x"].map((k) => <option key={k} value={k}>{t(`kind_${k}`)}</option>)}
                   </select>
-                  <input className="field" aria-label={t("value")} value={s.value} onChange={(e) => setInfoSource(i, { value: e.target.value })} placeholder={s.kind === "search" ? '"RTX Spark" 128GB Europe' : "https://…"} />
+                  <input className="field" aria-label={t("value")} value={s.value} onChange={(e) => setInfoSource(i, { value: e.target.value })} placeholder={s.kind === "search" ? '"RTX Spark" 128GB Europe' : s.kind === "x" ? t("x_source_placeholder") : "https://…"} />
                   <input className="field" aria-label={t("label")} value={s.label} onChange={(e) => setInfoSource(i, { label: e.target.value })} placeholder={t("label")} />
                   <button type="button" className="btn btn-sm" onClick={() => setForm((f) => ({ ...f, info_sources: f.info_sources.filter((_, n) => n !== i) }))} aria-label={t("remove")}>{t("remove")}</button>
                 </div>
@@ -461,6 +462,12 @@ export default function WatcherForm({ watcher, draft, onSaved, onCancel }) {
               <button type="button" className="btn btn-sm" onClick={() => setForm((f) => ({ ...f, info_sources: [...f.info_sources, { kind: "page", value: "", label: "" }] }))}>
                 <Icon d="M12 5v14M5 12h14" size={13} />{t("add_source")}
               </button>
+              {form.info_sources.some((s) => s.kind === "x") && (
+                <div className="space-y-1 pt-1">
+                  <Check checked={form.x_tipsters} onChange={(on) => setForm((f) => ({ ...f, x_tipsters: on }))}>{t("x_tipsters")}</Check>
+                  <p className="help mb-0">{t("x_sources_hint")}</p>
+                </div>
+              )}
             </div>
           </Block>
           <Block title={t("form_info_terms")}>

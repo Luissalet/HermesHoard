@@ -478,7 +478,7 @@ class Store:
 
     def sync_info_sources(self, watcher_id: str, sources: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Make info_sources match the watcher config (kind+value), keeping the state of those that stay."""
-        wanted = {(s.get("kind"), str(s.get("value") or "").strip()): s for s in sources if s.get("kind") in ("page", "feed", "search")
+        wanted = {(s.get("kind"), str(s.get("value") or "").strip()): s for s in sources if s.get("kind") in ("page", "feed", "search", "x")
                   and str(s.get("value") or "").strip()}
         existing = {(r["kind"], r["value"]): r for r in self.info_sources(watcher_id)}
         with self.db.transaction() as conn:

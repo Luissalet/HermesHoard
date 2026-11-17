@@ -13,6 +13,7 @@ import hashlib
 import logging
 import re
 import time
+from datetime import datetime, timezone
 from typing import Any, Callable, Optional
 
 from .discovery import classify_host, fold, watcher_config
@@ -21,6 +22,7 @@ from .hoard_link.web.feeds import parse_feed
 from .hoard_link.web.urls import registrable_domain
 from .model import InfoFinding
 from .search import WebSearch, host_of, url_key
+from . import xfeed
 
 log = logging.getLogger("tantalus.info")
 
@@ -113,6 +115,7 @@ def judge_rules(findings: list[InfoFinding], watcher: dict[str, Any]) -> list[In
         prepared.append({"f": f, "text": text, "folded": folded, "domain": registrable_domain(host) or host, "official": is_official,
                          "facts": _facts(text)})
 
+    tipsters = bool(info.get("x_tipsters"))
     for p in prepared:
         f: InfoFinding = p["f"]
         text, folded = p["text"], p["folded"]
@@ -120,6 +123,14 @@ def judge_rules(findings: list[InfoFinding], watcher: dict[str, Any]) -> list[In
         f.method = "rules"
         if any(_has(t, folded) for t in exclude):
             f.verdict, f.material, f.score, f.reason = "irrelevant", False, 0.0, "matches an exclude term"
+            continue
+        if f.kind == "x_post" and tipsters:
+            # a stock hunter's post: the shop link and the stock words decide, not the watcher's news terms
+            sig = getattr(f, "x_signal", None) or {"tip": False, "score": 10.0, "reasons": []}
+            f.score = float(sig["score"])
+            f.verdict = "confirmed" if sig["tip"] else "unknown"
+            f.material = bool(sig["tip"])
+            f.reason = ("tip; " if sig["tip"] else "not a tip; ") + ("; ".join(sig["reasons"]) or "no signal")
             continue
         score = 5.0 if f.kind == "page_change" else 0.0
         substantive = False
@@ -226,11 +237,13 @@ def judge(findings: list[InfoFinding], watcher: dict[str, Any], llm: Any = None)
 
 # ----------------------------------------------------------------------------- the sentry
 class InfoSentry:
-    def __init__(self, fetcher: Any, search: Optional[WebSearch] = None, llm: Any = None, *, clock: Callable[[], float] = time.time):
+    def __init__(self, fetcher: Any, search: Optional[WebSearch] = None, llm: Any = None, *, clock: Callable[[], float] = time.time,
+                 x_reader: Optional[Callable[[str, str], dict[str, Any]]] = None):
         self.fetcher = fetcher
         self.search = search
         self.llm = llm
         self.clock = clock
+        self.x_reader = x_reader          # (url, match) -> {data, error, logged_in}; see Fetcher.read_x_timeline
 
     def judge(self, findings: list[InfoFinding], watcher: dict[str, Any]) -> list[InfoFinding]:
         return judge(findings, watcher, self.llm)
@@ -245,6 +258,8 @@ class InfoSentry:
                 findings = self._feed(source_row, update)
             elif kind == "search":
                 findings = self._search(source_row, watcher, update)
+            elif kind == "x":
+                findings = self._x(source_row, watcher, update)
             else:
                 findings, update["last_error"] = [], f"unknown source kind: {kind or '?'}"
         except Exception as exc:  # noqa: BLE001 — a source must never raise out of the scheduler
@@ -305,6 +320,64 @@ class InfoSentry:
             out.append(InfoFinding(url=url, title=it.get("title") or url, snippet=_clip(it.get("summary") or "", 400), kind="feed_item",
                                    published=it.get("published") or it.get("updated") or None, content_hash=_sha(f"{row.get('value', '')}\n{it['key']}")[:32],
                                    source_level=level))
+        return out
+
+    # -- X (accounts and lists)
+    def _x(self, row: dict[str, Any], watcher: dict[str, Any], update: dict[str, Any]) -> list[InfoFinding]:
+        value = str(row.get("value", ""))
+        kind, _ident = xfeed.parse_source(value)
+        if not kind:
+            update["last_error"] = "not an X account or list (use @cuenta or https://x.com/i/lists/<id>)"
+            return []
+        if self.x_reader is None:
+            update["last_error"] = "X cannot be read here (no browser)"
+            return []
+        res = self.x_reader(xfeed.source_url(value), xfeed.MATCH[kind]) or {}
+        posts: list[dict[str, Any]] = []
+        for data in res.get("data") or []:
+            posts += [p for p in xfeed.parse_timeline(data) if p["id"] not in {q["id"] for q in posts}]
+        if not posts:
+            if res.get("logged_in") is False:
+                update["x_session"] = "login"
+                update["last_error"] = "X sin sesión en el navegador de Hermes: pulsa «Conectar X» en Ajustes"
+            else:
+                update["last_error"] = res.get("error") or "no posts"
+            return []
+        update["x_session"] = "ok"
+        update["x_posts"] = len(posts)
+        ids = [p["id"] for p in posts]
+        seen = [l for l in str(row.get("last_text") or "").splitlines() if l]
+        seen_set = set(seen)
+        merged = (ids + [k for k in seen if k not in set(ids)])[:MAX_SEEN]
+        update.update(last_text="\n".join(merged), last_hash="x:" + _sha("\n".join(ids[:50]))[:16])
+        if not row.get("last_hash"):
+            return []                                   # the first read is the baseline
+        info = _info_cfg(watcher)
+        try:
+            max_age = float(info.get("x_max_age_min") or xfeed.DEFAULT_MAX_AGE_MIN) * 60
+        except (TypeError, ValueError):
+            max_age = xfeed.DEFAULT_MAX_AGE_MIN * 60.0
+        now = self.clock()
+        out: list[InfoFinding] = []
+        for p in reversed(posts):                       # oldest first, so alerts arrive in the order they were posted
+            if p["id"] in seen_set:
+                continue
+            if p["created_ts"] and now - p["created_ts"] > max_age:
+                continue
+            sig = xfeed.tip_signal(p)
+            text = xfeed.full_text(p)
+            first = _clip(text.splitlines()[0] if text else "", 110) or "(sin texto)"
+            who = f"@{p['author']}" + (f" (RT de @{p['retweet_by']})" if p.get("retweet_by") else "")
+            lines = [_clip(text, 600)]
+            if sig["links"]:
+                lines.append("Enlace: " + sig["links"][0])
+            lines.append("Publicación: " + p["url"])
+            published = datetime.fromtimestamp(p["created_ts"], timezone.utc).isoformat() if p["created_ts"] else None
+            f = InfoFinding(url=sig["links"][0] if sig["links"] else p["url"], title=f"{who} en X: {first}", snippet="\n".join(lines),
+                            kind="x_post", published=published, content_hash=xfeed.post_hash(p), source_level=2, publisher=p["url"])
+            f.x_signal = sig                            # read by judge_rules for tipster sources
+            f.x_post = p
+            out.append(f)
         return out
 
     # -- search

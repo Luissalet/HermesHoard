@@ -4,7 +4,7 @@
 - ``sweeps`` lane: second-hand sweeps, information sweeps, discovery and the extra kinds (long: many queries, polite pauses).
 - ``windows`` lane: checks of targets read from a window the person has open (fetch tier ``open_window``), so their
   few-minute rhythm never waits behind a backlog of browser reads.
-- ``alerts`` lane: the aggregator radar and the mailbox scan, short jobs whose whole point is to be early, so they never
+- ``alerts`` lane: the aggregator radar, the mailbox scan and the X tips, short jobs whose whole point is to be early, so they never
   wait behind a discovery or news sweep.
 
 The lanes, the de-duplication, ``run_now`` and the worker threads are the commons' ``hoard_link.lanes.LaneScheduler``; what stays
@@ -35,7 +35,7 @@ MIN_WATCHER_INTERVAL_MIN = 10  # floor inherited from Radar de Libros: never ham
 
 LANES = ("checks", "sweeps", "windows", "alerts")
 OPEN_WINDOW = "open_window"     # fetch tier of targets read from a window the person has open (fetch/open_window.py)
-ALERT_KINDS = ("radar", "mail_deals", "mail_notices")   # short, time-critical extra jobs: never queued behind a discovery or news sweep
+ALERT_KINDS = ("radar", "mail_deals", "mail_notices", "x_tips")   # short, time-critical extra jobs: never queued behind a discovery or news sweep
 
 
 def lane_of(kind: str) -> str:

@@ -294,6 +294,69 @@ function MailSettings({ settings, onChanged }) {
   );
 }
 
+function XSettings({ settings, setSetting, busy: settingBusy }) {
+  const { t, notify } = useApp();
+  const [busy, run] = useBusy();
+  const xs = useLoad(() => api.call("x_status"), []);
+  const [result, setResult] = useState(null);
+  const login = () => run("login", async () => {
+    const r = await api.call("x_login");
+    setResult(r);
+    notify(r.ready ? t("x_session_ok") : r.message || t("fb_opened"));
+    await xs.reload();
+  });
+  const readNow = () => run("read", async () => {
+    const r = await api.call("x_read");
+    setResult({ read: r, ready: r.session === "ok", message: (r.errors || []).join(" · ") });
+    await xs.reload();
+  });
+  const st = xs.data;
+  const session = st ? st.session : "unknown";
+  return (
+    <div className="panel space-y-3">
+      <p>{t("x_explain")}</p>
+      <ErrorBox error={xs.error} />
+      {st && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Chip title={t("x_session")}>{t("x_session")}: {t(`x_session_${session}`) || session}</Chip>
+          {st.last_run_ts && <span className="help">· <Rel ts={st.last_run_ts} /></span>}
+          <label className="flex items-center gap-1 help">{t("x_every")}
+            <select className="field" style={{ width: "auto" }} value={String(Math.round(st.interval_s || 120))} disabled={settingBusy["x.interval_s"]}
+              onChange={(e) => setSetting("x.interval_s", e.target.value)}>
+              {["60", "120", "180", "300", "600"].map((v) => <option key={v} value={v}>{Number(v) / 60} min</option>)}
+            </select>
+          </label>
+          <Switch checked={settings["x.paused"] === "1"} disabled={settingBusy["x.paused"]} onChange={(v) => setSetting("x.paused", v ? "1" : "0")} label={t("x_paused")} />
+          <span className="help">{t("x_paused")}</span>
+        </div>
+      )}
+      {st && (st.sources.length ? (
+        <ul className="space-y-1 text-sm">
+          {st.sources.map((s) => (
+            <li key={`${s.watcher_id}-${s.value}`} className="flex flex-wrap gap-2">
+              <strong>{s.source}</strong><span className="help">{s.watcher}</span>
+              {s.last_check_ts && <span className="help">· <Rel ts={s.last_check_ts} /></span>}
+              {s.last_error && <span className="text-[color:var(--danger,#c33)]">· {s.last_error}</span>}
+            </li>
+          ))}
+        </ul>
+      ) : <p className="help">{t("x_no_sources")}</p>)}
+      <div className="flex flex-wrap items-center gap-3">
+        <Busy className="btn btn-primary" busy={busy.login} onClick={login}><Icon d="M15 3h6v6M10 14L21 3M19 13v7H4V5h7" size={14} />{t("x_login")}</Busy>
+        <Busy className="btn" busy={busy.read} onClick={readNow}>{t("x_read_now")}</Busy>
+        {busy.login && <span className="help" role="status">{t("x_waiting")}</span>}
+      </div>
+      {result && (
+        <div className={`banner ${result.ready ? "banner-info" : "banner-warn"}`} role="status">
+          {result.ready ? t("x_session_ok") : t("x_session_login")}
+          {result.read && typeof result.read.posts === "number" ? ` — ${result.read.posts} publicaciones, ${result.read.tips || 0} chivatazos` : ""}
+          {result.message ? ` — ${result.message}` : ""}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Settings() {
   const { t, lang, setLang, health, refreshDash, refreshHealth, notify } = useApp();
   const [busy, run] = useBusy();
@@ -379,6 +442,10 @@ export default function Settings() {
           <p className="help">{t("search_keys_hint")}</p>
           <SecretsForm fields={SEARCH_SECRETS} secrets={secrets} onSaved={reloadAll} />
         </div>
+      </Section>
+
+      <Section id="sec-x" title={t("sec_x")}>
+        <XSettings settings={settings} setSetting={setSetting} busy={busy} />
       </Section>
 
       <Section id="sec-facebook" title={t("sec_facebook")}>

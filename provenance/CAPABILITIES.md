@@ -65,6 +65,9 @@ Source tool definitions and implementations are incorporated in this repository.
 | products | watcher_mark_bought | watcher_mark_bought |
 | products | watcher_add | watcher_add |
 | products | radar_setup | radar_setup |
+| products | x_status | x_status |
+| products | x_login | x_login |
+| products | x_read | x_read |
 | shipments | phileas_overview | phileas_overview |
 | shipments | phileas_status | phileas_status |
 | shipments | shipments_list | shipments_list |

@@ -57,6 +57,9 @@ UI_SETTINGS = {
     **{key: None for key in MAIL_DEFAULTS if key != "mail.deals.enabled"},
     "mail.notices.enabled": ("1", "0"),
     **{key: None for key in NOTICE_DEFAULTS if key != "mail.notices.enabled"},
+    "x.paused": ("0", "1"),
+    "x.interval_s": None,
+    "x.display": None,
 }
 
 
@@ -88,7 +91,8 @@ class Services:
         # network
         self.fetcher = Fetcher(config, self.db, transport=http_transport, clock=clock_fn, sleep=sleep_fn, browser=browser)
         self.websearch = websearch or WebSearch(self.fetcher, config=config)
-        self.info = InfoSentry(self.fetcher, self.websearch, self.llm, clock=clock_fn)
+        self.info = InfoSentry(self.fetcher, self.websearch, self.llm, clock=clock_fn,
+                               x_reader=lambda url, match: self.fetcher.read_x_timeline(url, match))
         self.notifier = notifier or Notifier(config, self.db.get_setting, clock=clock_fn)
         self.budget = BudgetNote(clock=clock_fn)
         self.engine = Engine(self.store, self.fetcher, llm=self.llm, notifier=self.notifier, websearch=self.websearch,
@@ -107,13 +111,17 @@ class Services:
                                     NoticeSource(self.notifier, self.db.get_setting, settings_set=self.db.set_setting, clock=clock_fn),
                                     self.db.get_setting, self.db.set_setting, clock=clock_fn)
         # the user's browser adds a watched product to the basket (browser/cart-runner); this side keeps the jobs and alerts
+        # posts of stock hunters on X (accounts and lists of the information watchers), read every couple of minutes
+        from .xfeed import XTips
+        self.x = XTips(self.store, self.engine, self.fetcher, self.db.get_setting, self.db.set_setting, clock=clock_fn)
         from .cart import CartRunner
         self.cart = CartRunner(self.store, self.engine.dispatch, self.db.get_setting, self.db.set_setting, clock=clock_fn)
         self.scheduler = Scheduler(self.engine, self.store, clock=clock_fn, enabled=config.scheduler,
                                    paused=lambda: self.db.get_setting("scheduler.paused", "0") == "1",
                                    extra={"mail_deals": (self.mail.due, self.mail.run_job), "radar": (self.radar.due, self.radar.run_job),
                                           "mail_notices": (self.notices.due, self.notices.run_job),
-                                          "cart_watch": (self.cart.due, self.cart.run_job)})
+                                          "cart_watch": (self.cart.due, self.cart.run_job),
+                                          "x_tips": (self.x.due, self.x_run_job)})
         should_install = install_presets if install_presets is not None else (config.scheduler and not config.offline)
         if should_install and self.db.get_setting("presets.installed") is None and not self.store.watchers():
             self.install_presets()
@@ -252,6 +260,8 @@ class Services:
                 bad = [s for s in value.replace(";", ",").split(",") if s.strip() and s.strip().lower() not in STORE_BY_ID]
                 if bad:
                     raise TantalusError("invalid", f"Unknown store id(s): {', '.join(bad)}.", f"Known: {', '.join(STORE_BY_ID)}.")
+            if key == "x.interval_s" and not (value.isdigit() and 60 <= int(value) <= 3600):
+                raise TantalusError("invalid", "x.interval_s must be a whole number of seconds between 60 and 3600.")
             if key == "mail.notices.domains":
                 pairs = parse_pairs(value)
                 if value.strip() and not pairs:
@@ -342,6 +352,31 @@ class Services:
             "radar": self.radar.status(),
         }
 
+    # ------------------------------------------------------------------ X
+    def x_run_job(self, ref: str = "all") -> dict[str, Any]:
+        """The ``x_tips`` job: read every X source of the information watchers (xfeed.XTips)."""
+        return self.x.run()
+
+    def x_login(self, *, timeout_s: float = 900.0) -> dict[str, Any]:
+        """Open a window of Hermes's browser profile on X's login page; returns when the person closes it, then reads the
+        X sources once to tell whether the session works. On a Spark the window opens on its remote desktop (Prometheus ›
+        Equipo › Spark › Escritorio); without a running desktop nothing opens and the answer says what to do."""
+        import os
+        from .xfeed import find_display
+        display = find_display(self.db.get_setting("x.display", ":5") or ":5")
+        if not display:
+            return {"opened": False, "ready": False, "needs_desktop": True,
+                    "message": "No hay pantalla donde abrir la ventana. Abre el escritorio de esta Spark en Prometheus "
+                               "(Equipo › Spark › Escritorio) y vuelve a pulsar «Conectar X»: la ventana de X aparecerá allí."}
+        if display != "native":
+            os.environ["DISPLAY"] = display
+        opened = self.fetcher.open_for_human("https://x.com/i/flow/login", timeout_s=timeout_s)
+        summary = self.x_run_job() if self.x.watchers() else {}
+        ready = summary.get("session") == "ok"
+        return {"opened": opened, "display": display, "ready": ready, "read": summary,
+                "message": "" if ready else ("Sesión guardada; aún no hay cuentas de X que leer en ningún vigilante." if not summary
+                                             else "X sigue sin sesión: inicia sesión en la ventana y ciérrala al terminar.")}
+
     def mark_visit(self, *, mark_seen: bool = True) -> dict[str, Any]:
         now = self.clock()
         n = self.store.mark_seen(before=now) if mark_seen else 0
@@ -366,6 +401,7 @@ class Services:
                 "notify_via": self.notifier.via_status() if hasattr(self.notifier, "via_status") else {},
                 "mail": {k: v for k, v in self.mail.status().items() if k in ("enabled", "first_scan_done", "last_run_ts", "next_run_ts", "last_error", "counts", "source")},
                 "radar": self.radar.status(),
+                "x": {k: v for k, v in self.x.status().items() if k != "last"},
                 "mail_notices": {k: v for k, v in self.notices.status().items() if k in ("enabled", "last_run_ts", "next_run_ts", "last_error", "counts")},
                 "llm": {"available": ok, "reason": reason, "calls": self.llm.calls, "failures": self.llm.failures, "skipped_budget": self.llm.skipped,
                         "budget": f"{self.llm.max_calls} per {int(self.llm.window_s // 60)} min"},

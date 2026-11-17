@@ -144,6 +144,70 @@ class Fetcher(_CommonsFetcher):
         with self._lane_or_raise(url, "a person solves a check in a window", LANE_TTL_S, wait_s=LANE_HUMAN_WAIT_S):
             return super().open_for_human(url, timeout_s=timeout_s, **kw)
 
+    def read_x_timeline(self, url: str, match: str, *, timeout_s: float = 30.0) -> dict[str, Any]:
+        """Open an X page in the shared profile (headless) and return what its own script loaded:
+        ``{data: [json answers whose URL contains match], error, logged_in, final_url}``. ``logged_in`` only says whether the
+        session cookie is present (its value is never read out). Holds the Hub's browser lane for x.com while it reads."""
+        out: dict[str, Any] = {"data": [], "error": "", "logged_in": None, "final_url": ""}
+        rung = self._rung()
+        if rung is None or not rung.available():
+            out["error"] = self._rung_unavailable_text(self.profile) if rung is not None else "the browser rung is disabled"
+            return out
+
+        def work(ctx: Any) -> dict[str, Any]:
+            page = ctx.new_page()
+            got: list[Any] = []
+
+            def on_response(response: Any) -> None:
+                if match in response.url:
+                    try:
+                        got.append(response.json())
+                    except Exception:  # noqa: BLE001 - a non-JSON answer is skipped
+                        pass
+
+            page.on("response", on_response)
+            try:
+                try:
+                    page.goto(url, wait_until="domcontentloaded", timeout=int(timeout_s * 1000))
+                except Exception as exc:  # noqa: BLE001
+                    out["error"] = f"navigation: {str(exc).splitlines()[0][:160]}"
+                deadline = time.monotonic() + timeout_s
+                while not got and time.monotonic() < deadline:
+                    page.wait_for_timeout(400)
+                    if "/login" in page.url or "/i/flow/" in page.url:
+                        break
+                if got:
+                    page.wait_for_timeout(600)
+                out["final_url"] = page.url
+                try:
+                    out["logged_in"] = any(c.get("name") == "auth_token" for c in ctx.cookies(["https://x.com"]))
+                except Exception:  # noqa: BLE001
+                    out["logged_in"] = None
+                out["data"] = list(got)
+                if not got and not out["error"]:
+                    out["error"] = "no timeline data within the time limit"
+                return out
+            finally:
+                try:
+                    page.close()
+                except Exception:  # noqa: BLE001
+                    pass
+
+        with self._lane_for(url, purpose="reading X with the saved session", ttl_s=LANE_TTL_S) as held:
+            if held is not None and not held.acquired:
+                out["error"] = busy_text(held.domain, held.held_by, held.since)
+                return out
+            try:
+                with rung._gate:                               # the commons' shared headless context on its worker thread
+                    return rung._worker.call(lambda: work(rung._ensure_context()), timeout=timeout_s + 60)
+            except Exception as exc:  # noqa: BLE001
+                try:
+                    rung._reset_after_error()
+                except Exception:  # noqa: BLE001
+                    pass
+                out["error"] = f"{type(exc).__name__}: {str(exc).splitlines()[0][:160] if str(exc) else ''}"
+                return out
+
     def close(self) -> None:
         super().close()
         if self._own_rung and self._browser not in (None, False):

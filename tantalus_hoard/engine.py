@@ -793,44 +793,72 @@ class Engine:
         stats = {"sources": len(sources), "findings": 0, "new": 0, "material": 0, "events": 0}
         errors: list[str] = []
         for source in sources:
-            baseline = source.get("last_check_ts") is None
-            findings, update = self.info.check_source(source, watcher)
-            self.store.update_info_source(source["id"], update)
-            if update.get("last_error"):
-                errors.append(f"{source['kind']} {source['value'][:60]}: {update['last_error']}")
-            if not findings:
-                continue
-            findings = self.info.judge(findings, watcher)
-            stats["findings"] += len(findings)
-            for f in findings:
-                if f.verdict == "irrelevant":
-                    stats["irrelevant"] = stats.get("irrelevant", 0) + 1
-                    continue
-                item = self.store.insert_info_item(watcher_id, source["id"], f)
-                if item is None:
-                    continue
-                stats["new"] += 1
-                if not f.material:
-                    continue
-                stats["material"] += 1
-                confirmed = f.verdict == "confirmed" and not baseline
-                ev = self.store.add_event({
-                    "watcher_id": watcher_id, "info_id": item["id"], "type": INFO_CHANGE,
-                    "severity": "medium" if f.verdict == "confirmed" else "low", "status": "confirmed" if confirmed else "logged",
-                    "confidence": int(min(100, max(0, f.score))), "dedupe_key": rules.dedupe_key(watcher_id, INFO_CHANGE, f.content_hash, None),
-                    "url": f.url, "title": f.title or f.url,
-                    "summary": f"[{ {'confirmed': 'confirmado', 'leak': 'filtración', 'estimate': 'estimación'}.get(f.verdict, f.verdict) }] "
-                               f"{f.title} — {(f.diff or f.snippet)[:220]}",
-                    "data": {"verdict": f.verdict, "reason": f.reason, "kind": f.kind, "source_level": f.source_level, "baseline": baseline}})
-                stats["events"] += 1
-                if ev["status"] == "confirmed":
-                    self.dispatch(ev, watcher)
+            if source.get("kind") == "x":
+                continue                     # X accounts and lists have their own fast lane (xfeed.XTips, job x_tips)
+            res = self.process_info_source(watcher, source)
+            if res.get("error"):
+                errors.append(f"{source['kind']} {source['value'][:60]}: {res['error']}")
+            for key in ("findings", "new", "material", "events", "irrelevant"):
+                if res.get(key):
+                    stats[key] = stats.get(key, 0) + res[key]
         now = self.clock()
         self.store.update_watcher(watcher_id, last_run_ts=now, last_error="; ".join(errors)[:500],
                                   next_run_ts=now + float(watcher.get("interval_min") or 120) * 60 * (1 + self.rng.uniform(-0.1, 0.1)))
         summary = {**stats, "errors": errors[:10]}
         self.store.finish_run(run_id, not errors or stats["findings"] > 0, summary)
         return summary
+
+    def process_info_source(self, watcher: dict[str, Any], source: dict[str, Any]) -> dict[str, Any]:
+        """Check one information source of a watcher, judge what it found, record it and raise (and send) the alerts.
+        Returns ``{findings, new, material, events, irrelevant, error, posts?, x_session?}``."""
+        watcher_id = watcher["id"]
+        baseline = source.get("last_check_ts") is None
+        findings, update = self.info.check_source(source, watcher)
+        self.store.update_info_source(source["id"], update)
+        stats: dict[str, Any] = {"findings": 0, "new": 0, "material": 0, "events": 0, "error": update.get("last_error") or ""}
+        if update.get("x_posts") is not None:
+            stats["posts"] = update["x_posts"]
+        if update.get("x_session"):
+            stats["x_session"] = update["x_session"]
+        if not findings:
+            return stats
+        findings = self.info.judge(findings, watcher)
+        stats["findings"] = len(findings)
+        for f in findings:
+            if f.verdict == "irrelevant":
+                stats["irrelevant"] = stats.get("irrelevant", 0) + 1
+                continue
+            item = self.store.insert_info_item(watcher_id, source["id"], f)
+            if item is None:
+                continue
+            stats["new"] += 1
+            if not f.material:
+                continue
+            stats["material"] += 1
+            confirmed = f.verdict == "confirmed" and not baseline
+            event = {
+                "watcher_id": watcher_id, "info_id": item["id"], "type": INFO_CHANGE,
+                "severity": "medium" if f.verdict == "confirmed" else "low", "status": "confirmed" if confirmed else "logged",
+                "confidence": int(min(100, max(0, f.score))), "dedupe_key": rules.dedupe_key(watcher_id, INFO_CHANGE, f.content_hash, None),
+                "url": f.url, "title": f.title or f.url,
+                "summary": f"[{ {'confirmed': 'confirmado', 'leak': 'filtración', 'estimate': 'estimación'}.get(f.verdict, f.verdict) }] "
+                           f"{f.title} — {(f.diff or f.snippet)[:220]}",
+                "data": {"verdict": f.verdict, "reason": f.reason, "kind": f.kind, "source_level": f.source_level, "baseline": baseline}}
+            if f.kind == "x_post":
+                # a tip from X: the post itself is the alert; its shop link is where the click goes
+                from .xfeed import parse_price
+                sig = getattr(f, "x_signal", None) or {}
+                event["severity"] = "high" if sig.get("tip") and sig.get("links") else "medium"
+                event["summary"] = (f.snippet or f.title)[:900]
+                event["price"] = parse_price(f.snippet)
+                if event["price"] is not None:
+                    event["currency"] = "EUR"
+                event["data"].update({"post_url": f.publisher, "links": list(sig.get("links") or [])[:4], "shops": sig.get("shops") or []})
+            ev = self.store.add_event(event)
+            stats["events"] += 1
+            if ev["status"] == "confirmed":
+                self.dispatch(ev, watcher)
+        return stats
 
     # ======================================================================================== discovery
     def run_discovery(self, watcher_id: str) -> dict[str, Any]:
