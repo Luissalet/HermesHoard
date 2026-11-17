@@ -45,6 +45,7 @@ MATCH = {"user": "/UserTweets", "list": "/ListLatestTweetsTimeline"}
 DEFAULT_INTERVAL_S = 120
 DEFAULT_MAX_AGE_MIN = 120
 READ_TIMEOUT_S = 30.0
+LOGIN_RETRY_S = 600          # without a session, try again every ten minutes (a login from Settings reads at once)
 
 _HANDLE = re.compile(r"^@?([A-Za-z0-9_]{1,15})$")
 _LIST = re.compile(r"(?:x|twitter)\.com/i/lists/(\d+)", re.I)
@@ -332,6 +333,8 @@ class XTips:
                 stats["tips"] += int(res.get("material") or 0)
                 if res.get("x_session"):
                     sessions.add(str(res["x_session"]))
+                if res.get("x_session") == "login":
+                    break                                # without a session every other source would fail the same way
                 if res.get("error"):
                     stats["errors"].append(f"{row.get('value')}: {res['error']}"[:200])
             end = self.clock()
@@ -341,7 +344,8 @@ class XTips:
                 self.set("x.session_ts", str(end))
             stats["session"] = session or (self.get("x.session", "") or "unknown")
             self.set("x.last_run_ts", str(end))
-            self.set("x.next_run_ts", str(now + self.interval_s()))
+            wait = self.interval_s() if session != "login" else max(self.interval_s(), LOGIN_RETRY_S)
+            self.set("x.next_run_ts", str(now + wait))
             self.last_summary = {**stats, "seconds": round(end - now, 1)}
             return self.last_summary
 

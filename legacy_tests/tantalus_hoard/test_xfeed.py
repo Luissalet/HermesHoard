@@ -182,3 +182,14 @@ def test_find_display(monkeypatch, tmp_path):
     assert xfeed.find_display(":5") == ":5"
     monkeypatch.setenv("DISPLAY", ":9")
     assert xfeed.find_display(":5") == ":9"
+
+
+def test_without_a_session_the_lane_stops_early_and_waits_longer(svc):
+    reader = Reader({"data": [], "logged_in": False, "error": "no X session in the browser profile"})
+    svc.info.x_reader = reader
+    tool(svc, "watcher_create", name="X", mode="information", interval_min=60,
+         config={"sources": [{"kind": "x", "value": "@a"}, {"kind": "x", "value": "@b"}], "info": {"x_tipsters": True}})
+    out = tool(svc, "x_read")
+    assert out["session"] == "login" and len(reader.calls) == 1
+    assert float(svc.db.get_setting("x.next_run_ts")) >= T0 + xfeed.LOGIN_RETRY_S
+    assert not svc.x.due(T0 + 300) and svc.x.due(T0 + xfeed.LOGIN_RETRY_S + 1)

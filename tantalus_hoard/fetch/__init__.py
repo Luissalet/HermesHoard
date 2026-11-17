@@ -154,7 +154,17 @@ class Fetcher(_CommonsFetcher):
             out["error"] = self._rung_unavailable_text(self.profile) if rung is not None else "the browser rung is disabled"
             return out
 
+        def has_session(ctx: Any) -> Optional[bool]:
+            try:
+                return any(c.get("name") == "auth_token" for c in ctx.cookies(["https://x.com"]))
+            except Exception:  # noqa: BLE001
+                return None
+
         def work(ctx: Any) -> dict[str, Any]:
+            if has_session(ctx) is False:            # no session: X would only show its login wall, so do not even ask
+                out["logged_in"] = False
+                out["error"] = "no X session in the browser profile"
+                return out
             page = ctx.new_page()
             got: list[Any] = []
 
@@ -179,10 +189,7 @@ class Fetcher(_CommonsFetcher):
                 if got:
                     page.wait_for_timeout(600)
                 out["final_url"] = page.url
-                try:
-                    out["logged_in"] = any(c.get("name") == "auth_token" for c in ctx.cookies(["https://x.com"]))
-                except Exception:  # noqa: BLE001
-                    out["logged_in"] = None
+                out["logged_in"] = has_session(ctx)
                 out["data"] = list(got)
                 if not got and not out["error"]:
                     out["error"] = "no timeline data within the time limit"
