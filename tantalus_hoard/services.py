@@ -370,7 +370,7 @@ class Services:
                                "(Equipo › Spark › Escritorio) y vuelve a pulsar «Conectar X»: la ventana de X aparecerá allí."}
         if display != "native":
             os.environ["DISPLAY"] = display
-        opened = self.fetcher.open_for_human("https://x.com/i/flow/login", timeout_s=timeout_s)
+        opened = self.fetcher.open_plain_window("https://x.com/i/flow/login", timeout_s=timeout_s)
         summary = self.x_run_job() if self.x.watchers() else {}
         ready = summary.get("session") == "ok"
         return {"opened": opened, "display": display, "ready": ready, "read": summary,

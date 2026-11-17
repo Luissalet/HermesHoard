@@ -193,3 +193,40 @@ def test_without_a_session_the_lane_stops_early_and_waits_longer(svc):
     assert out["session"] == "login" and len(reader.calls) == 1
     assert float(svc.db.get_setting("x.next_run_ts")) >= T0 + xfeed.LOGIN_RETRY_S
     assert not svc.x.due(T0 + 300) and svc.x.due(T0 + xfeed.LOGIN_RETRY_S + 1)
+
+
+def test_plain_window_opens_the_profile_without_automation(svc, monkeypatch, tmp_path):
+    import threading
+    import tantalus_hoard.fetch as fetch_mod
+    from tantalus_hoard.hoard_link.web import browser as browser_mod
+
+    class Worker:
+        def __init__(self):
+            self.calls = 0
+
+        def call(self, fn, timeout=None):
+            self.calls += 1
+
+    class Rung:
+        profile_dir = tmp_path / "profile"
+        _gate = threading.Lock()
+        _worker = Worker()
+
+        def _release_in_worker(self):
+            pass
+
+    class Proc:
+        def wait(self, timeout=None):
+            return 0
+
+    seen = {}
+    monkeypatch.setattr(fetch_mod.sys, "platform", "linux")
+    monkeypatch.setattr(browser_mod, "system_browsers", lambda: [])
+    monkeypatch.setattr(browser_mod, "find_chromium", lambda: "/x/chromium-1248/chrome-linux/chrome")
+    monkeypatch.setattr(svc.fetcher, "_rung", lambda: Rung())
+    out = svc.fetcher.open_plain_window("https://x.com/i/flow/login", popen=lambda args, **kw: seen.setdefault("args", args) and Proc())
+    args = seen["args"]
+    assert out["plain"] and out["closed_by_user"] and args[0].endswith("/chrome")
+    assert f"--user-data-dir={Rung.profile_dir}" in args and "--password-store=basic" in args and args[-1] == "https://x.com/i/flow/login"
+    assert not any("automation" in a or "remote-debugging" in a for a in args)
+    assert Rung._worker.calls == 1 and not Rung._gate.locked()

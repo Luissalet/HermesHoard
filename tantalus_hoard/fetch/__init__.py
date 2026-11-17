@@ -28,10 +28,13 @@ was refused before any traffic, as the engine and the extractors have always rea
 
 from __future__ import annotations
 
+import os
+import sys
 import threading
 import time
 from contextlib import contextmanager
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Callable, Iterator, Mapping, Optional
 from urllib.parse import urlsplit
 
@@ -218,6 +221,49 @@ class Fetcher(_CommonsFetcher):
                     pass
                 out["error"] = f"{type(exc).__name__}: {str(exc).splitlines()[0][:160] if str(exc) else ''}"
                 return out
+            finally:
+                rung._gate.release()
+
+    def open_plain_window(self, url: str, *, timeout_s: float = 900.0, popen: Any = None) -> dict[str, Any]:
+        """Open ``url`` in an ordinary window of the shared profile: the browser started as a plain program, with no
+        automation switches and no remote control, so sign-in pages that refuse automated browsers (Google's "this
+        browser may not be secure") accept it. Returns when the person closes the window, like :meth:`open_for_human`;
+        the cookies stay in the profile for the headless reads. Falls back to :meth:`open_for_human` without an executable."""
+        import subprocess
+        from ..hoard_link.web.browser import find_chromium, system_browsers
+        rung = self._rung()
+        if sys.platform.startswith(("win", "darwin")):
+            exe = None        # there the profile belongs to the system browser channel the automated reads use
+        else:
+            exe = next((b for b in system_browsers() if "chrom" in b.lower()), None) or find_chromium()
+        if rung is None or not exe or "headless" in Path(exe).name:
+            return {**self.open_for_human(url, timeout_s=timeout_s), "plain": False}
+        profile = Path(rung.profile_dir)
+        profile.mkdir(parents=True, exist_ok=True)
+        args = [exe, f"--user-data-dir={profile}", "--no-first-run", "--no-default-browser-check", "--new-window", url]
+        args.insert(2, "--password-store=basic")       # the same cookie key the automated browser uses on Linux
+        if hasattr(os, "geteuid") and os.geteuid() == 0:
+            args.insert(2, "--no-sandbox")
+        with self._lane_or_raise(url, "a person signs in in a window", LANE_TTL_S, wait_s=LANE_HUMAN_WAIT_S):
+            if not rung._gate.acquire(timeout=60):
+                raise TantalusError("busy", "the browser profile is busy", "Try again in a minute.")
+            try:
+                try:
+                    rung._worker.call(rung._release_in_worker, timeout=30)   # the profile opens in one browser at a time
+                except Exception:  # noqa: BLE001
+                    pass
+                proc = (popen or subprocess.Popen)(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                closed = True
+                try:
+                    proc.wait(timeout=timeout_s)
+                except subprocess.TimeoutExpired:
+                    closed = False
+                    proc.terminate()
+                    try:
+                        proc.wait(timeout=20)
+                    except subprocess.TimeoutExpired:
+                        proc.kill()
+                return {"url": url, "plain": True, "browser": Path(exe).name, "closed_by_user": closed}
             finally:
                 rung._gate.release()
 
