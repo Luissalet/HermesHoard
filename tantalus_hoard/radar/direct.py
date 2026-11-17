@@ -83,6 +83,17 @@ def guess_lang(title: str) -> str:
     return ""
 
 
+# A brand listing also sells plush, figures and playsets: only the trading-card products are kept (``tcg_only``, on by default).
+_TCG = re.compile(r"\b(?:jcc|tcg|sobres?|booster|latas?|minilatas?|mini tins?|tins?|caja de entrenador|elite trainer|etb|bl[ií]ster|"
+                  r"colecci[oó]n|collection|baraja|expositor|display|cartas?|premium|deck)\b", re.I)
+_NOT_TCG = re.compile(r"\b(?:figuras?|peluches?|playset|cintur[oó]n|clip n go|arena de combate|bandolera|mochila|camiseta|puzzle|"
+                      r"funko|lego|disfraz|pijama|taza|fundas? para|carpeta)\b", re.I)
+
+
+def is_tcg(title: str) -> bool:
+    return bool(_TCG.search(title)) and not _NOT_TCG.search(title)
+
+
 def page_urls(spec: dict[str, Any]) -> list[str]:
     base = str(spec["url"])
     out = [base]
@@ -151,6 +162,8 @@ def parse_eci(html: str, page_url: str, spec: dict[str, Any]) -> Listing:
         state_ = PREORDER if badges.get("coming_soon") else IN_STOCK if status == "ADD" else OUT_OF_STOCK if status else UNKNOWN
         price_block = item.get("price") if isinstance(item.get("price"), dict) else {}
         price = price_block.get("f_price")
+        if spec.get("tcg_only", True) and not is_tcg(name):
+            continue
         out.offers.append(_offer(spec, name, urljoin(page_url, uris[code]), state_,
                                  float(price) if isinstance(price, (int, float)) else None, sku=code))
     return out
@@ -185,6 +198,8 @@ def parse_amazon(html: str, page_url: str, spec: dict[str, Any]) -> Listing:
             state = OUT_OF_STOCK
         else:
             state = IN_STOCK
+        if spec.get("tcg_only", True) and not is_tcg(title):
+            continue
         url = _strip_affiliate(urljoin(page_url, f"/dp/{asin}"))
         out.offers.append(_offer(spec, title, url, state, price, invite=invite, sku=asin))
     return out
@@ -200,5 +215,5 @@ def parse(spec: dict[str, Any], html: str, page_url: str) -> Listing:
     return parser(html, page_url, spec)
 
 
-__all__ = ["SOURCE", "DEFAULT_PAGES", "Listing", "guess_fmt", "guess_lang", "page_urls", "pages_for", "parse", "parse_eci",
+__all__ = ["SOURCE", "DEFAULT_PAGES", "Listing", "is_tcg", "guess_fmt", "guess_lang", "page_urls", "pages_for", "parse", "parse_eci",
            "parse_amazon", "AMAZON_SELLER"]

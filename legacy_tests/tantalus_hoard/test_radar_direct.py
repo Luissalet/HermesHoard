@@ -44,6 +44,17 @@ def test_formats_and_languages_from_shop_titles():
     assert dr.page_urls(AMZ)[1].endswith("&page=2")
 
 
+def test_only_trading_cards_are_kept_from_a_brand_listing():
+    for title in ("Lata Pokémon Jcc Bandai Modelos Surtidos", "Caja Pokémon Mega-Greninja ex . JCC Pokémon Bandai",
+                  "Baraja Combate de Liga Pokémon Bandai", "Sobre Dominio Delta de JCC Pokémon", "Pokémon: Colección Houndstone ex"):
+        assert dr.is_tcg(title), title
+    for title in ("Peluche 20 cm Pokémon modelos surtidos", "Figura interactiva Deluxe Feature Battle Action Pikachu Pokémon",
+                  "Playset Carry Case Lighthouse Exploration Pokémon", "Pokémon Set Bandolera"):
+        assert not dr.is_tcg(title), title
+    page = eci_page(("A1", "Peluche 20 cm Pokémon", 19.99, "ADD"), ("A2", "Lata Pokémon Jcc Bandai", 34.99, "ADD"))
+    assert [o.title for o in dr.parse(ECI, page, ECI["url"]).offers] == ["Lata Pokémon Jcc Bandai"]
+
+
 def test_parsers():
     eci = dr.parse(ECI, eci_page(("A1", "Caja de Entrenador Élite Dominio Delta", 69.99, "ADD")), ECI["url"])
     o = eci.offers[0]
