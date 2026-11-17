@@ -75,6 +75,29 @@ def busy_text(domain: str, held_by: str = "", since: Optional[float] = None) -> 
     return text + (f": {domain} ya se estÃ¡ leyendo con un navegador (carril del Hub)" if domain else "")
 
 
+EARLY_EXIT_S = 6.0               # a browser that quits this fast never showed its window
+
+
+def _wait_profile_free(profile: Path, timeout_s: float = 20.0) -> bool:
+    """Wait until no live browser holds ``profile`` (Chromium's SingletonLock names ``host-pid``). True when free."""
+    deadline = time.monotonic() + timeout_s
+    lock = profile / "SingletonLock"
+    while time.monotonic() < deadline:
+        try:
+            target = os.readlink(lock)
+        except OSError:
+            return True                                # no lock (or not a link): nobody holds it
+        try:
+            pid = int(target.rsplit("-", 1)[-1])
+            os.kill(pid, 0)
+        except (ValueError, ProcessLookupError):
+            return True                                # a stale lock: the browser clears it itself
+        except PermissionError:
+            pass
+        time.sleep(0.3)
+    return False
+
+
 class Fetcher(_CommonsFetcher):
     def __init__(self, config: Any, db: Any, *, transport: Any = None, clock: Callable[[], float] = time.time,
                  sleep: Callable[[float], None] = time.sleep, browser: Any = None, resolver: Any = None,
@@ -252,10 +275,24 @@ class Fetcher(_CommonsFetcher):
                     rung._worker.call(rung._release_in_worker, timeout=30)   # the profile opens in one browser at a time
                 except Exception:  # noqa: BLE001
                     pass
-                proc = (popen or subprocess.Popen)(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                started = time.monotonic()
+                proc = None
+                for _attempt in range(3):
+                    _wait_profile_free(profile)                # the closed reader can take a moment to let go of the profile
+                    proc = (popen or subprocess.Popen)(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    started = time.monotonic()
+                    try:
+                        proc.wait(timeout=EARLY_EXIT_S)
+                    except subprocess.TimeoutExpired:
+                        break                                  # the window is up
+                    if popen is not None:
+                        break                                  # a test double: it "closed" at once
+                else:
+                    return {"url": url, "plain": True, "browser": Path(exe).name, "closed_by_user": False,
+                            "error": "the browser closed at once (the profile is still in use); try again in a minute"}
                 closed = True
                 try:
-                    proc.wait(timeout=timeout_s)
+                    proc.wait(timeout=max(1.0, timeout_s - (time.monotonic() - started)))
                 except subprocess.TimeoutExpired:
                     closed = False
                     proc.terminate()

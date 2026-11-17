@@ -374,7 +374,8 @@ class Services:
         summary = self.x_run_job() if self.x.watchers() else {}
         ready = summary.get("session") == "ok"
         return {"opened": opened, "display": display, "ready": ready, "read": summary,
-                "message": "" if ready else ("Sesión guardada; aún no hay cuentas de X que leer en ningún vigilante." if not summary
+                "message": "" if ready else (f"La ventana no llegó a abrirse: {opened['error']}." if opened.get("error") else
+                                             "Sesión guardada; aún no hay cuentas de X que leer en ningún vigilante." if not summary
                                              else "X sigue sin sesión: inicia sesión en la ventana y ciérrala al terminar.")}
 
     def mark_visit(self, *, mark_seen: bool = True) -> dict[str, Any]:
