@@ -204,9 +204,13 @@ class Fetcher(_CommonsFetcher):
             if held is not None and not held.acquired:
                 out["error"] = busy_text(held.domain, held.held_by, held.since)
                 return out
+            # the profile opens once: while a person uses it in a window (a login, a check) the read is skipped, so the
+            # alerts lane never waits behind that window
+            if not rung._gate.acquire(timeout=5):
+                out["error"] = "the browser profile is open in a window (a login or a check); X is read on the next round"
+                return out
             try:
-                with rung._gate:                               # the commons' shared headless context on its worker thread
-                    return rung._worker.call(lambda: work(rung._ensure_context()), timeout=timeout_s + 60)
+                return rung._worker.call(lambda: work(rung._ensure_context()), timeout=timeout_s + 60)
             except Exception as exc:  # noqa: BLE001
                 try:
                     rung._reset_after_error()
@@ -214,6 +218,8 @@ class Fetcher(_CommonsFetcher):
                     pass
                 out["error"] = f"{type(exc).__name__}: {str(exc).splitlines()[0][:160] if str(exc) else ''}"
                 return out
+            finally:
+                rung._gate.release()
 
     def close(self) -> None:
         super().close()
