@@ -6,7 +6,7 @@ or a list (``https://x.com/i/lists/<id>``). They are read here, every ``x.interv
 ``alerts`` lane, never behind a news sweep.
 
 * **Reading**: X shows nothing without a session, so the account page is opened in Hermes's own browser profile (headless)
-  and the timeline JSON the page loads (``UserTweets`` / ``ListLatestTweetsTimeline``) is parsed. The person logs in once
+  and the timeline JSON the page loads (``UserOriginalsTimeline`` / ``UserTweets`` / ``ListLatestTweetsTimeline``) is parsed. The person logs in once
   in a window of that profile (``x_login``): on a Spark the window opens on the Spark's remote desktop (Prometheus), so it
   is seen and used from any browser. The password is typed by the person and never stored by Hermes; only the presence of
   the session cookie is checked, never its value.
@@ -41,7 +41,9 @@ log = logging.getLogger("tantalus.xfeed")
 X_HOSTS = ("x.com", "twitter.com", "t.co", "pic.x.com", "pic.twitter.com", "mobile.twitter.com")
 SOCIAL_HOSTS = X_HOSTS + ("instagram.com", "youtube.com", "youtu.be", "tiktok.com", "facebook.com", "fb.watch", "discord.gg",
                           "discord.com", "t.me", "telegram.me", "twitch.tv", "reddit.com", "threads.net", "bsky.app", "linktr.ee")
-MATCH = {"user": "/UserTweets", "list": "/ListLatestTweetsTimeline"}
+# the timeline answers the page loads (X renames them now and then: any of these is taken)
+MATCH = {"user": ("/UserTweets", "/UserOriginalsTimeline", "/UserTweetsAndReplies"),
+         "list": ("/ListLatestTweetsTimeline", "/ListTimeline")}
 DEFAULT_INTERVAL_S = 120
 DEFAULT_MAX_AGE_MIN = 120
 READ_TIMEOUT_S = 30.0
@@ -123,8 +125,11 @@ def _screen_name(tweet: dict[str, Any]) -> str:
 
 def _text(tweet: dict[str, Any]) -> str:
     note = ((((tweet.get("note_tweet") or {}).get("note_tweet_results") or {}).get("result") or {}).get("text"))
-    text = note or (tweet.get("legacy") or {}).get("full_text") or ""
-    return re.sub(r"\s*https://t\.co/\w+\s*$", "", str(text)).strip()
+    text = str(note or (tweet.get("legacy") or {}).get("full_text") or "")
+    for u in ((tweet.get("legacy") or {}).get("entities") or {}).get("urls") or []:
+        if u.get("url") and u.get("expanded_url"):
+            text = text.replace(u["url"], u["expanded_url"])     # the reader sees where a link goes
+    return re.sub(r"[ \t]*https://t\.co/\w+", "", text).strip()    # what is left is the attached photo or video
 
 
 def _urls(tweet: dict[str, Any]) -> list[str]:

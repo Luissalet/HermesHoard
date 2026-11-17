@@ -170,11 +170,12 @@ class Fetcher(_CommonsFetcher):
         with self._lane_or_raise(url, "a person solves a check in a window", LANE_TTL_S, wait_s=LANE_HUMAN_WAIT_S):
             return super().open_for_human(url, timeout_s=timeout_s, **kw)
 
-    def read_x_timeline(self, url: str, match: str, *, timeout_s: float = 30.0) -> dict[str, Any]:
+    def read_x_timeline(self, url: str, match: Any, *, timeout_s: float = 30.0) -> dict[str, Any]:
         """Open an X page in the shared profile (headless) and return what its own script loaded:
         ``{data: [json answers whose URL contains match], error, logged_in, final_url}``. ``logged_in`` only says whether the
         session cookie is present (its value is never read out). Holds the Hub's browser lane for x.com while it reads."""
         out: dict[str, Any] = {"data": [], "error": "", "logged_in": None, "final_url": ""}
+        matches = (match,) if isinstance(match, str) else tuple(match)
         rung = self._rung()
         if rung is None or not rung.available():
             out["error"] = self._rung_unavailable_text(self.profile) if rung is not None else "the browser rung is disabled"
@@ -195,7 +196,7 @@ class Fetcher(_CommonsFetcher):
             got: list[Any] = []
 
             def on_response(response: Any) -> None:
-                if match in response.url:
+                if any(m in response.url for m in matches):
                     try:
                         got.append(response.json())
                     except Exception:  # noqa: BLE001 - a non-JSON answer is skipped

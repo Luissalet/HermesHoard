@@ -63,6 +63,8 @@ def test_timeline_parsing_unwraps_retweets_quotes_and_long_posts():
     assert posts["50"]["author"] == "pokestock" and posts["50"]["retweet_by"] == "stockhunter"
     assert posts["45"]["text"] == "un texto largo que X guarda aparte en note_tweet"
     assert posts["60"]["text"] == "acaban de restockear todo esto otra vez"     # the trailing t.co link is dropped
+    linked = xfeed.parse_timeline(timeline(tweet("70", "Houndstone en Amazon 25€ https://t.co/x", urls=["https://amazon.es/dp/B0"])))[0]
+    assert linked["text"] == "Houndstone en Amazon 25€ https://amazon.es/dp/B0"     # a link reads as where it goes
     assert posts["60"]["url"] == "https://x.com/stockhunter/status/60"
     assert xfeed.parse_timeline({"unexpected": [1, 2, {"tweet_results": {"result": {"legacy": "?"}}}]}) == []
 
@@ -121,7 +123,7 @@ def test_sentry_baseline_then_only_new_and_fresh_posts():
     row = {"id": "s1", "kind": "x", "value": "@stockhunter"}
     found, upd = s.check_source(row, w)
     assert found == [] and upd["x_session"] == "ok" and upd["last_hash"].startswith("x:")
-    assert reader.calls[0] == ("https://x.com/stockhunter", "/UserTweets")
+    assert reader.calls[0][0] == "https://x.com/stockhunter" and "/UserOriginalsTimeline" in reader.calls[0][1]
     found, upd2 = s.check_source({**row, **upd}, w)
     assert [f.title for f in found] == ["@stockhunter en X: Houndstone en Amazon 25€"]
     assert found[0].url == "https://amazon.es/dp/B0" and "Publicación: https://x.com/stockhunter/status/3" in found[0].snippet
