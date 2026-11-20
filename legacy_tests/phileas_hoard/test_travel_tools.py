@@ -92,14 +92,14 @@ def test_segment_edit_delete_and_checkin(tv):
 
 def test_expenses_through_tools(tv):
     sid, rid, tid = two_flights(tv)
-    tool(tv, "trip_people", trip=tid, add=["Ana", "Luis"], me="Ana")
-    tool(tv, "trip_expense_add", trip=tid, description="Cena", amount=60, payer="Ana", split_mode="equal")
-    ex = tool(tv, "trip_expense_add", trip=tid, description="Taxi", amount=10, payer="Luis", split_mode="equal")
+    tool(tv, "trip_people", trip=tid, add=["Viajero A", "Viajero B"], me="Viajero A")
+    tool(tv, "trip_expense_add", trip=tid, description="Cena", amount=60, payer="Viajero A", split_mode="equal")
+    ex = tool(tv, "trip_expense_add", trip=tid, description="Taxi", amount=10, payer="Viajero B", split_mode="equal")
     view = tool(tv, "trip_expenses", trip=tid)
     assert len(view["expenses"]) == 2
     settle = tool(tv, "trip_settle", trip=tid)
-    assert settle["people"] == ["Ana", "Luis"] and settle["total"] == 70.0
-    assert [(t["from_name"], t["to_name"], t["amount"]) for t in settle["transfers"]] == [("Luis", "Ana", 25.0)]
+    assert settle["people"] == ["Viajero A", "Viajero B"] and settle["total"] == 70.0
+    assert [(t["from_name"], t["to_name"], t["amount"]) for t in settle["transfers"]] == [("Viajero B", "Viajero A", 25.0)]
     xid = view["expenses"][-1]["id"]
     tool(tv, "trip_expense_update", expense=xid, amount=20)
     with pytest.raises(AppError):

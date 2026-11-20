@@ -8,7 +8,7 @@ web
 
 ## Users
 
-Luis, using his Windows desktop and the Hoard family.
+People using Windows and the Hoard family.
 
 ## Product Purpose
 
