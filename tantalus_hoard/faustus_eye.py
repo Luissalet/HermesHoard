@@ -46,12 +46,12 @@ FRESH_S = 15 * 60               # a verdict older than this is not merged
 TURNS_PER_CONVERSATION = 6      # a new Faustus conversation after this many looks, so its context stays small
 MATCH_MIN = 0.6
 
-PROMPT = """Hermes's Hoard (el vigilante de productos de Luis) te pide que mires una lista de una tienda y le digas lo que ves. \
+PROMPT = """Hermes's Hoard te pide que mires una lista de una tienda y le digas lo que ves. \
 Solo mirar: no añadas nada a la cesta, no pulses botones de compra, no cambies nada en la tienda.
 
 Lista: {url}
 
-1. Con la herramienta browser_session (la extensión de Faustus en el navegador de Luis), usa `tabs` y localiza la pestaña \
+1. Con la herramienta browser_session (la extensión de Faustus en el navegador de la sesión configurada), usa `tabs` y localiza la pestaña \
 cuya dirección empieza por esa lista. No actives ni cierres otras pestañas. Si la extensión no está disponible o la pestaña \
 no está abierta, NO uses otro navegador: responde enseguida con "rows": [] y explícalo en "notes".
 2. Recárgala con la acción `reload` pasando view {{"text": true}}: espera a la página nueva y te la devuelve ya como texto \
@@ -59,7 +59,7 @@ no está abierta, NO uses otro navegador: responde enseguida con "rows": [] y ex
 3. Lee cada producto: nombre, precio y el texto exacto de su botón o etiqueta ("[button …] Añadir", "Agotado temporalmente", \
 "Próximamente"…; "(disabled)" significa que el botón está apagado).
 4. Compara con lo que ha leído Hermes (abajo). Si algún producto parece disponible, reservable o distinto de lo que dice \
-Hermes, mira con más detalle: abre su ficha con `open_tab` (pestaña nueva en segundo plano, no toca la de Luis), léela con \
+Hermes, mira con más detalle: abre su ficha con `open_tab` (pestaña nueva en segundo plano, conserva abierta la pestaña original), léela con \
 snapshot view text (y una captura con `screenshot` si el texto no basta), y ciérrala con `close_tab`. Si sirve, busca más \
 (por ejemplo si hoy hay reposición anunciada).
 

@@ -122,30 +122,30 @@ def test_settle_with_many_people_still_balances():
 def tv(config, clock, fake_mail):
     hub = FakeHub()
     s = build(config, clock, fake_mail, hub_call=hub)
-    s.set_settings({"travel.my_name": "Luis"})
+    s.set_settings({"travel.my_name": "Viajero A"})
     s.hub = hub
     trip = s.travel.create_trip("Roma", "2026-12-18", "2026-12-21")["trip"]
     s.trip_id = trip["id"]
-    s.travel.add_people(trip["id"], ["Marta", "Pablo"])
+    s.travel.add_people(trip["id"], ["Viajero B", "Viajero C"])
     yield s
     s.stop()
 
 
 def test_people_start_with_me(tv):
     people = tv.travel.t.people(tv.trip_id)
-    assert [(p["name"], p["is_me"]) for p in people] == [("Luis", True), ("Marta", False), ("Pablo", False)]
+    assert [(p["name"], p["is_me"]) for p in people] == [("Viajero A", True), ("Viajero B", False), ("Viajero C", False)]
 
 
 def test_expenses_balances_and_transfers(tv):
     t = tv.travel
-    t.add_expense(tv.trip_id, description="Cena", amount=90, payer="Luis")
-    t.add_expense(tv.trip_id, description="Taxi", amount=30, payer="Marta", split_mode="exact", split={"amounts": {"Luis": 10, "Marta": 10, "Pablo": 10}})
-    t.add_expense(tv.trip_id, description="Museo", amount=40, payer="Pablo", split_mode="shares", split={"shares": {"Luis": 1, "Marta": 3}})
+    t.add_expense(tv.trip_id, description="Cena", amount=90, payer="Viajero A")
+    t.add_expense(tv.trip_id, description="Taxi", amount=30, payer="Viajero B", split_mode="exact", split={"amounts": {"Viajero A": 10, "Viajero B": 10, "Viajero C": 10}})
+    t.add_expense(tv.trip_id, description="Museo", amount=40, payer="Viajero C", split_mode="shares", split={"shares": {"Viajero A": 1, "Viajero B": 3}})
     view = t.expenses_view(tv.trip_id)
     s = view["summary"]
     assert s["total"] == 160.0 and s["currency"] == "EUR"
     net = {b["name"]: b["net"] for b in s["balances"]}
-    assert net == {"Luis": 90 - 30 - 10 - 10, "Marta": 30 - 30 - 10 - 30, "Pablo": 40 - 30 - 10} or sum(net.values()) == 0
+    assert net == {"Viajero A": 90 - 30 - 10 - 10, "Viajero B": 30 - 30 - 10 - 30, "Viajero C": 40 - 30 - 10} or sum(net.values()) == 0
     assert round(sum(net.values()), 2) == 0
     assert 1 <= len(s["transfers"]) <= 2
     mine = {e["description"]: e["my_share"] for e in view["expenses"]}
@@ -166,15 +166,15 @@ def test_payers_and_participants_must_be_on_the_trip(tv):
         tv.travel.add_expense(tv.trip_id, description="X", amount=5, payer="Nadie")
     with pytest.raises(PhileasError):
         tv.travel.add_expense(tv.trip_id, description="X", amount=5, split_mode="equal", split={"people": ["Nadie"]})
-    tv.travel.add_expense(tv.trip_id, description="X", amount=5, payer="Marta")
+    tv.travel.add_expense(tv.trip_id, description="X", amount=5, payer="Viajero B")
     with pytest.raises(PhileasError):
-        tv.travel.remove_person(tv.trip_id, "Marta")                    # she paid something
+        tv.travel.remove_person(tv.trip_id, "Viajero B")                    # she paid something
 
 
 def test_update_and_delete_expense(tv):
     t = tv.travel
     e = t.add_expense(tv.trip_id, description="Cena", amount=90)["expense"]
-    out = t.update_expense(e["id"], amount=120, split_mode="equal", split={"people": ["Luis", "Marta"]})
+    out = t.update_expense(e["id"], amount=120, split_mode="equal", split={"people": ["Viajero A", "Viajero B"]})
     assert out["expense"]["base_amount"] == 120 and [s["amount"] for s in out["expense"]["shares"]] == [60.0, 60.0]
     assert t.delete_expense(e["id"])["summary"]["total"] == 0
 
@@ -183,7 +183,7 @@ def test_a_bookings_price_becomes_an_expense_once(tv):
     t = tv.travel
     seg = t.add_segment(kind="flight", number="IB3166", from_code="MAD", to_code="FCO", dep_local="2026-12-18T09:05", price=212.4, currency="EUR", trip=tv.trip_id)["segment"]
     out = t.expense_from_segment(seg["id"])
-    assert out["expense"]["base_amount"] == 212.4 and out["expense"]["category"] == "transport" and out["expense"]["payer"] == "Luis"
+    assert out["expense"]["base_amount"] == 212.4 and out["expense"]["category"] == "transport" and out["expense"]["payer"] == "Viajero A"
     with pytest.raises(PhileasError):
         t.expense_from_segment(seg["id"])
 
@@ -205,8 +205,8 @@ def ledger_hub(tv, *, accounts=ACCOUNTS, categories=CATEGORIES):
 
 def test_my_share_goes_to_ledger_once(tv):
     t = tv.travel
-    t.add_expense(tv.trip_id, description="Cena", amount=90, payer="Marta", day="2026-12-19")
-    t.add_expense(tv.trip_id, description="Hotel", amount=200, payer="Luis", day="2026-12-18")
+    t.add_expense(tv.trip_id, description="Cena", amount=90, payer="Viajero B", day="2026-12-19")
+    t.add_expense(tv.trip_id, description="Hotel", amount=200, payer="Viajero A", day="2026-12-18")
     sent = ledger_hub(tv)
     dry = t.to_ledger(tv.trip_id, dry_run=True)
     assert dry["status"] == "dry_run" and [p["my_share"] for p in dry["pending"]] == [66.67, 30.0] or len(dry["pending"]) == 2
@@ -216,7 +216,7 @@ def test_my_share_goes_to_ledger_once(tv):
     assert {s["date"] for s in sent} == {"2026-12-18", "2026-12-19"} and "Roma" in sent[0]["note"]
     again = t.to_ledger(tv.trip_id)
     assert again["status"] == "nothing_to_send" and again["already_sent"] == 2 and len(sent) == 2
-    t.add_expense(tv.trip_id, description="Museo", amount=30, payer="Pablo")
+    t.add_expense(tv.trip_id, description="Museo", amount=30, payer="Viajero C")
     assert t.to_ledger(tv.trip_id)["status"] == "ok" and len(sent) == 3
     flags = {e["description"]: e["sent_to_ledger"] for e in t.expenses_view(tv.trip_id)["expenses"]}
     assert flags == {"Cena": True, "Hotel": True, "Museo": True}

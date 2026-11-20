@@ -134,7 +134,7 @@ _PROFILES: tuple[SiteProfile, ...] = (
         "ebay.es", "eBay", is_retailer=False, is_marketplace=True, source_level=4, blocks_automation="akamai",
         notes="marketplace. verified: Akamai 403 'Error Page | eBay' over http and headless Edge.",
     ),
-    # Shops Luis reviewed on 2026-11-09 (company identity, reviews, how they answer an automated reader from the Spark).
+    # Shops reviewed on 2026-11-09 (company identity, reviews, how they answer an automated reader from the Spark).
     SiteProfile(
         "juguetilandia.com", "Juguetilandia", first_party_sellers=("juguetilandia",), product_url=r"^/producto/",
         notes="verified 2026-11-09: product pages over http 200 with microdata Product/Offer (itemprop availability and price); "
