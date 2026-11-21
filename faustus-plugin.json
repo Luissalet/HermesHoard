@@ -146,6 +146,10 @@
   },
   "notes": "Start explicitly from Hoard Hub. Catalogue discovery never starts the server or engines. All modules default OFF; choices persist after explicit activation. Histories are mapped in place, never copied.",
   "x-family": {
+    "isolated_instance": {
+      "data_env": "HERMES_DATA_DIR",
+      "port_env": "HERMES_PORT"
+    },
     "copilot": {
       "provider": "faustus",
       "contract": "1.0",
