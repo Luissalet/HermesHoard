@@ -186,6 +186,13 @@ _PROFILES: tuple[SiteProfile, ...] = (
         notes="verified 2026-11-12: Shopify TCG shop in Valencia, Trustpilot 4.7 over 44 reviews. Same short 429 as other shops on "
               "that platform.",
     ),
+    SiteProfile(
+        "grillecards.com", "Grille Cards", first_party_sellers=("grillecards", "grille cards"), product_url=r"^/products/",
+        min_interval_s=90.0, rate_limit_hold_s=120.0,
+        notes="verified 2026-11-21: small Shopify TCG shop run by a sole trader (name and tax number on its contact page, no postal "
+              "address, no public reviews found). Catalogue since February 2026, sealed product at launch-level prices. Its "
+              "collection pages show an 'Agotado' badge next to a live add-to-cart button; the product's own data is the one to trust.",
+    ),
 )
 
 SITE_PROFILES: dict[str, SiteProfile] = {p.host: p for p in _PROFILES}
