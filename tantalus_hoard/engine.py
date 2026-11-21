@@ -21,7 +21,7 @@ from . import rules
 from .discovery import discover, product_terms, watcher_config
 from .extract import adapter_for, extract, retailer_for_host, source_level_for_host
 from .extract import window_check
-from .extract.sites import window_ok as site_window_ok
+from .extract.sites import listing_context, window_ok as site_window_ok
 from .faustus_eye import merge as faustus_merge
 from .fetch.open_window import TIER as OPEN_WINDOW
 from .model import (BUYABLE, CANDIDATE_FOUND, COMING_SOON, IN_STOCK, INFO_CHANGE, LISTING_PRICE_DROP, LOCAL_PICKUP, MARKETPLACE_ONLY,
@@ -77,14 +77,17 @@ def network_error(reason: str) -> bool:
     return bool(_NETWORK_ERRORS.search(reason or ""))
 
 
-def offer_matches(offer: Offer, terms: list[str], must: list[str], exclude: list[str]) -> bool:
+def offer_matches(offer: Offer, terms: list[str], must: list[str], exclude: list[str], context: str = "") -> bool:
     """Does a product tile belong to the watcher? Every ``must`` term and, with three terms or fewer, every product
-    term; with more terms, at least 60 % of them. Any ``exclude`` term rejects the tile."""
+    term; with more terms, at least 60 % of them. Any ``exclude`` term rejects the tile. ``context`` is what the page
+    the tile sits on says of all its products (a shop's category page); it counts for the terms, never for ``exclude``."""
     title = fold(" ".join(filter(None, (offer.title, (offer.url or "").replace("-", " ").replace("_", " ")))))
     if not title:
         return False
     if any(_has_term(x, title) for x in exclude):
         return False
+    if context:
+        title = f"{title} {fold(context)}"
     if must and not all(_has_term(m, title) for m in must):
         return False
     if not terms:
@@ -248,7 +251,8 @@ class Engine:
         # ---------------------------------------------------------------- choose the offer
         terms, must, exclude = self._match_config(watcher)
         is_list = ex.page_kind in ("search", "listing") or len(ex.offers) > 1
-        matched: list[Offer] = [o for o in ex.offers if offer_matches(o, terms, must, exclude)] if is_list else list(ex.offers)
+        context = listing_context(fr.final_url or target["url"]) if ex.page_kind == "listing" else ""
+        matched: list[Offer] = [o for o in ex.offers if offer_matches(o, terms, must, exclude, context)] if is_list else list(ex.offers)
         new_skus: list[Offer] = []
         if is_list:
             seen = set(extra.get("seen_offer_urls") or [])

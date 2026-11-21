@@ -123,3 +123,21 @@ def test_a_short_rate_limit_does_not_cost_half_an_hour(tmp_path):
     assert state.get("game.es")["blocked_until_ts"] == 2800.0
     state.update("cartadia.com", blocked_until_ts=1000.0 + 1800, block_reason="cloudflare")
     assert state.get("cartadia.com")["blocked_until_ts"] == 2800.0
+
+
+def test_a_category_page_and_a_one_game_shop_speak_for_their_products():
+    from tantalus_hoard.engine import offer_matches
+    from tantalus_hoard.extract.sites import listing_context
+    from tantalus_hoard.model import Offer
+
+    etb = Offer(title="Dominio Delta Caja de entrenador de élite. Español", url="https://www.only-cards.com/shop/dominio-delta-caja-26")
+    terms = ["pokemon", "delta"]
+    assert not offer_matches(etb, terms, terms, [])
+    assert offer_matches(etb, terms, terms, [], listing_context("https://www.only-cards.com/shop"))
+    tile = Offer(title="ETB Dominio Delta (Español)", url="https://grillecards.com/products/etb-dominio-delta-espanol")
+    assert offer_matches(tile, terms, terms, [], listing_context("https://grillecards.com/collections/pokemon"))
+    assert not offer_matches(tile, terms, terms, [], listing_context("https://grillecards.com/collections/one-piece"))
+    # the words of a search do not vouch for its results, and the page never rescues an excluded product
+    assert listing_context("https://www.example.com/resultados?search=pokemon%20delta") == "resultados"
+    sleeves = Offer(title="Fundas Dominio Delta", url="https://grillecards.com/products/fundas-dominio-delta")
+    assert not offer_matches(sleeves, terms, terms, ["fundas"], listing_context("https://grillecards.com/collections/pokemon"))

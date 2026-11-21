@@ -38,6 +38,7 @@ class SiteProfile:
     window_ok: bool = False                     # a normal visible browser window is served where headless is refused
     window_paths: tuple[str, ...] = ()          # ... only for these path patterns (regex); empty = any path
     rate_limit_hold_s: float = 0.0              # its HTTP 429 clears in seconds: wait this long, not the default half hour
+    implied_terms: tuple[str, ...] = ()         # what every product of the shop is without its title saying so ("pokemon")
     notes: str = ""
 
 
@@ -195,11 +196,12 @@ _PROFILES: tuple[SiteProfile, ...] = (
     ),
     SiteProfile(
         "only-cards.com", "Only Cards", first_party_sellers=("only cards", "only-cards"),
-        product_url=r"^/(?:[a-z]{2}/)?shop/[a-z0-9-]+-\d+/?$", min_interval_s=30.0,
+        product_url=r"^/(?:[a-z]{2}/)?shop/[a-z0-9-]+-\d+/?$", min_interval_s=30.0, implied_terms=("pokemon",),
         notes="verified 2026-11-21: small TCG shop in Vigo run by a sole trader (name, tax number and address in its terms; "
               "ships to mainland Spain and the Balearics; no public reviews found). Plain requests answer 200 from the Spark. "
               "The whole catalogue is the two pages of /shop (/shop/page/2); product pages carry JSON-LD with the real "
-              "availability while a sold-out page keeps a live buy control.",
+              "availability while a sold-out page keeps a live buy control. It sells one card game only and most of its "
+              "titles do not name it.",
     ),
 )
 
@@ -303,6 +305,15 @@ def _key(value: str) -> str:
 
 _CORPORATE_WORDS = frozenset({"espana", "spain", "es", "sl", "slu", "sa", "eu", "sarl", "com", "inc", "ltd",
                               "europe", "iberia", "online", "tienda", "store", "oficial", "official"})
+
+
+def listing_context(page_url: str) -> str:
+    """What a shop's listing page says about every product on it without each title repeating it: the words of the
+    page's own path (a product under ``/collections/pokemon-30-aniversario`` is one of those) and what the shop's
+    profile says all its products are. The query string is left out: a search answers loosely to its words."""
+    profile = profile_for_host(page_url)
+    path = re.sub(r"[^0-9a-zA-Z\u00c0-\u024f]+", " ", urlsplit(page_url).path)
+    return " ".join(filter(None, (path.strip(), " ".join(profile.implied_terms) if profile else "")))
 
 
 def rate_limit_hold_s(host_or_url: str) -> float:
