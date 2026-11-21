@@ -110,6 +110,11 @@ def test_a_short_rate_limit_does_not_cost_half_an_hour(tmp_path):
     assert profile_for_host("cartadia.com").name == "Cartadia" and rate_limit_hold_s("cartadia.com") == 120.0
     assert profile_for_host("https://grillecards.com/collections/pokemon").name == "Grille Cards"
     assert rate_limit_hold_s("grillecards.com") == 120.0
+    from tantalus_hoard.extract.sites import kind_of_url
+    assert profile_for_host("https://www.only-cards.com/shop").name == "Only Cards"
+    assert kind_of_url("https://www.only-cards.com/shop/coleccion-premium-ditto-30-aniversario-pokemon-espanol-22") == "product"
+    assert kind_of_url("https://www.only-cards.com/en/shop/dominio-delta-caja-de-entrenador-de-elite-espanol-26") == "product"
+    assert kind_of_url("https://www.only-cards.com/shop") == "" and kind_of_url("https://www.only-cards.com/shop/page/2") == ""
     assert rate_limit_hold_s("game.es") == 0.0
     state = SqlHostState(Database(tmp_path / "t.db"), short_hold=rate_limit_hold_s, clock=lambda: 1000.0)
     state.update("collectowny.com", blocked_until_ts=1000.0 + 1800, block_reason="http_429")

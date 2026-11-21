@@ -193,6 +193,14 @@ _PROFILES: tuple[SiteProfile, ...] = (
               "address, no public reviews found). Catalogue since February 2026, sealed product at launch-level prices. Its "
               "collection pages show an 'Agotado' badge next to a live add-to-cart button; the product's own data is the one to trust.",
     ),
+    SiteProfile(
+        "only-cards.com", "Only Cards", first_party_sellers=("only cards", "only-cards"),
+        product_url=r"^/(?:[a-z]{2}/)?shop/[a-z0-9-]+-\d+/?$", min_interval_s=30.0,
+        notes="verified 2026-11-21: small TCG shop in Vigo run by a sole trader (name, tax number and address in its terms; "
+              "ships to mainland Spain and the Balearics; no public reviews found). Plain requests answer 200 from the Spark. "
+              "The whole catalogue is the two pages of /shop (/shop/page/2); product pages carry JSON-LD with the real "
+              "availability while a sold-out page keeps a live buy control.",
+    ),
 )
 
 SITE_PROFILES: dict[str, SiteProfile] = {p.host: p for p in _PROFILES}
