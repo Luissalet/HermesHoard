@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import mails as M
+from phileas_hoard.agent_tools import tool_catalog
 
 
 def test_health_and_status(client):
@@ -39,7 +40,7 @@ def test_agent_needs_the_token(client):
     r = client.post("/api/agent/call", json={"name": "phileas_overview"}, headers=client.bearer)
     assert r.status_code == 200 and "active" in r.json()
     tools = client.get("/api/agent/tools").json()["tools"]
-    assert len(tools) >= 25
+    assert tools == tool_catalog()
     assert all(len(t["description"].splitlines()[0]) <= 110 for t in tools)
 
 
