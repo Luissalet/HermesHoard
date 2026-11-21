@@ -296,8 +296,11 @@ class Engine:
         first_check = not extra.get("checked_once")
         drafts: list[dict[str, Any]] = []
         per_item = is_list and fr.tier == OPEN_WINDOW     # every row of the window is followed on its own (see _per_item)
+        # The first read of a shop's listing, and of each product that read found, is what the shop had when it was
+        # added: a baseline. Only what changes after it is news (a product page added by hand still says so at once).
+        quiet_baseline = first_check and (is_list or bool(extra.get("baseline")))
         if not revalidation:
-            if state != UNKNOWN and not per_item:
+            if state != UNKNOWN and not per_item and not quiet_baseline:
                 drafts = rules.transitions(target=target, prev_state=prev_known, prev_price=prev_price, state=state, offer=offer,
                                            policies=policies, ceiling=ceiling, first_check=first_check)
             if is_list and not first_check:
@@ -382,7 +385,8 @@ class Engine:
             if cand and auto and count < cap and o.seller_is_retailer is not False:
                 self.store.create_target(watcher["id"], o.url, label=(o.title or "")[:120], retailer=cand["retailer"], source_level=1,
                                          seller_policy=policies.get("seller") or target.get("seller_policy") or "retail_only",
-                                         price_threshold=target.get("price_threshold"), extra={"from_search": target["id"]})
+                                         price_threshold=target.get("price_threshold"),
+                                         extra={"from_search": target["id"], **({"baseline": True} if first_check else {})})
                 self.store.set_candidate(cand["id"], "accepted", self.store.target_by_url(watcher["id"], o.url)["id"])
                 count += 1
                 known.add(o.url)

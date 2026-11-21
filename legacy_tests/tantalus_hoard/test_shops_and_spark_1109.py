@@ -141,3 +141,38 @@ def test_a_category_page_and_a_one_game_shop_speak_for_their_products():
     assert listing_context("https://www.example.com/resultados?search=pokemon%20delta") == "resultados"
     sleeves = Offer(title="Fundas Dominio Delta", url="https://grillecards.com/products/fundas-dominio-delta")
     assert not offer_matches(sleeves, terms, terms, ["fundas"], listing_context("https://grillecards.com/collections/pokemon"))
+
+
+def test_what_a_shop_already_had_when_its_listing_was_added_is_not_news(svc):
+    from test_engine import ScriptedFetcher, swap_clock
+    from conftest import T0, tool
+
+    def tile(slug, title, price):
+        return (f'<div class="product-card"><a href="/products/{slug}"><h3>{title}</h3></a>'
+                f'<span class="price">{price} €</span><button>Añadir al carrito</button></div>')
+
+    def product(title, price, stock="InStock"):
+        return ('<html><head><title>%s</title><script type="application/ld+json">{"@context":"https://schema.org","@type":"Product",'
+                '"name":"%s","offers":{"@type":"Offer","price":"%s","priceCurrency":"EUR","availability":"https://schema.org/%s"}}'
+                '</script></head><body><h1>%s</h1><button>Añadir al carrito</button></body></html>') % (title, title, price, stock, title)
+
+    base = "https://tienda-de-cartas.example"
+    listing = f"{base}/collections/pokemon"
+    first = "<html><body>" + tile("etb-delta", "ETB Dominio Delta", "59,95") + tile("bundle-delta", "Booster Bundle Dominio Delta", "34,95") + tile("blister-delta", "Blíster Dominio Delta", "18,95") + "</body></html>"
+    later = first.replace("</body>", tile("lata-delta", "Lata Dominio Delta", "29,95") + "</body>")
+    svc.engine.fetcher = ScriptedFetcher({listing: [first, later], f"{base}/products/etb-delta": [product("ETB Dominio Delta", "59.95")],
+                                          f"{base}/products/bundle-delta": [product("Booster Bundle Dominio Delta", "34.95")],
+                                          f"{base}/products/blister-delta": [product("Blíster Dominio Delta", "18.95")]})
+    w = tool(svc, "watcher_create", name="Dominio Delta", mode="availability",
+             config={"product": {"terms": ["pokemon", "delta"], "must": ["pokemon", "delta"]}, "policies": {"revalidate_seconds": 0}})
+    t = svc.store.create_target(w["id"], listing, source_level=1)
+    r = svc.engine.check_target(t["id"])
+    assert r["page_kind"] == "listing" and r["matched_offers"] == 3 and r["events"] == []      # titles never say "Pokémon"
+    found = [x for x in svc.store.targets(watcher_id=w["id"]) if x["id"] != t["id"]]
+    assert len(found) == 3
+    for x in found:                                   # in stock on their first read, and that is no restock
+        out = svc.engine.check_target(x["id"])
+        assert out["state"] == "IN_STOCK" and out["events"] == []
+    swap_clock(svc, T0 + 1800)
+    again = svc.engine.check_target(t["id"])
+    assert [svc.store.event(e)["type"] for e in again["events"]] == ["NEW_SKU"]
