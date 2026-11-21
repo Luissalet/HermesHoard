@@ -142,6 +142,11 @@ def _extract_html(ex: Extraction, body: str, url: str, fr: FetchResult, hints: d
     # ---- product page
     scan = phrases.scan(soup, full, headline=headline, profile=profile, hints=hints, today=today)
     offers = _product_offers(ld, meta, ex)
+    if not offers:
+        own = moonshine.extract_moonshine_product(soup, url)      # the shop's embedded state: all a sold-out page of its says
+        if own is not None:
+            offers = [own]
+            ex.methods.append("site:state")
     if profile is not None and getattr(profile, "price_selectors", ()):
         price = _selector_price(soup, profile.price_selectors)
         if price is not None:

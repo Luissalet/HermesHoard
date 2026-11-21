@@ -146,6 +146,12 @@ class Engine:
         else:
             fr = self.fetcher.get(target["url"], tier=target.get("fetch_tier") or "auto")
         ex = extract(fr, hints=hints, llm=self.llm)
+        if not fr.ok and fr.status == 410 and not fr.blocked and ex.page_kind == "product" and ex.offers \
+                and all(o.availability == OUT_OF_STOCK for o in ex.offers):
+            # Some shops answer "410 Gone" for a product that is sold out and still serve its whole page. That page is the
+            # reading: the product is known and not for sale, so the target keeps its cadence and its return is a restock.
+            # A page that came with 410 and reads as anything else stays an error: "Gone" never vouches for stock.
+            fr.ok, fr.error, fr.error_kind = True, "", ""
         if fr.tier == OPEN_WINDOW and fr.ok and getattr(fr, "page_lines", None):
             # second reader: the family model reads the same page text; agreements and gaps are marked on the offers
             ex.model_check = window_check.reinforce(ex, fr.page_lines, target["url"], self.llm)

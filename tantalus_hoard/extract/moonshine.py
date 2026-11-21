@@ -9,6 +9,11 @@ detector finds nothing. Sponsored slots have no ``code_a`` and are ignored.
 
 Availability is only claimed when the page says it: ``status == "ADD"`` together with the visible add button
 means in stock; a ``coming_soon`` badge means pre-order; anything else stays ``unknown``.
+
+A product page (route ``product_detail``) carries the product itself at the top of the same object: ``id``, ``title``,
+``brand.name``, ``badges.coming_soon`` and, per colour, ``variants[].add_to_cart`` (``"ADD"`` or ``"NOT_AVAILABLE"``),
+``variants[].gtin`` and ``variants[].flags.coming_soon``. A sold-out product keeps its page (answered with status 410)
+with every variant ``NOT_AVAILABLE`` and no structured data, so this object is the only place that says so.
 """
 
 from __future__ import annotations
@@ -20,7 +25,7 @@ from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
 
-from ..model import IN_STOCK, PREORDER, UNKNOWN, Offer
+from ..model import COMING_SOON, IN_STOCK, OUT_OF_STOCK, PREORDER, UNKNOWN, Offer
 
 _MARKER = "__MOONSHINE_STATE__"
 _ADD_WORDS = ("añadir", "anadir", "añadir a la cesta", "comprar")
@@ -115,3 +120,44 @@ def extract_moonshine(soup: BeautifulSoup, base_url: str, limit: int = 80) -> li
             extra={"position": item.get("position"), "eci_status": status or None},
         ))
     return offers
+
+
+def extract_moonshine_product(soup: BeautifulSoup, base_url: str) -> Optional[Offer]:
+    """The shop's own word on one product page, or ``None`` when the page is not one of its product pages."""
+    state = _state(soup)
+    if state is None:
+        return None
+    colours = state.get("_my_colors")
+    code = str(state.get("id") or "").strip()
+    if not code or not isinstance(colours, list):
+        return None
+    variants = [v for c in colours if isinstance(c, dict) for v in (c.get("variants") or []) if isinstance(v, dict)]
+    if not variants:
+        return None
+    controls = {str(v.get("add_to_cart") or v.get("status") or "").strip().upper() for v in variants}
+    badges = state.get("badges") if isinstance(state.get("badges"), dict) else {}
+    soon = bool(badges.get("coming_soon")) or any(isinstance(v.get("flags"), dict) and v["flags"].get("coming_soon") for v in variants)
+    availability, evidence = UNKNOWN, []
+    if "ADD" in controls:
+        availability, evidence = IN_STOCK, ['add_to_cart "ADD"']
+    elif soon:
+        availability, evidence = COMING_SOON, ["coming_soon flag"]
+    elif controls == {"NOT_AVAILABLE"}:
+        availability, evidence = OUT_OF_STOCK, ['add_to_cart "NOT_AVAILABLE"']
+    price = None
+    for holder in [state] + variants:
+        block = holder.get("price") if isinstance(holder.get("price"), dict) else {}
+        if isinstance(block.get("f_price"), (int, float)):
+            price = float(block["f_price"])
+            break
+    brand = state.get("brand") if isinstance(state.get("brand"), dict) else {}
+    single = state.get("_single_sku") if isinstance(state.get("_single_sku"), dict) else {}
+    provider = str(single.get("provider") or "").strip()
+    gtin = next((re.sub(r"\D", "", str(v.get("gtin") or "")) for v in variants if v.get("gtin")), "")
+    return Offer(
+        availability=availability, price=price, currency="EUR" if price is not None else None,
+        title=str(state.get("title") or "").strip()[:300] or None, url=base_url, sku=code,
+        brand=str(brand.get("name") or "") or None, ean=gtin or None,
+        seller="El Corte Inglés" if provider.lower() == "eci" else (provider or None),
+        evidence=evidence, method="site:elcorteingles.es", extra={"eci_status": "/".join(sorted(controls)) or None},
+    )
