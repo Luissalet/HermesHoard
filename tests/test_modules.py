@@ -2,6 +2,7 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 from hermes_hoard.app import create_app
+from mcp_server import catalog as mcp_catalog
 
 
 @pytest.fixture(autouse=True)
@@ -23,7 +24,7 @@ def test_defaults_catalog_and_renamed_collision_routes(tmp_path):
     with client(app) as c:
         assert not any(m["enabled"] for m in c.get("/api/modules").json()["modules"])
         tools = c.get("/api/agent/tools").json()["tools"]
-        assert len(tools) == 125
+        assert sorted(t["name"] for t in tools) == sorted(t["name"] for t in mcp_catalog())
         names = {t["name"] for t in tools}
         for name in ("settings_set", "scheduler_status", "notify_status"):
             assert "products_" + name in names
