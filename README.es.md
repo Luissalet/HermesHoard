@@ -75,6 +75,7 @@ Abre `http://127.0.0.1:5221`. `Start.cmd` crea el entorno si no existe; no se ab
 | --- | --- |
 | `HERMES_DATA_DIR`, `HERMES_PORT` / `--port` | Carpeta de datos central y puerto. |
 | `HERMES_URL`, `HERMES_TOKEN_FILE` | Ajustes del puente por stdio. |
+| `HERMES_REAL_HUB_URL` | Dirección del Hub de una instalación cuyo Hub no está en `127.0.0.1:8810` (por ejemplo en una Spark); varias direcciones, separadas por comas. El correo por la cuenta de Faustus solo funciona en la instalación real: un Hub de pruebas o una carpeta de datos de pruebas no tiene correo si la pasarela del Hub no lo sirve. |
 
 Sin datos previos, los datos nuevos van a `data/products` y `data/shipments`. Para reutilizar los datos del vigilante y del seguimiento originales, con ambos módulos apagados ejecuta `scripts\adopt_data.py --parent "C:\ruta\a\Hoards"`: solo se escribe el mapa `data/modules.json` y las bases de datos originales, las marcas de correo, las cachés, los perfiles de navegador y los ajustes se quedan donde están. Los datos de un módulo también pueden reubicarse en `data/native/<módulo>/data`, moviendo árboles completos (SQLite WAL/SHM, medios, modelos, sesiones de navegador).
 

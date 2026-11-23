@@ -267,19 +267,40 @@ _ISOLATED = {
 }
 
 
-def isolation() -> str:
+def _origin(url: Any) -> tuple[str, str, int]:
+    """``(scheme, host, port)`` of a URL, the default port filled in; ``("", "", 0)`` when it is not an http(s) URL."""
+    try:
+        parts = urlsplit(str(url or "").strip())
+        scheme = parts.scheme.lower()
+        return (scheme, (parts.hostname or "").lower(), parts.port or {"http": 80, "https": 443}.get(scheme, 0)) if scheme in ("http", "https") else ("", "", 0)
+    except ValueError:
+        return ("", "", 0)
+
+
+def _inside(folder: str, root: Any, exact: bool = False) -> bool:
+    """``folder`` (already real and case-normalised) is ``root`` or, unless ``exact``, a folder below it."""
+    top = os.path.normcase(os.path.realpath(os.path.abspath(str(root)))) if str(root or "").strip() else ""
+    return bool(top) and (folder == top or (not exact and folder.startswith(top.rstrip("/\\") + os.sep)))
+
+
+def isolation(real_hubs: Iterable[Any] = (), real_data: Iterable[Any] = ()) -> str:
     """Why this process must not use the Faustus helper: ``"hub"`` (the hub it talks to is not the real one, ``127.0.0.1:8810``),
     ``"data"`` (the app's data folder, where its token file lives, is not the ``data`` folder of its own repo, or is not known), or
     ``""`` for the real install. The helper reads the person's real mailbox, so only the real install may run it; a gateway still
-    serves any app that its hub lets in."""
+    serves any app that its hub lets in.
+
+    An install that is not the default one says so itself, never a test: ``real_hubs`` are other hub URLs that are the real hub of
+    that install (an app on another machine reaches the hub by another address), ``real_data`` are folders whose subfolders are the
+    app's real data (an app that keeps one folder per module). Both empty: the rule above, as it was."""
     try:
-        parts = urlsplit(_f._hub())
-        if (parts.hostname or "").lower() not in _LOOPBACK or (parts.port or 80) != REAL_HUB_PORT:
+        real_hubs, real_data = list(real_hubs), list(real_data)
+        hub = _origin(_f._hub())
+        if not (hub[1] in _LOOPBACK and hub[2] == REAL_HUB_PORT) and not (hub[0] and hub in {_origin(url) for url in real_hubs}):
             return "hub"
         token = str(_f.status().get("token_file") or "")
         folder = os.path.normcase(os.path.realpath(os.path.dirname(os.path.abspath(token)))) if token else ""
-        here = Path(__file__).resolve().parent
-        if not folder or not any(os.path.normcase(os.path.realpath(str(up / "data"))) == folder for up in list(here.parents)[:4]):
+        own = [up / "data" for up in list(Path(__file__).resolve().parent.parents)[:4]]
+        if not folder or not (any(_inside(folder, root, exact=True) for root in own) or any(_inside(folder, root) for root in real_data)):
             return "data"
     except (OSError, ValueError):
         return "data"
@@ -392,11 +413,15 @@ class FaustusHelper:
 
     ``setting`` is where the person said Faustus lives (a path or a callable; empty = discover it with :func:`faustus_dir`);
     ``owner`` picks the Faustus user when several have accounts; ``python`` overrides the interpreter; ``env_drop_prefixes`` removes
-    the app's own secrets (``("KAFKA_",)``) from the child's environment; ``runner`` replaces ``subprocess.run`` (tests)."""
+    the app's own secrets (``("KAFKA_",)``) from the child's environment; ``runner`` replaces ``subprocess.run`` (tests).
+    ``real_hubs`` / ``real_data`` (a list or a callable that returns one) are what the install declares as its real hub and real data
+    folders when they are not the default ones, see :func:`isolation`."""
 
     def __init__(self, setting: Any = None, *, owner: Any = None, python: Any = None, runner: Optional[Callable[..., Any]] = None,
-                 env_drop_prefixes: Iterable[str] = (), ask_hub: bool = True, clock: Callable[[], float] = time.time):
+                 env_drop_prefixes: Iterable[str] = (), ask_hub: bool = True, clock: Callable[[], float] = time.time,
+                 real_hubs: Any = (), real_data: Any = ()):
         self.setting, self.owner, self.python_setting = setting, owner, python
+        self.real_hubs, self.real_data = real_hubs, real_data
         self.runner = runner or subprocess.run
         self.env_drop_prefixes = tuple(env_drop_prefixes)
         self.ask_hub = ask_hub
@@ -410,15 +435,25 @@ class FaustusHelper:
         root = self.faustus_dir()
         return faustus_python(root, self.python_setting) if root else None
 
+    def isolation(self) -> str:
+        """:func:`isolation` with what this install declared as its real hub and real data folders."""
+        def listed(source: Any) -> list[Any]:
+            try:
+                value = source() if callable(source) else source
+            except Exception:  # noqa: BLE001
+                return []
+            return [value] if isinstance(value, (str, os.PathLike)) else list(value or [])
+        return isolation(listed(self.real_hubs), listed(self.real_data))
+
     def available(self) -> bool:
         """True when Faustus's folder and its Python were found and this is the real install (:func:`isolation`). Does not start anything."""
-        return not isolation() and self.faustus_dir() is not None and self.python() is not None
+        return not self.isolation() and self.faustus_dir() is not None and self.python() is not None
 
     def run(self, action: str, payload: Optional[dict[str, Any]] = None, timeout: float = HELPER_TIMEOUT_S) -> dict[str, Any]:
         """Run one helper action (``status | fetch | scan | headers | read | send``, see ``mail_helper.py``) and return its answer.
         Never raises: failures come back as ``{"ok": False, "error": ...}``. No console window opens on Windows. A test hub or test data
         never reaches the person's mailbox: the answer is ``{"ok": False, "isolated": "hub" | "data", "error": ...}`` and nothing runs."""
-        code = isolation()
+        code = self.isolation()
         if code:
             return {"ok": False, "isolated": code, "error": isolation_text(code)}
         root = self.faustus_dir()

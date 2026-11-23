@@ -75,6 +75,7 @@ Open `http://127.0.0.1:5221`. `Start.cmd` creates the environment when absent; n
 | --- | --- |
 | `HERMES_DATA_DIR`, `HERMES_PORT` / `--port` | Central data folder and port. |
 | `HERMES_URL`, `HERMES_TOKEN_FILE` | Settings for the stdio bridge. |
+| `HERMES_REAL_HUB_URL` | Hub address of an install whose hub is not `127.0.0.1:8810` (for example on a Spark); several addresses are separated by commas. Mail through the Faustus account only runs in the real install: a test hub or a test data folder has no mail unless the hub's mail gateway serves it. |
 
 Without existing data, fresh data goes to `data/products` and `data/shipments`. To reuse data of the original watcher and tracker, with both modules off run `scripts\adopt_data.py --parent "C:\path\to\Hoards"`: only the map `data/modules.json` is written and the original databases, mail watermarks, caches, browser profiles and settings stay where they are. Module data can also be relocated into `data/native/<module>/data`, moving whole trees (SQLite WAL/SHM, media, models, browser sessions).
 
