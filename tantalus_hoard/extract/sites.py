@@ -214,6 +214,21 @@ _PROFILES: tuple[SiteProfile, ...] = (
               "lists 250 products a page with the newest sets first. A plain request is answered 429 (retry-after 60) every "
               "time, from the PC and from the Spark, over HTTP/1.1 and HTTP/2 alike; the browser reads the feed in a second.",
     ),
+    SiteProfile(
+        "canarypop.com", "Canarypop", first_party_sellers=("canarypop",), product_url=r"^/products/", needs_browser=True,
+        min_interval_s=60.0, rate_limit_hold_s=120.0, catalog_feed=True,
+        notes="verified 2026-11-23: collectibles shop of a Canary Islands limited company, ships to the islands and the "
+              "mainland. Its trading-card catalogue is the collection /collections/pre-venta-pokemon-tcg (two dozen products; "
+              "Spanish sets near the shelf price, English ones as dear pre-orders marked [PRE-VENTA]); titles call the "
+              "anniversary set '30TH' / '30th Celebration'. A plain request is answered 429; the browser reads the feed.",
+    ),
+    SiteProfile(
+        "gladiusgames.net", "Gladius Games", first_party_sellers=("gladius games", "gladiusgames"),
+        product_url=r"-\d{8,14}\.html$", needs_browser=True, blocks_automation="cloudflare", window_ok=True,
+        notes="2026-11-23: game shop with a physical store in Alcalá de Henares (Madrid). Its Pokémon category is /es/29-pokemon. "
+              "Cloudflare answers its waiting page ('Un momento…', status 200) to plain requests and to headless Chromium "
+              "from the Spark: only an ordinary browser window on the PC reads it.",
+    ),
 )
 
 SITE_PROFILES: dict[str, SiteProfile] = {p.host: p for p in _PROFILES}

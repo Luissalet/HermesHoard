@@ -218,3 +218,22 @@ def test_too_many_requests_again_and_again_is_a_wall(svc):
     row = svc.store.target(t["id"])
     assert row["status"] == "needs_human" and row["next_check_ts"] - (T0 + 1000) > 3600
     assert [svc.store.event(e)["type"] for e in last["events"]] == ["NEEDS_HUMAN"]
+
+
+def test_a_term_can_list_the_names_shops_give_the_same_set():
+    from tantalus_hoard.engine import offer_matches
+    from tantalus_hoard.model import Offer
+    terms = ["pokemon", "30|30th", "aniversario|celebracion|celebration"]
+    spanish_shop = Offer(title="Colección Premium Ditto - Celebración 30TH ESPAÑOL", url="https://canarypop.com/products/ditto")
+    assert offer_matches(spanish_shop, terms, ["pokemon"], [], "collections pre venta pokemon tcg")
+    assert offer_matches(Offer(title="ETB 30 Aniversario Pokemon"), terms, ["pokemon"], [])
+    assert not offer_matches(Offer(title="ETB Dominio Delta Pokemon 2030"), terms, ["pokemon"], [])
+    assert not offer_matches(spanish_shop, ["pokemon", "30", "aniversario"], ["pokemon"], [], "collections pre venta pokemon tcg")
+
+
+def test_the_new_shops_have_their_profiles():
+    from tantalus_hoard.extract.sites import needs_browser, profile_for_host, window_ok
+    assert adapter_for("https://canarypop.com/collections/pre-venta-pokemon-tcg", {})["tier"] == "browser"
+    assert profile_for_host("https://gladiusgames.net/es/29-pokemon").name == "Gladius Games"
+    assert window_ok("https://gladiusgames.net/es/29-pokemon") and needs_browser("https://gladiusgames.net/es/29-pokemon")
+    assert adapter_for("https://gladiusgames.net/es/29-pokemon", {}) is None

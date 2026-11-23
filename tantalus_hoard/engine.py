@@ -65,9 +65,10 @@ def fold(text: str) -> str:
 
 
 def _has_term(term: str, text: str) -> bool:
-    """Whole-word match on folded text ("30" must not match "1:30" or "2030")."""
-    t = fold(term).strip()
-    return bool(t) and re.search(r"(?<![a-z0-9])" + re.escape(t) + r"(?![a-z0-9])", text) is not None
+    """Whole-word match on folded text ("30" must not match "1:30" or "2030"). A term may list the names a shop can
+    give the same thing, separated by "|" ("aniversario|celebration"): any of them counts."""
+    return any(t and re.search(r"(?<![a-z0-9])" + re.escape(t) + r"(?![a-z0-9])", text) is not None
+               for t in (fold(part).strip() for part in str(term).split("|")))
 
 
 _NETWORK_ERRORS = re.compile(r"unresolvable host|getaddrinfo|ERR_NAME_NOT_RESOLVED|ERR_INTERNET_DISCONNECTED|ERR_NETWORK_CHANGED|"
