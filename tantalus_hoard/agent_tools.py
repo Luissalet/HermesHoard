@@ -473,7 +473,10 @@ def run_target_resolve(svc: Services, a: ResolveArgs) -> dict[str, Any]:
 def run_inspect_url(svc: Services, a: InspectArgs) -> dict[str, Any]:
     hints = {"url": a.url, "sku": a.sku}
     api = adapter_for(a.url, hints)
-    if api:
+    if api and api.get("accept") == "html":
+        fr = svc.fetcher.get(api["url"], tier=api.get("tier", "auto"), min_interval_s=api.get("min_interval_s"))
+        hints["adapter"] = api["adapter"]
+    elif api:
         fr, _ = svc.fetcher.get_json(api["url"], tier="http", respect_robots=False, min_interval_s=api.get("min_interval_s"))
         hints["adapter"] = api["adapter"]
     else:

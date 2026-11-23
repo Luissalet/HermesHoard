@@ -39,6 +39,7 @@ class SiteProfile:
     window_paths: tuple[str, ...] = ()          # ... only for these path patterns (regex); empty = any path
     rate_limit_hold_s: float = 0.0              # its HTTP 429 clears in seconds: wait this long, not the default half hour
     implied_terms: tuple[str, ...] = ()         # what every product of the shop is without its title saying so ("pokemon")
+    catalog_feed: bool = False                  # its collections answer as a JSON feed with every product's stock (catalog.py)
     notes: str = ""
 
 
@@ -183,16 +184,17 @@ _PROFILES: tuple[SiteProfile, ...] = (
     ),
     SiteProfile(
         "cartadia.com", "Cartadia", first_party_sellers=("cartadia",), product_url=r"^/products/", min_interval_s=90.0,
-        rate_limit_hold_s=120.0,
-        notes="verified 2026-11-12: Shopify TCG shop in Valencia, Trustpilot 4.7 over 44 reviews. Same short 429 as other shops on "
-              "that platform.",
+        rate_limit_hold_s=120.0, needs_browser=True, catalog_feed=True,
+        notes="verified 2026-11-12: Shopify TCG shop in Valencia, Trustpilot 4.7 over 44 reviews. 2026-11-23: a plain request "
+              "is answered 429 every time; the browser reads its pages and its collections' feed.",
     ),
     SiteProfile(
         "grillecards.com", "Grille Cards", first_party_sellers=("grillecards", "grille cards"), product_url=r"^/products/",
-        min_interval_s=90.0, rate_limit_hold_s=120.0,
+        min_interval_s=90.0, rate_limit_hold_s=120.0, needs_browser=True, catalog_feed=True,
         notes="verified 2026-11-21: small Shopify TCG shop run by a sole trader (name and tax number on its contact page, no postal "
               "address, no public reviews found). Catalogue since February 2026, sealed product at launch-level prices. Its "
-              "collection pages show an 'Agotado' badge next to a live add-to-cart button; the product's own data is the one to trust.",
+              "collection pages show an 'Agotado' badge next to a live add-to-cart button; the product's own data is the one to trust. "
+              "2026-11-23: a plain request is answered 429 every time; the browser reads its pages and its collections' feed.",
     ),
     SiteProfile(
         "only-cards.com", "Only Cards", first_party_sellers=("only cards", "only-cards"),
@@ -202,6 +204,15 @@ _PROFILES: tuple[SiteProfile, ...] = (
               "The whole catalogue is the two pages of /shop (/shop/page/2); product pages carry JSON-LD with the real "
               "availability while a sold-out page keeps a live buy control. It sells one card game only and most of its "
               "titles do not name it.",
+    ),
+    SiteProfile(
+        "todohits.com", "TodoHits", first_party_sellers=("todohits", "forevertcg", "forevertcgshop"), product_url=r"^/products/",
+        needs_browser=True, min_interval_s=60.0, rate_limit_hold_s=120.0, catalog_feed=True,
+        notes="verified 2026-11-23: TCG shop of a limited company in Archena (Murcia), tax number on its legal notice, sells "
+              "sealed product in five languages (the language is the last part of each title). Its Pokémon collection has "
+              "650+ products, 20 a page, and the shop's robots.txt refuses pages with two filters; the collection's feed "
+              "lists 250 products a page with the newest sets first. A plain request is answered 429 (retry-after 60) every "
+              "time, from the PC and from the Spark, over HTTP/1.1 and HTTP/2 alike; the browser reads the feed in a second.",
     ),
 )
 

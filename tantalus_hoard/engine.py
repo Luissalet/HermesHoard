@@ -21,7 +21,8 @@ from . import rules
 from .discovery import discover, product_terms, watcher_config
 from .extract import adapter_for, extract, retailer_for_host, source_level_for_host
 from .extract import window_check
-from .extract.sites import listing_context, window_ok as site_window_ok
+from .extract import catalog as catalog_feed
+from .extract.sites import listing_context, rate_limit_hold_s, window_ok as site_window_ok
 from .faustus_eye import merge as faustus_merge
 from .fetch.open_window import TIER as OPEN_WINDOW
 from .model import (BUYABLE, CANDIDATE_FOUND, COMING_SOON, IN_STOCK, INFO_CHANGE, LISTING_PRICE_DROP, LOCAL_PICKUP, MARKETPLACE_ONLY,
@@ -39,6 +40,8 @@ STATE_RANK = {IN_STOCK: 7, LOCAL_PICKUP: 6, PREORDER: 5, RESTOCK_SCHEDULED: 4, C
               UNAVAILABLE_REGION: 1, UNKNOWN: 0}
 NEEDS_HUMAN_RETRY_MIN = 180
 BUSY_RETRY_S = 180        # another app holds the site's browser lane: look again soon, it is not the page's fault
+FEED_SHARE_S = 150        # two watchers on the same collection share one reading of its feed for this long
+BRIEF_LIMIT_TRIES = 5     # a shop whose "too many requests" clears in seconds is asked again after its hold this many times in a row
 MAX_BACKOFF_MIN = 6 * 60
 ENDED_NOTICE_WINDOW_S = 48 * 3600   # an alert older than this ends quietly: no "sold out" follow-up
 RECHECK_SOON_S = 60                 # an open-window row only the model read as buyable is read again this soon
@@ -111,6 +114,7 @@ class Engine:
         self.emit = emit
         self.clock = clock
         self.rng = rng or random.Random()
+        self._feed_reads: dict[str, tuple[float, FetchResult]] = {}
         self.budget = budget          # BudgetNote: "quedan X € en <categoría>" from Ledger, only for watchers with a budget_category
 
     # ======================================================================================== helpers
@@ -142,7 +146,10 @@ class Engine:
     def fetch_target(self, target: dict[str, Any], watcher: dict[str, Any]) -> tuple[FetchResult, Extraction]:
         hints = self._hints(target, watcher)
         api = adapter_for(target["url"], hints)
-        if api:
+        if api and api.get("accept") == "html":               # a feed read like a page: its shop's rung and robots.txt apply
+            fr = self._feed_read(api)
+            hints["adapter"] = api["adapter"]
+        elif api:
             fr, _data = self.fetcher.get_json(api["url"], tier=api.get("tier", "http"), respect_robots=api.get("respect_robots", False),
                                               min_interval_s=api.get("min_interval_s"))
             hints["adapter"] = api["adapter"]
@@ -159,6 +166,19 @@ class Engine:
             # second reader: the family model reads the same page text; agreements and gaps are marked on the offers
             ex.model_check = window_check.reinforce(ex, fr.page_lines, target["url"], self.llm)
         return fr, ex
+
+    def _feed_read(self, api: dict[str, Any]) -> FetchResult:
+        """One reading of a collection's feed answers for every watcher that follows that collection: a second watcher
+        asking within a couple of minutes gets the same reading instead of a second request to the shop."""
+        now = self.clock()
+        kept = self._feed_reads.get(api["url"])
+        if kept and 0 <= now - kept[0] < FEED_SHARE_S:
+            return kept[1]
+        fr = self.fetcher.get(api["url"], tier=api.get("tier", "auto"), min_interval_s=api.get("min_interval_s"))
+        if fr.ok and not fr.blocked:
+            self._feed_reads = {u: v for u, v in self._feed_reads.items() if 0 <= now - v[0] < FEED_SHARE_S}
+            self._feed_reads[api["url"]] = (now, fr)
+        return fr
 
     def check_target(self, target_id: str, *, revalidation: bool = False) -> dict[str, Any]:
         """Fetch, extract, record an observation and raise the events the change deserves."""
@@ -225,14 +245,19 @@ class Engine:
                 "checked_at": now, "source_url": fr.final_url or fr.url, "tier": fr.tier, "http_status": fr.status,
                 "availability": UNKNOWN, "blocked_reason": reason if blocked else "", "error": "" if blocked else reason,
                 "is_revalidation": revalidation, "evidence": ex.notes[:3]})
-            status = "needs_human" if blocked else "error"
+            # "Too many requests" from a shop whose limit is known to clear in seconds is a wait, not a wall: ask again once
+            # its hold is over instead of leaving the target for hours. A few in a row and it is a wall after all.
+            hold = rate_limit_hold_s(target["url"]) if blocked and reason == "http_429" else 0.0
+            brief = hold > 0 and fail_count < BRIEF_LIMIT_TRIES
+            status = "active" if brief else ("needs_human" if blocked else "error")
             # This computer's network failing (DNS, no connection) says nothing about the shop: retry at about the normal
             # cadence instead of the escalating backoff earned by the site's own refusals.
             backoff = 1 if (not blocked and network_error(reason)) else fail_count + 1
+            next_check = now + hold * 1.25 if brief else self._next_check(target, watcher, failed=backoff, needs_human=blocked)
             self.store.update_target(target["id"], status=status, last_check_ts=now, last_error=reason[:300], fail_count=fail_count + 1,
-                                     next_check_ts=self._next_check(target, watcher, failed=backoff, needs_human=blocked))
+                                     next_check_ts=next_check)
             events = []
-            if blocked and target.get("status") != "needs_human":
+            if blocked and not brief and target.get("status") != "needs_human":
                 key = rules.dedupe_key(target["id"], NEEDS_HUMAN, reason, None)
                 if not self.store.recent_event(key, now - 24 * 3600):
                     events.append(self.store.add_event({
@@ -251,7 +276,13 @@ class Engine:
         # ---------------------------------------------------------------- choose the offer
         terms, must, exclude = self._match_config(watcher)
         is_list = ex.page_kind in ("search", "listing") or len(ex.offers) > 1
-        context = listing_context(fr.final_url or target["url"]) if ex.page_kind == "listing" else ""
+        # A shop's catalogue feed answers for every product of the collection at once, sold out or not: its rows are
+        # followed one by one, like the rows of an open window, and the page the person gave says what they all are.
+        feed = catalog_feed.METHOD in ex.methods
+        feed_baseline = feed and not extra.get("feed_baseline_done")     # also a target that was read as a page until now
+        if feed:
+            extra["feed_baseline_done"] = True
+        context = listing_context(target["url"] if feed else (fr.final_url or target["url"])) if ex.page_kind == "listing" else ""
         matched: list[Offer] = [o for o in ex.offers if offer_matches(o, terms, must, exclude, context)] if is_list else list(ex.offers)
         new_skus: list[Offer] = []
         if is_list:
@@ -295,7 +326,7 @@ class Engine:
         prev_price = target.get("last_price")
         first_check = not extra.get("checked_once")
         drafts: list[dict[str, Any]] = []
-        per_item = is_list and fr.tier == OPEN_WINDOW     # every row of the window is followed on its own (see _per_item)
+        per_item = is_list and (fr.tier == OPEN_WINDOW or feed)     # every row is followed on its own (see _per_item)
         # The first read of a shop's listing, and of each product that read found, is what the shop had when it was
         # added: a baseline. Only what changes after it is news (a product page added by hand still says so at once).
         quiet_baseline = first_check and (is_list or bool(extra.get("baseline")))
@@ -305,6 +336,8 @@ class Engine:
                                            policies=policies, ceiling=ceiling, first_check=first_check)
             if is_list and not first_check:
                 for o in new_skus[:10]:
+                    if feed and (feed_baseline or o.availability in BUYABLE):
+                        continue                       # what the catalogue had; or its own row says it, as the stock it is
                     drafts.append({"type": NEW_SKU, "old_state": "", "new_state": o.availability, "price": o.price, "old_price": None,
                                    "severity": "medium", "sku_offer": o})
         if is_list and new_skus and not per_item:          # a window row has no product page of its own to watch
@@ -316,7 +349,8 @@ class Engine:
         created = [e for e in created if e]
         if per_item and not revalidation:
             created += self._per_item(target=target, watcher=watcher, offers=matched, extra=extra, policies=policies, level=level,
-                                      tier=fr.tier, first_check=first_check, now=now, retailer=retailer)
+                                      tier=fr.tier, first_check=first_check, now=now, retailer=retailer,
+                                      baseline=feed_baseline)
         elif state in ENDED_STATES and not per_item:
             # The product page no longer sells it: the restock / reservation / price alerts it raised are over. A
             # revalidation that reads it sold out ends them as well; otherwise the next check would find the state already
@@ -393,8 +427,9 @@ class Engine:
 
     # ======================================================================================== open windows (fetch tier open_window)
     def _per_item(self, *, target: dict[str, Any], watcher: dict[str, Any], offers: list[Offer], extra: dict[str, Any],
-                  policies: dict[str, Any], level: int, tier: str, first_check: bool, now: float, retailer: str) -> list[dict[str, Any]]:
-        """The rows of a list read from an open window, each followed on its own: its own last state and price in
+                  policies: dict[str, Any], level: int, tier: str, first_check: bool, now: float, retailer: str,
+                  baseline: bool = False) -> list[dict[str, Any]]:
+        """The rows of a list read from an open window or from a shop's catalogue feed, each followed on its own: its own last state and price in
         ``extra["items"]``, its own alerts (deduped by the row's link) and its own "se acabó" follow-up. Two products coming
         back one after the other give two alerts, not one."""
         items: dict[str, Any] = dict(extra.get("items") or {})
@@ -410,6 +445,10 @@ class Engine:
             state, notes = rules.effective_state(o, seller_policy=seller_policy, price_ceiling=ceiling)
             if state == UNKNOWN:
                 continue                                   # no button read: say nothing rather than guess
+            if baseline:
+                # What a shop's catalogue already had when it was added: remembered, not announced.
+                items[key] = {"state": state, "price": o.price, "title": (o.title or "")[:200], "seen": now}
+                continue
             model_only = bool(o.extra.get("model_only"))
             if model_only and state in BUYABLE and prev_state not in BUYABLE and prev.get("pending_state") != state:
                 # Only the model reads this row as buyable: remember it, read the window again in a minute, alert when the

@@ -26,7 +26,7 @@ from ..llm import LLM
 from ..model import (COMING_SOON, IN_STOCK, LOCAL_PICKUP, OUT_OF_STOCK, PREORDER, RESTOCK_SCHEDULED, UNKNOWN, Extraction,
                      FetchResult, Offer)
 from ..hoard_link.web import htmltext
-from . import jsonld, listing, meta as meta_mod, moonshine, nvidia, phrases, sites
+from . import catalog, jsonld, listing, meta as meta_mod, moonshine, nvidia, phrases, sites
 from .llm_extract import llm_extract
 from .sites import (is_first_party_seller, is_marketplace_host, needs_browser, profile_for_host, retailer_for_host,
                     source_level_for_host)
@@ -48,12 +48,19 @@ def adapter_for(url: str, hints: Optional[dict] = None) -> Optional[dict[str, An
     """
     hints = hints or {}
     name = str(hints.get("adapter") or "").lower()
-    if name not in ("", "auto", nvidia.NAME):
+    if name not in ("", "auto", nvidia.NAME, catalog.NAME):
         return None
     api = nvidia.adapter_url(url, hints)
     if api:
         return {"adapter": nvidia.NAME, "url": api, "accept": "json", "respect_robots": False, "tier": "http",
                 "min_interval_s": 10.0}
+    feed = catalog.adapter_url(url, hints) if name in ("", "auto", catalog.NAME) else None
+    if feed:
+        # Read like a page ("accept": "html"): robots.txt and the rung the shop's profile asks for apply to the feed too.
+        profile = profile_for_host(url)
+        return {"adapter": catalog.NAME, "url": feed, "accept": "html", "respect_robots": True,
+                "tier": "browser" if needs_browser(url) else "auto",
+                "min_interval_s": float(profile.min_interval_s) if profile else 60.0}
     return None
 
 
@@ -75,6 +82,10 @@ def extract(fr: FetchResult, *, hints: Optional[dict] = None, llm: Optional[LLM]
 
     # ---- JSON (API adapters)
     stripped = body.lstrip()
+    if stripped[:1] not in ("{", "[") and fr.tier in ("browser", "window") \
+            and ("json" in (fr.content_type or "").lower() or hints.get("adapter") == catalog.NAME):
+        body = catalog.unwrap(body) or body               # a browser shows a JSON document as a page
+        stripped = body.lstrip()
     if stripped[:1] in "{[" or "json" in (fr.content_type or "").lower():
         return _extract_json(ex, body, url, hints)
 
@@ -103,6 +114,15 @@ def _extract_json(ex: Extraction, body: str, url: str, hints: dict) -> Extractio
         ex.title = str(hints.get("title_hint") or (offers[0].title if offers else "") or "")
         ex.quality_ok = bool(offers)
         _annotate(ex.offers, url, hints)
+        return ex
+    if catalog.is_payload(data, url):
+        offers, kind, notes = catalog.extract_payload(data, url=url, hints=hints)
+        ex.offers = offers
+        ex.page_kind = kind
+        ex.methods = [catalog.METHOD]
+        ex.notes.extend(notes)
+        ex.title = str(hints.get("title_hint") or "")
+        ex.quality_ok = bool(offers)
         return ex
     return _degenerate(ex, "unknown", "JSON document not recognised by any adapter")
 
