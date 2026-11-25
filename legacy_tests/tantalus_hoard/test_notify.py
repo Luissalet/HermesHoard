@@ -462,11 +462,16 @@ def test_faustus_mail_helper_against_a_stub_email_server(tmp_path, monkeypatch):
 
     monkeypatch.setattr(faustus_mail.smtplib, "SMTP", SMTP)
     monkeypatch.setattr(faustus_mail.smtplib, "SMTP_SSL", SMTP_SSL)
-    status = faustus_mail.handle({"action": "status"}, str(root))
+    data = root / "data"
+    data.mkdir(exist_ok=True)
+    (data / faustus_mail.INSTALLATION_FILE).write_text('{"hub_urls": ["http://mock-hub.example.test"]}', encoding="utf-8")
+    monkeypatch.setattr(faustus_mail, "_hub_read", lambda *_args, **_kwargs: {"ok": True, "app": "hub", "apps": []})
+    caller = {"app": "hub", "token": "synthetic-hub-token"}
+    status = faustus_mail.handle({"action": "status", "caller": caller}, str(root))
     assert status["ok"] is True and not status["error"] and not made
     assert {k: status[k] for k in ("account", "from", "to", "server")} == {"account": "Main", "from": "me***@example.org",
                                                                           "to": ["me***@example.org"], "server": "smtp.example.org:587"}
-    sent = faustus_mail.handle({"action": "send", "subject": "Hi\r\nBcc: x@evil.com", "text": "body", "html": "<p>b</p>",
+    sent = faustus_mail.handle({"action": "send", "caller": caller, "subject": "Hi\r\nBcc: x@evil.com", "text": "body", "html": "<p>b</p>",
                                 "to": ["other@example.net", "bad address"]}, str(root))
     assert sent["ok"] and made[0].kind == "starttls"
     msg = made[0].sent[0]

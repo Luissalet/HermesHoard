@@ -23,13 +23,15 @@ PACKAGES = {"phileas_hoard": ("shipments", "mail.faustus_dir"), "tantalus_hoard"
 
 
 class CountingRunner:
-    """A ``subprocess.run`` stand-in that only counts."""
+    """A ``subprocess.run`` stand-in that records helper calls."""
 
     def __init__(self):
         self.calls = 0
+        self.invocations = []
 
     def __call__(self, cmd, **kw):
         self.calls += 1
+        self.invocations.append(kw)
         return subprocess.CompletedProcess(cmd, 0, OK_ANSWER, "")
 
 
@@ -136,6 +138,27 @@ def test_a_spark_install_that_declares_its_hub_keeps_the_helper(pkg, install, fa
     assert mail.helper.available() and notifier.helper.available()
     assert mail.router.scan(since_days=30, limit=10)[0]["subject"] == "Pedido"
     assert runner.calls == 1
+
+
+def test_spark_mail_source_and_notifier_forward_module_identity(pkg, install, faustus, tmp_path, monkeypatch):
+    link = "http://127.0.0.1:8811"
+    data = tmp_path / "hermes-data"
+    token = data / "native" / PACKAGES[pkg][0] / "data" / "mcp-token"
+    token.parent.mkdir(parents=True)
+    token.write_text("synthetic-module-token", encoding="utf-8")
+    install(link, str(token), declared=link)
+    monkeypatch.setenv("HOARD_MAIL_REAL_DATA_DIRS", str(data))
+    runner = CountingRunner()
+    mail, notifier = helpers(pkg, faustus, runner, tmp_path)
+
+    assert mail.router.scan(since_days=30, limit=10)[0]["subject"] == "Pedido"
+    assert notifier.helper.run("send", {"caller": {"app": "hub", "token": "ignored"}})["ok"]
+    assert runner.calls == 2
+    for call, action in zip(runner.invocations, ("scan", "send")):
+        payload = json.loads(call["input"])
+        assert payload["action"] == action
+        assert payload["caller"] == {"app": pkg.split("_")[0], "token": "synthetic-module-token"}
+        assert "HOARD_MAIL_REAL_HUB_URLS" not in call["env"]
 
 
 def test_several_declared_hubs_are_read_one_by_one(pkg, install, faustus, tmp_path):
