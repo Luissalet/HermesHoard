@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 from ..hoard_link.fam_mail import FaustusHelper, MailRouter
+from .install import real_data, real_hubs
 
 SOURCE_MODES = ("auto", "hub", "faustus")      # mail.source: the family hub's mail gateway, Faustus's own helper, or the hub with a fallback
 HUB_PAGE_MAX = 500
@@ -118,7 +119,8 @@ class MailSource:
         else:
             self.helper = FaustusHelper(lambda: self.get("mail.faustus_dir", None) or self._secret("FAUSTUS_DIR"),
                                         owner=lambda: self.get("mail.faustus_owner", None), runner=process_runner,
-                                        env_drop_prefixes=("PHILEAS_",), ask_hub=False, clock=clock)
+                                        env_drop_prefixes=("PHILEAS_",), ask_hub=False, clock=clock,
+                                        real_hubs=real_hubs, real_data=real_data)
         self._travel = False
         self.router = MailRouter(self.helper, source_getter=self.source_setting, interest=lambda criteria: interest_spec(self._travel),
                                  claim_kind="shipment", watermark_get=lambda: int(self.get(WATERMARK_KEY, "0") or 0),

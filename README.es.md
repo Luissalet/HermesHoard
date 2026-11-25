@@ -75,6 +75,8 @@ Abre `http://127.0.0.1:5221`. `Start.cmd` crea el entorno si no existe; no se ab
 | --- | --- |
 | `HERMES_DATA_DIR`, `HERMES_PORT` / `--port` | Carpeta de datos central y puerto. |
 | `HERMES_URL`, `HERMES_TOKEN_FILE` | Ajustes del puente por stdio. |
+| `HOARD_MAIL_REAL_HUB_URLS`, `HERMES_REAL_HUB_URL` | Orígenes adicionales del Hub de la instalación, separados por comas. Se admiten las dos declaraciones. |
+| `HOARD_MAIL_REAL_DATA_DIRS` | Rutas absolutas adicionales de los datos de la instalación, separadas por `;` en Windows y por `:` en POSIX. El ayudante admite las carpetas de módulos en `data/`, las adoptadas mediante `modules.json` y las que están dentro de una ruta declarada. Las pruebas pueden usar la pasarela del Hub cuando está disponible. |
 
 Sin datos previos, los datos nuevos van a `data/products` y `data/shipments`. Para reutilizar los datos del vigilante y del seguimiento originales, con ambos módulos apagados ejecuta `scripts\adopt_data.py --parent "C:\ruta\a\Hoards"`: solo se escribe el mapa `data/modules.json` y las bases de datos originales, las marcas de correo, las cachés, los perfiles de navegador y los ajustes se quedan donde están. Los datos de un módulo también pueden reubicarse en `data/native/<módulo>/data`, moviendo árboles completos (SQLite WAL/SHM, medios, modelos, sesiones de navegador).
 

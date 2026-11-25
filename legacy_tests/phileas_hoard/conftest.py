@@ -104,6 +104,9 @@ def no_family_hub(monkeypatch):
 
     monkeypatch.setattr(fam_notify, "hub_available", lambda timeout=1.0: False)
     monkeypatch.setattr(fam_notify, "notify", lambda *a, **k: {"ok": False, "error": "hub unreachable"})
+    # these tests run the Faustus helper itself against a fake Faustus folder and a fake runner; whether a test hub may reach the real mailbox
+    # is tests/test_mail_isolation.py's question, not theirs
+    monkeypatch.setattr(fam_mail, "isolation", lambda *a, **k: "")
     monkeypatch.setattr(fam_mail, "available", lambda timeout=1.0: False)
     monkeypatch.setattr(fam_mail, "register_interest", lambda *a, **k: {"ok": False, "error": "hub unreachable"})
     monkeypatch.setattr(fam_mail, "claim", lambda *a, **k: {"ok": False, "error": "hub unreachable"})

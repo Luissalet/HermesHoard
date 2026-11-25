@@ -75,6 +75,8 @@ Open `http://127.0.0.1:5221`. `Start.cmd` creates the environment when absent; n
 | --- | --- |
 | `HERMES_DATA_DIR`, `HERMES_PORT` / `--port` | Central data folder and port. |
 | `HERMES_URL`, `HERMES_TOKEN_FILE` | Settings for the stdio bridge. |
+| `HOARD_MAIL_REAL_HUB_URLS`, `HERMES_REAL_HUB_URL` | Additional Hub origins for the installation, comma-separated. Both declarations are accepted. |
+| `HOARD_MAIL_REAL_DATA_DIRS` | Additional absolute data roots for the installation, separated by `;` on Windows and `:` on POSIX. The helper accepts module folders under `data/`, data adopted through `modules.json` and folders under a declared root. Tests can use the Hub's mail gateway when available. |
 
 Without existing data, fresh data goes to `data/products` and `data/shipments`. To reuse data of the original watcher and tracker, with both modules off run `scripts\adopt_data.py --parent "C:\path\to\Hoards"`: only the map `data/modules.json` is written and the original databases, mail watermarks, caches, browser profiles and settings stay where they are. Module data can also be relocated into `data/native/<module>/data`, moving whole trees (SQLite WAL/SHM, media, models, browser sessions).
 

@@ -13,6 +13,7 @@ import time
 from typing import Any, Callable, Optional
 
 from ..hoard_link.fam_mail import FaustusHelper, MailRouter
+from .install import real_data, real_hubs
 
 STATUS_TIMEOUT_S = 60
 HEADERS_TIMEOUT_S = 180
@@ -64,7 +65,8 @@ class MailSource:
             self.helper = notifier.helper            # one helper (and one status cache) for the notifier and the mail scan
         else:
             self.helper = FaustusHelper(lambda: self.get("notify.email.faustus_dir", None), owner=lambda: self.get("notify.email.faustus_owner", None),
-                                        runner=process_runner, env_drop_prefixes=("TANTALUS_",), ask_hub=False, clock=clock)
+                                        runner=process_runner, env_drop_prefixes=("TANTALUS_",), ask_hub=False, clock=clock,
+                                        real_hubs=real_hubs, real_data=real_data)
         self.router = MailRouter(self.helper, source_getter=self.source_setting, interest=self._interest, claim_kind="deal",
                                  watermark_get=lambda: int(self.get(WATERMARK_KEY, "0") or 0),
                                  watermark_set=lambda value: self.put(WATERMARK_KEY, str(value)), page=min(100, HUB_PAGE_MAX), max_pages=6,

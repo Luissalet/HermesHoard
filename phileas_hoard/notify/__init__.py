@@ -24,8 +24,9 @@ from typing import Any, Callable, Optional
 
 from ..config import REPO_ROOT
 from ..hoard_link import notify_channels as nc
-from ..hoard_link.fam_mail import FaustusHelper, faustus_python as _faustus_python
+from ..hoard_link.fam_mail import FaustusHelper, isolation_text, faustus_python as _faustus_python
 from ..hoard_link.fam_notify import VIA_MODES, Router
+from ..mail.install import real_data, real_hubs
 from .labels import LABELS, TYPE_TAGS, WORDS, compose, format_price, label
 
 log = logging.getLogger("phileas.notify")
@@ -64,7 +65,8 @@ class Notifier:
         self.icon_path = icon_path if icon_path is not None else REPO_ROOT / "app-icon.png"
         self._hub_notify = hub_notify          # an object with notify() and hub_available(); default: hoard_link.fam_notify
         self.helper = FaustusHelper(self._faustus_setting, owner=lambda: self._setting("mail.faustus_owner"),
-                                    runner=faustus_runner, env_drop_prefixes=("PHILEAS_",), ask_hub=False, clock=clock)
+                                    runner=faustus_runner, env_drop_prefixes=("PHILEAS_",), ask_hub=False, clock=clock,
+                                    real_hubs=real_hubs, real_data=real_data)
         self._faustus_status: Optional[tuple[float, str, dict[str, Any]]] = None
         self.router = self._router(None)
 
@@ -207,6 +209,10 @@ class Notifier:
         return _faustus_python(root)
 
     def faustus_status(self, refresh: bool = False) -> dict[str, Any]:
+        code = self.helper.isolation()
+        if code:
+            self._faustus_status = None
+            return {"ok": False, "isolated": code, "error": isolation_text(code)}
         key = str(self.faustus_dir() or "") + "|" + self._setting("mail.faustus_owner")
         cached = self._faustus_status
         if cached and not refresh and cached[1] == key:
