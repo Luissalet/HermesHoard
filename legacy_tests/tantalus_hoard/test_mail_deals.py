@@ -10,7 +10,7 @@ import pytest
 
 from conftest import T0, tool
 from tantalus_hoard.errors import TantalusError
-from tantalus_hoard.hoard_link import fam_mail, mail_helper
+from tantalus_hoard.hoard_link import fam_mail, family, mail_helper
 from tantalus_hoard.hoard_link.fam_mail import FaustusHelper
 from tantalus_hoard.mail.source import MailSource
 from tantalus_hoard.scheduler import Scheduler, lane_of
@@ -314,7 +314,8 @@ def test_the_helper_reports_an_unavailable_mail_module(tmp_path, monkeypatch):
         raise ModuleNotFoundError("mail module unavailable")
 
     monkeypatch.setattr(mail_helper, "_load_server", unavailable)
-    answer = mail_helper.handle({"action": "status"}, str(tmp_path))
+    monkeypatch.setattr(mail_helper, "_hub_read", lambda *_args, **_kwargs: {"ok": True, "app": "hub", "apps": []})
+    answer = mail_helper.handle({"action": "status", "caller": {"app": "hub", "token": "synthetic-hub-token"}}, str(tmp_path))
     assert answer["ok"] is False and "ModuleNotFoundError" in answer["error"]
 
 
@@ -343,9 +344,16 @@ def test_source_reports_a_missing_faustus_folder_and_parses_the_helper_answer(tm
         seen.update(kwargs)
         seen["command"] = command
         return Done()
+    token = tmp_path / "mcp-token"
+    token.write_text("synthetic-app-token", encoding="utf-8")
+    monkeypatch.setattr(family, "_state", dict(family._state))
+    family.configure("tantalus", token_file=str(token), hub="http://127.0.0.1:8810")
+    monkeypatch.setenv("HOARD_MAIL_REAL_DATA_DIRS", str(tmp_path))
     monkeypatch.setenv("TANTALUS_TELEGRAM_TOKEN", "must-not-reach-the-helper")
     out = MailSource(settings_get=lambda key, default=None: str(root) if key == "notify.email.faustus_dir" else default, process_runner=runner).headers(7, 10)
-    assert out == {"ok": True, "messages": []} and json.loads(seen["input"]) == {"since_days": 7, "max": 10, "action": "headers"}
+    assert out == {"ok": True, "messages": []}
+    assert json.loads(seen["input"]) == {"since_days": 7, "max": 10, "action": "headers",
+                                         "caller": {"app": "tantalus", "token": "synthetic-app-token"}}
     assert seen["command"][1].endswith("mail_helper.py") and not any(k.startswith("TANTALUS_") for k in seen["env"])
 
 
