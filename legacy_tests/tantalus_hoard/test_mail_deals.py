@@ -314,6 +314,9 @@ def test_the_helper_reports_an_unavailable_mail_module(tmp_path, monkeypatch):
         raise ModuleNotFoundError("mail module unavailable")
 
     monkeypatch.setattr(mail_helper, "_load_server", unavailable)
+    data = tmp_path / "data"
+    data.mkdir(exist_ok=True)
+    (data / mail_helper.INSTALLATION_FILE).write_text('{"hub_urls": ["http://mock-hub.example.test"]}', encoding="utf-8")
     monkeypatch.setattr(mail_helper, "_hub_read", lambda *_args, **_kwargs: {"ok": True, "app": "hub", "apps": []})
     answer = mail_helper.handle({"action": "status", "caller": {"app": "hub", "token": "synthetic-hub-token"}}, str(tmp_path))
     assert answer["ok"] is False and "ModuleNotFoundError" in answer["error"]

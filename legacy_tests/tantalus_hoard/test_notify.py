@@ -462,6 +462,9 @@ def test_faustus_mail_helper_against_a_stub_email_server(tmp_path, monkeypatch):
 
     monkeypatch.setattr(faustus_mail.smtplib, "SMTP", SMTP)
     monkeypatch.setattr(faustus_mail.smtplib, "SMTP_SSL", SMTP_SSL)
+    data = root / "data"
+    data.mkdir(exist_ok=True)
+    (data / faustus_mail.INSTALLATION_FILE).write_text('{"hub_urls": ["http://mock-hub.example.test"]}', encoding="utf-8")
     monkeypatch.setattr(faustus_mail, "_hub_read", lambda *_args, **_kwargs: {"ok": True, "app": "hub", "apps": []})
     caller = {"app": "hub", "token": "synthetic-hub-token"}
     status = faustus_mail.handle({"action": "status", "caller": caller}, str(root))

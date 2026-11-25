@@ -158,7 +158,7 @@ def test_spark_mail_source_and_notifier_forward_module_identity(pkg, install, fa
         payload = json.loads(call["input"])
         assert payload["action"] == action
         assert payload["caller"] == {"app": pkg.split("_")[0], "token": "synthetic-module-token"}
-        assert call["env"]["HOARD_MAIL_REAL_HUB_URLS"] == link
+        assert "HOARD_MAIL_REAL_HUB_URLS" not in call["env"]
 
 
 def test_several_declared_hubs_are_read_one_by_one(pkg, install, faustus, tmp_path):
