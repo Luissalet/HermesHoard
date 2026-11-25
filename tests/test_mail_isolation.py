@@ -73,7 +73,8 @@ def install(pkg, monkeypatch):
     family = importlib.import_module(f"{pkg}.hoard_link.family")
     fam_mail = importlib.import_module(f"{pkg}.hoard_link.fam_mail")
     saved = dict(family._state)
-    for key in ("HOARD_HUB_URL", "HOARD_TOKEN_FILE", "HOARD_HUB_DATA_DIR", "HERMES_REAL_HUB_URL"):
+    for key in ("HOARD_HUB_URL", "HOARD_TOKEN_FILE", "HOARD_HUB_DATA_DIR",
+                "HOARD_MAIL_REAL_HUB_URLS", "HOARD_MAIL_REAL_DATA_DIRS", "HERMES_REAL_HUB_URL"):
         monkeypatch.delenv(key, raising=False)
     fam_mail.forget_availability()
 
@@ -238,3 +239,23 @@ def test_a_missing_or_odd_modules_file_adds_nothing(pkg, install, faustus, tmp_p
     mail, _ = helpers(pkg, faustus, runner, tmp_path)
     assert mail.helper.isolation() == "data" and mail.helper.run("scan")["isolated"] == "data"
     assert runner.calls == 0
+
+
+def test_family_declaration_also_works_for_a_module(pkg, install, faustus, tmp_path, monkeypatch):
+    root = tmp_path / "adopted"
+    monkeypatch.setenv("HOARD_MAIL_REAL_HUB_URLS", SPARK_HUB)
+    monkeypatch.setenv("HOARD_MAIL_REAL_DATA_DIRS", str(root))
+    runner = CountingRunner()
+    mail, notifier = helpers(pkg, faustus, runner, tmp_path)
+    install(SPARK_HUB, str(root / "native" / PACKAGES[pkg][0] / "data" / "mcp-token"))
+
+    assert mail.helper.run("scan")["ok"]
+    assert notifier.helper.run("send")["ok"]
+    assert notifier.faustus_status()["ok"]
+    assert runner.calls == 3
+
+    install(SPARK_HUB, str(tmp_path / "adopted-copy" / "mcp-token"))
+    assert mail.helper.run("scan")["isolated"] == "data"
+    assert notifier.helper.run("send")["isolated"] == "data"
+    assert notifier.faustus_status()["isolated"] == "data"
+    assert runner.calls == 3
