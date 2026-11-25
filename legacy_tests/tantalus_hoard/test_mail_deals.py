@@ -308,9 +308,14 @@ def test_helper_reads_are_read_only_except_for_sent_hermes_label():
     assert "BODY.PEEK" in source and "EXAMINE" in source
 
 
-def test_the_helper_answers_without_a_faustus_folder(tmp_path):
+def test_the_helper_reports_an_unavailable_mail_module(tmp_path, monkeypatch):
+    def unavailable(root):
+        assert root == str(tmp_path)
+        raise ModuleNotFoundError("mail module unavailable")
+
+    monkeypatch.setattr(mail_helper, "_load_server", unavailable)
     answer = mail_helper.handle({"action": "status"}, str(tmp_path))
-    assert answer["ok"] is False and "error" in answer
+    assert answer["ok"] is False and "ModuleNotFoundError" in answer["error"]
 
 
 def test_source_reports_a_missing_faustus_folder_and_parses_the_helper_answer(tmp_path, monkeypatch):
