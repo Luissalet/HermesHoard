@@ -229,6 +229,16 @@ _PROFILES: tuple[SiteProfile, ...] = (
               "Cloudflare answers its waiting page ('Un momento…', status 200) to plain requests and to headless Chromium "
               "from the Spark: only an ordinary browser window on the PC reads it.",
     ),
+    SiteProfile(
+        "artmantoys.es", "Artman Toys", first_party_sellers=("artman toys", "artmantoys"), product_url=r"_p\d+\.htm$",
+        min_interval_s=30.0,
+        notes="verified 2026-11-26: trading-card shop in Aiguaviva (Girona) selling Pokémon, Lorcana, One Piece and Star Wars "
+              "Unlimited sealed product, accessories and Funko; ships to mainland Spain, Portugal and the Balearics. Plain "
+              "requests answer 200 from the Spark (the home page takes ten seconds, a category one to three). Categories are "
+              "/<slug>_c<id>/ with 24 products a page (further pages ?lp=N) and their cards state each product's stock "
+              "(extract/mabisy.py); product pages carry microdata. Titles do not name the game, the card's maker does. Its "
+              "30th-anniversary category exists and is empty. No public reviews found.",
+    ),
 )
 
 SITE_PROFILES: dict[str, SiteProfile] = {p.host: p for p in _PROFILES}

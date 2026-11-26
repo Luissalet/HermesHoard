@@ -19,7 +19,7 @@ from typing import Any, Callable, Optional
 
 from . import rules
 from .discovery import discover, product_terms, watcher_config
-from .extract import adapter_for, extract, retailer_for_host, source_level_for_host
+from .extract import EVERY_PRODUCT_METHODS, adapter_for, extract, retailer_for_host, source_level_for_host
 from .extract import window_check
 from .extract import catalog as catalog_feed
 from .extract.sites import listing_context, rate_limit_hold_s, window_ok as site_window_ok
@@ -84,14 +84,16 @@ def network_error(reason: str) -> bool:
 def offer_matches(offer: Offer, terms: list[str], must: list[str], exclude: list[str], context: str = "") -> bool:
     """Does a product tile belong to the watcher? Every ``must`` term and, with three terms or fewer, every product
     term; with more terms, at least 60 % of them. Any ``exclude`` term rejects the tile. ``context`` is what the page
-    the tile sits on says of all its products (a shop's category page); it counts for the terms, never for ``exclude``."""
+    the tile sits on says of all its products (a shop's category page), and the maker the shop names on the tile says
+    what the product is when its title does not; both count for the terms, never for ``exclude``."""
     title = fold(" ".join(filter(None, (offer.title, (offer.url or "").replace("-", " ").replace("_", " ")))))
     if not title:
         return False
     if any(_has_term(x, title) for x in exclude):
         return False
-    if context:
-        title = f"{title} {fold(context)}"
+    said = " ".join(filter(None, (context, offer.brand)))
+    if said:
+        title = f"{title} {fold(said)}"
     if must and not all(_has_term(m, title) for m in must):
         return False
     if not terms:
@@ -279,9 +281,11 @@ class Engine:
         is_list = ex.page_kind in ("search", "listing") or len(ex.offers) > 1
         # A shop's catalogue feed answers for every product of the collection at once, sold out or not: its rows are
         # followed one by one, like the rows of an open window, and the page the person gave says what they all are.
+        # A list page whose cards carry the shop's own stock label answers the same way, with none or one product too.
         feed = catalog_feed.METHOD in ex.methods
-        feed_baseline = feed and not extra.get("feed_baseline_done")     # also a target that was read as a page until now
-        if feed:
+        rows = any(m in ex.methods for m in EVERY_PRODUCT_METHODS)
+        feed_baseline = rows and not extra.get("feed_baseline_done")     # also a target that was read as a page until now
+        if rows:
             extra["feed_baseline_done"] = True
         context = listing_context(target["url"] if feed else (fr.final_url or target["url"])) if ex.page_kind == "listing" else ""
         matched: list[Offer] = [o for o in ex.offers if offer_matches(o, terms, must, exclude, context)] if is_list else list(ex.offers)
@@ -327,7 +331,7 @@ class Engine:
         prev_price = target.get("last_price")
         first_check = not extra.get("checked_once")
         drafts: list[dict[str, Any]] = []
-        per_item = is_list and (fr.tier == OPEN_WINDOW or feed)     # every row is followed on its own (see _per_item)
+        per_item = is_list and (fr.tier == OPEN_WINDOW or rows)     # every row is followed on its own (see _per_item)
         # The first read of a shop's listing, and of each product that read found, is what the shop had when it was
         # added: a baseline. Only what changes after it is news (a product page added by hand still says so at once).
         quiet_baseline = first_check and (is_list or bool(extra.get("baseline")))
@@ -337,7 +341,7 @@ class Engine:
                                            policies=policies, ceiling=ceiling, first_check=first_check)
             if is_list and not first_check:
                 for o in new_skus[:10]:
-                    if feed and (feed_baseline or o.availability in BUYABLE):
+                    if rows and (feed_baseline or o.availability in BUYABLE):
                         continue                       # what the catalogue had; or its own row says it, as the stock it is
                     drafts.append({"type": NEW_SKU, "old_state": "", "new_state": o.availability, "price": o.price, "old_price": None,
                                    "severity": "medium", "sku_offer": o})
@@ -475,6 +479,9 @@ class Engine:
             row_events = []
             for d in drafts:
                 d["item_key"] = key
+                if d.get("first_check") and not first_check:
+                    # The list was already being followed and this row was not on it: the shop has just added the product.
+                    d["first_check"], d["new_on_page"] = False, True
                 ev = self._raise(d, target=target, watcher=watcher, offer=o, conf=conf, policies=policies,
                                  title=o.title or target.get("label") or watcher["name"], retailer=retailer)
                 if ev:

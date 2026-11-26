@@ -180,12 +180,16 @@ def summary_for(kind: str, *, title: str, retailer: str, state: str, price: Opti
     where = f" en {retailer}" if retailer else ""
     if kind == RESTOCK:
         base = f"{title}: disponible{where} por {money}"
-        if extra.get("first_check"):
+        if extra.get("new_on_page"):
+            base += " (acaba de aparecer en la página)"
+        elif extra.get("first_check"):
             base += " (ya estaba disponible en la primera comprobación)"
     elif kind == LOCAL_RESTOCK:
         base = f"{title}: recogida en tienda{where} por {money}"
     elif kind == PREORDER_OPEN:
         base = f"{title}: reserva abierta{where} por {money}"
+        if extra.get("new_on_page"):
+            base += " (acaba de aparecer en la página)"
     elif kind == SALE_OPEN:
         what = "reservas abiertas" if extra.get("sale_kind") == "preorder" else "ya a la venta"
         base = f"{title}: {what}{where} por {money} (antes ponía «Próximamente»)"

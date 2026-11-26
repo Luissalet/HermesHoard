@@ -26,13 +26,17 @@ from ..llm import LLM
 from ..model import (COMING_SOON, IN_STOCK, LOCAL_PICKUP, OUT_OF_STOCK, PREORDER, RESTOCK_SCHEDULED, UNKNOWN, Extraction,
                      FetchResult, Offer)
 from ..hoard_link.web import htmltext
-from . import catalog, jsonld, listing, meta as meta_mod, moonshine, nvidia, phrases, sites
+from . import catalog, jsonld, listing, mabisy, meta as meta_mod, moonshine, nvidia, phrases, sites
 from .llm_extract import llm_extract
 from .sites import (is_first_party_seller, is_marketplace_host, needs_browser, profile_for_host, retailer_for_host,
                     source_level_for_host)
 
 __all__ = ["extract", "adapter_for", "retailer_for_host", "source_level_for_host", "needs_browser", "profile_for_host",
            "is_marketplace_host"]
+
+# Readings that state the stock of every product of a page at once (a shop's catalogue feed, a list whose cards carry
+# the shop's own stock label): each product of such a page can be followed from the page itself.
+EVERY_PRODUCT_METHODS = (catalog.METHOD, mabisy.METHOD)
 
 _SEARCH_URL = re.compile(r"/(?:buscar|busqueda|search|resultados|sch)\b|[?&](?:q|s|k|query|search|keyword|keywords|term|_nkw)=", re.I)
 TEXT_EXCERPT_MAX = 20_000
@@ -144,6 +148,15 @@ def _extract_html(ex: Extraction, body: str, url: str, fr: FetchResult, hints: d
     path_q = urlsplit(url).path + ("?" + urlsplit(url).query if urlsplit(url).query else "")
     is_search_url = kind_hint == "search" or bool(_SEARCH_URL.search(path_q))
     has_product_markup = bool(ld.has_product or meta.has_product_markup or kind_hint == "product")
+
+    # ---- a storefront whose list pages state each product's stock on its card: all of its products, be they none or one
+    shelf = None if has_product_markup else mabisy.listing(soup, url, today=today)
+    if shelf is not None:
+        ex.offers = shelf
+        ex.page_kind = "search" if is_search_url else "listing"
+        ex.methods = [mabisy.METHOD]
+        _finish(ex, readable, url, hints, profile, decided=True)
+        return ex
 
     # ---- list / search pages
     if is_search_url or not has_product_markup or len(ld.listed) >= 3 and not ld.products:
